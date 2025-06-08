@@ -1,0 +1,43 @@
+[project]
+name = "crTools-backend"  # 替换为你的项目名
+version = "0.1.0"          # 替换为你的版本号
+description = "crTools"
+authors = [
+    {name = "luning", id = "l00806702"},
+]
+
+requires-python = ">=3.10"
+
+dependencies = [
+    "fastapi==0.115.0",
+    "tortoise-orm[asyncpg]==0.21.6",
+    "fastapi-users[sqlalchemy]==13.0.0",
+    "python-multipart==0.0.9",
+    "python-jose[cryptography]==3.3.0",
+    "uvicorn[standard]==0.30.6",
+    "pydantic==2.9.2",
+    "pydantic-settings==2.6.0",
+    "alembic==1.13.3",
+    "python-dotenv==1.0.1",
+    "aerich>=0.8.2",
+    "bcrypt>=4.1.2",
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py310", "py311", "py313"]
+
+
+[tool.ruff]
+line-length = 120
+lint.extend-select = []
+lint.ignore = [
+    "F403",
+    "F405",
+]
+
+#以下定义数据库位置,但还没搞懂怎么做
+#[tool.aerich]
+#tortoise_orm = "app.settings.TORTOISE_ORM"
+#location = "./"
+#src_folder = "./."

@@ -1,0 +1,15 @@
+frontend/.vscode
+frontend/node_modules
+frontend/dist
+frontend/dist-ssr
+frontend/*.local
+
+backend/venv
+backend/__pycache__
+backend/logs
+backend/test.py
+backend/test_backend.py
+backend/.vscode
+
+
+**/__pycache__/
