@@ -21,13 +21,6 @@
           <el-form-item label="姓名">
             <el-input v-model="searchForm.username" placeholder="请输入姓名" clearable />
           </el-form-item>
-          <el-form-item label="状态">
-            <!-- <el-select v-model="searchForm.is_active" placeholder="请选择状态" clearable>
-              <el-option label="全部" value="" />
-              <el-option label="正常" :value="true" />
-              <el-option label="禁用" :value="false" />
-            </el-select> -->
-          </el-form-item>
           <el-form-item>
             <el-button type="primary" @click="handleSearch">搜索</el-button>
             <el-button @click="handleReset">重置</el-button>
@@ -42,16 +35,9 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="employee_id" label="工号" width="120" />
-        <el-table-column prop="username" label="姓名" width="120" />
-        <el-table-column label="状态" width="80">
-          <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
-              {{ row.is_active ? '正常' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="超级用户" width="100">
+        <el-table-column prop="employee_id" label="工号"  /> <!-- width="120" -->
+        <el-table-column prop="username" label="姓名"  /> <!-- 不设置宽度,就可以让它平铺整个页面, 并且对齐 -->
+        <el-table-column label="超级用户" >
           <template #default="{ row }">
             <el-tag v-if="row.is_superuser" type="warning" size="small">是</el-tag>
             <span v-else>-</span>
@@ -126,14 +112,6 @@
             </el-form-item>
           </el-col>
         </el-row>
-        
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="状态">
-              <el-switch v-model="form.is_active" active-text="正常" inactive-text="禁用" />
-            </el-form-item>
-          </el-col>
-        </el-row>
       </el-form>
       
       <template #footer>
@@ -167,7 +145,6 @@ const formRef = ref<FormInstance>()
 const searchForm = reactive({
   employee_id: '',
   username: '',
-  is_active: ''
 })
 
 // 表格数据
@@ -186,7 +163,6 @@ const form = reactive({
   employee_id: '',
   username: '',
   password: '',
-  is_active: true
 })
 
 // 表单验证规则
@@ -218,14 +194,12 @@ const fetchUsers = async () => {
         id: 1,
         employee_id: 'A12345678',
         username: '超级管理员',
-        is_active: true,
         is_superuser: true,
       },
       {
         id: 2,
         employee_id: 'B12345679',
         username: '张三',
-        is_active: true,
         is_superuser: false,
       }
     ]
@@ -250,7 +224,6 @@ const handleReset = () => {
   Object.assign(searchForm, {
     employee_id: '',
     username: '',
-    is_active: ''
   })
   handleSearch()
 }
@@ -323,7 +296,6 @@ const resetForm = () => {
     employee_id: '',
     username: '',
     password: '',
-    is_active: true
   })
   formRef.value?.resetFields()
 }

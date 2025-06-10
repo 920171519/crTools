@@ -9,12 +9,12 @@
 
       <!-- 菜单表格 -->
       <el-table v-loading="loading" :data="tableData" stripe row-key="id" default-expand-all>
-        <el-table-column prop="name" label="菜单名称" width="200" />
-        <el-table-column prop="path" label="路由路径" width="200" />
-        <el-table-column prop="component" label="组件" width="200" />
-        <el-table-column prop="icon" label="图标" width="100" />
-        <el-table-column prop="sort_order" label="排序" width="80" />
-        <el-table-column label="显示状态" width="100">
+        <el-table-column prop="name" label="菜单名称"  />
+        <el-table-column prop="path" label="路由路径"  />
+        <el-table-column prop="component" label="组件"  />
+        <el-table-column prop="icon" label="图标"  />
+        <el-table-column prop="sort_order" label="排序"  />
+        <el-table-column label="显示状态">
           <template #default="{ row }">
             <el-tag :type="row.is_visible ? 'success' : 'danger'" size="small">
               {{ row.is_visible ? '显示' : '隐藏' }}

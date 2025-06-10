@@ -9,10 +9,10 @@
 
       <!-- 权限表格 -->
       <el-table v-loading="loading" :data="tableData" stripe>
-        <el-table-column prop="name" label="权限名称" width="150" />
-        <el-table-column prop="code" label="权限代码" width="150" />
-        <el-table-column prop="resource" label="资源" width="120" />
-        <el-table-column prop="action" label="动作" width="100" />
+        <el-table-column prop="name" label="权限名称"/>
+        <el-table-column prop="code" label="权限代码"/>
+        <el-table-column prop="resource" label="资源"/>
+        <el-table-column prop="action" label="动作"/>
       </el-table>
     </el-card>
   </div>

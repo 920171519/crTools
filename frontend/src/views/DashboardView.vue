@@ -177,14 +177,6 @@
                 </el-tag>
               </span>
             </div>
-            <!-- <div class="info-item">
-              <span class="info-label">账户状态：</span>
-              <span class="info-value">
-                <el-tag :type="userStore.userInfo?.is_active ? 'success' : 'danger'" size="small">
-                  {{ userStore.userInfo?.is_active ? '正常' : '禁用' }}
-                </el-tag>
-              </span>
-            </div> -->
           </div>
         </el-card>
       </el-col>

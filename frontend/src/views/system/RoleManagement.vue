@@ -15,13 +15,6 @@
       <el-table v-loading="loading" :data="tableData" stripe>
         <el-table-column prop="name" label="角色名称" />
         <el-table-column prop="description" label="角色描述" />
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="'success'" size="small">
-              {{ '正常' }}
-            </el-tag>
-          </template>
-        </el-table-column>
         <el-table-column label="操作" width="200">
           <template #default="{ row }">
             <el-button 
@@ -62,9 +55,6 @@
             placeholder="请输入角色描述" 
             :rows="3"
           />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-switch v-model="form.is_active" active-text="正常" inactive-text="禁用" />
         </el-form-item>
       </el-form>
       
@@ -109,10 +99,10 @@ const formRules: FormRules = {
 const fetchRoles = async () => {
   loading.value = true
   try {
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise(resolve => setTimeout(resolve, 500)) // 模拟请求, 实际请求时, 需要调用后端接口
     tableData.value = [
       { id: 1, name: '超级管理员', description: '系统超级管理员', },
-      { id: 2, name: '管理员', description: '系统管理员', },
+      { id: 2, name: '管理员', description: 'CMO', },
       { id: 3, name: '普通用户', description: '普通用户', }
     ]
   } finally {
@@ -145,11 +135,13 @@ const handleDelete = async (row: any) => {
 }
 
 const handleSubmit = async () => {
-  if (!formRef.value) return
+  if (!formRef.value) {
+    return
+  }
   try {
     await formRef.value.validate()
     submitLoading.value = true
-    await new Promise(resolve => setTimeout(resolve, 800))
+    await new Promise(resolve => setTimeout(resolve, 800)) // 模拟请求, 实际请求时, 需要调用后端接口
     ElMessage.success(isEdit.value ? '编辑成功' : '新增成功')
     dialogVisible.value = false
     fetchRoles()

@@ -10,8 +10,10 @@
 
 <style>
 #app {
-  width: 100%;
+  width: 100vw;
+  /* width: 100%; */
   height: 100vh;
+  max-width: 100%;
 }
 
 /* 全局样式重置 */
