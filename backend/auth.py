@@ -7,7 +7,8 @@ from typing import Optional
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from models import User, LoginLog
+from models.admin import UserRole, RolePermission, Permission
+from models.admin import User, LoginLog
 from schemas import TokenData
 from config import settings
 import ipaddress
@@ -134,7 +135,6 @@ class PermissionChecker:
     
     async def _get_user_permissions(self, user_id: int) -> list:
         """获取用户权限列表"""
-        from models import UserRole, RolePermission, Permission
         
         # 通过用户角色获取权限
         permissions = await Permission.filter(

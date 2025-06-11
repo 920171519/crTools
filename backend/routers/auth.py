@@ -6,7 +6,10 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from tortoise import models
-from models import User, Role, UserRole
+from models.admin import User, Role, UserRole
+from models.admin import Permission, RolePermission
+from models.admin import Menu, Permission
+from tortoise.expressions import Q
 from schemas import (
     UserRegister, UserLogin, UserResponse, Token, 
     BaseResponse, PasswordChange
@@ -197,7 +200,6 @@ async def get_user_permissions(current_user: User = require_active_user):
     """
     获取当前用户的权限列表
     """
-    from models import Permission, UserRole, RolePermission
     
     if current_user.is_superuser:
         # 超级用户拥有所有权限
@@ -225,8 +227,6 @@ async def get_user_menus(current_user: User = require_active_user):
     """
     获取当前用户可访问的菜单列表
     """
-    from models import Menu, Permission
-    from tortoise.expressions import Q
     
     # 获取用户权限代码列表
     if current_user.is_superuser:

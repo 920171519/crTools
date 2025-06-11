@@ -205,9 +205,9 @@ const activeMenu = computed(() => route.path)
 const menuList = computed(() => userStore.menus)
 
 // 切换侧边栏
-const toggleSidebar = () => {
-  isCollapse.value = !isCollapse.value
-}
+// const toggleSidebar = () => {
+//   isCollapse.value = !isCollapse.value
+// }
 
 // 处理用户下拉菜单命令
 const handleCommand = (command: string) => {

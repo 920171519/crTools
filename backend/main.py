@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_database, setup_database
 from routers import auth
+import uvicorn
 
 
 @asynccontextmanager
@@ -108,7 +109,6 @@ async def health_check():
 
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(
         "main:app",
         host=settings.HOST,

@@ -11,7 +11,6 @@ if __name__ == "__main__":
     print(f"API文档: http://{settings.HOST}:{settings.PORT}/docs")
     print("默认管理员账号: A12345678 / admin123")
     print("-" * 50)
-    
     uvicorn.run(
         "main:app",
         host=settings.HOST,
