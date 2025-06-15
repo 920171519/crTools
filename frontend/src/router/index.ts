@@ -56,6 +56,16 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'devices',
+        name: 'DeviceManagement',
+        component: () => import('@/views/DeviceManagement.vue'),
+        meta: {
+          requiresAuth: true,
+          permission: 'device:read',
+          title: '设备管理'
+        }
+      },
+      {
         path: 'system/users',
         name: 'UserManagement',
         component: () => import('@/views/system/UserManagement.vue'),

@@ -200,4 +200,102 @@ class LoginLogResponse(BaseModel):
     failure_reason: Optional[str]
     
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+
+# 设备相关Schema
+class DeviceBase(BaseModel):
+    """设备基本信息基础模型"""
+    name: str = Field(..., description="设备名称")
+    ip: str = Field(..., description="设备IP地址")
+    required_vpn: str = Field(..., description="设备所需VPN")
+    creator: str = Field(..., description="设备添加人")
+    need_vpn_login: bool = Field(False, description="登录是否需要VPN")
+    support_queue: bool = Field(True, description="是否支持排队占用")
+    owner: str = Field(..., description="设备归属人")
+    device_type: str = Field("test", description="设备归属类")
+    remarks: Optional[str] = Field(None, description="设备备注信息")
+
+
+class DeviceCreate(DeviceBase):
+    """创建设备模型"""
+    pass
+
+
+class DeviceUpdate(BaseModel):
+    """更新设备模型"""
+    name: Optional[str] = None
+    required_vpn: Optional[str] = None
+    need_vpn_login: Optional[bool] = None
+    support_queue: Optional[bool] = None
+    owner: Optional[str] = None
+    device_type: Optional[str] = None
+    remarks: Optional[str] = None
+
+
+class DeviceResponse(DeviceBase):
+    """设备响应模型"""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class DeviceUsageBase(BaseModel):
+    """设备使用情况基础模型"""
+    current_user: Optional[str] = None
+    expected_duration: int = Field(0, description="预计占用时间(分钟)")
+    is_long_term: bool = Field(False, description="是否为长时间占用")
+    long_term_purpose: Optional[str] = None
+    status: str = Field("available", description="设备状态")
+
+
+class DeviceUsageUpdate(BaseModel):
+    """更新设备使用情况"""
+    current_user: Optional[str] = None
+    expected_duration: Optional[int] = None
+    is_long_term: Optional[bool] = None
+    long_term_purpose: Optional[str] = None
+    status: Optional[str] = None
+
+
+class DeviceUsageResponse(DeviceUsageBase):
+    """设备使用情况响应模型"""
+    id: int
+    device_id: int
+    start_time: Optional[datetime]
+    queue_users: List[str] = []
+    occupied_duration: int = 0
+    queue_count: int = 0
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class DeviceListItem(BaseModel):
+    """设备列表项模型"""
+    id: int
+    name: str
+    ip: str
+    device_type: str
+    current_user: Optional[str] = None
+    queue_count: int = 0
+    status: str
+    occupied_duration: int = 0
+
+
+class DeviceUseRequest(BaseModel):
+    """使用设备请求模型"""
+    device_id: int
+    user: str
+    expected_duration: int = Field(60, description="预计使用时间(分钟)")
+    purpose: Optional[str] = None
+
+
+class DeviceReleaseRequest(BaseModel):
+    """释放设备请求模型"""
+    device_id: int
+    user: str 

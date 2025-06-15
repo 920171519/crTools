@@ -77,6 +77,13 @@ async def init_database():
         # 系统管理权限
         {"name": "系统配置", "code": "system:config", "resource": "system", "action": "config", "description": "系统配置管理"},
         {"name": "系统日志", "code": "system:log", "resource": "system", "action": "log", "description": "查看系统日志"},
+        
+        # 设备管理权限
+        {"name": "设备查看", "code": "device:read", "resource": "device", "action": "read", "description": "查看设备信息"},
+        {"name": "设备创建", "code": "device:create", "resource": "device", "action": "create", "description": "创建设备"},
+        {"name": "设备更新", "code": "device:update", "resource": "device", "action": "update", "description": "更新设备信息"},
+        {"name": "设备删除", "code": "device:delete", "resource": "device", "action": "delete", "description": "删除设备"},
+        {"name": "设备使用", "code": "device:use", "resource": "device", "action": "use", "description": "使用设备"},
     ]
     
     for perm_data in permissions_data:
@@ -96,6 +103,16 @@ async def init_database():
             "sort_order": 1,
             "is_visible": True,
             "permission_code": None
+        },
+        {
+            "name": "设备管理",
+            "path": "/devices",
+            "component": "DeviceManagement",
+            "icon": "Monitor",
+            "parent_id": None,
+            "sort_order": 50,
+            "is_visible": True,
+            "permission_code": "device:read"
         },
         {
             "name": "环境管理",
