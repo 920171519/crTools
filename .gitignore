@@ -10,6 +10,8 @@ backend/logs
 backend/test.py
 backend/test_backend.py
 backend/.vscode
-
+backend/db.sqlite3
+backend/db.sqlite3-wal
+backend/db.sqlite3-shm
 
 **/__pycache__/

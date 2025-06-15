@@ -1,3 +1,4 @@
+<!-- 主布局 -->
 <template>
   <div class="layout-container">
     <el-container>
@@ -5,7 +6,7 @@
       <el-aside width="250px" class="sidebar">
         <div class="logo-container">
           <h2>crTools</h2>
-          <span>管理系统</span>
+          <span>工具管理系统</span>
         </div>
         
         <el-menu
@@ -45,19 +46,11 @@
       <!-- 主要区域 -->
       <el-container>
         <!-- 头部 -->
-        <el-header class="header">
-          <div class="header-left">
-            <!-- <el-button  // 增加了一个按钮将侧边栏收起来
-              type="text" 
-              @click="toggleSidebar"
-              class="collapse-btn"
-            >
-              <el-icon><Expand v-if="isCollapse" /><Fold v-else /></el-icon>
-            </el-button> -->
-            
+         <el-header class="header">
+          <div class="header-left">            
             <el-breadcrumb separator="/" class="breadcrumb">
               <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
-              <el-breadcrumb-item v-if="currentRoute.meta?.title">
+              <el-breadcrumb-item v-if="currentRoute.meta?.title"> <!-- 面包屑导航,显示当前路径的标题 -->
                 {{ currentRoute.meta.title }}
               </el-breadcrumb-item>
             </el-breadcrumb>
@@ -67,7 +60,7 @@
             <!-- 用户信息下拉菜单 -->
             <el-dropdown @command="handleCommand">
               <div class="user-info">
-                <span class="username">{{ userStore.userInfo?.username }}</span>
+                <span class="username">{{ userStore.userInfo?.username }}</span> <!-- 用户名 -->
                 <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
               </div>
               <template #dropdown>
@@ -203,11 +196,6 @@ const passwordRules: FormRules = {
 const currentRoute = computed(() => route)
 const activeMenu = computed(() => route.path)
 const menuList = computed(() => userStore.menus)
-
-// 切换侧边栏
-// const toggleSidebar = () => {
-//   isCollapse.value = !isCollapse.value
-// }
 
 // 处理用户下拉菜单命令
 const handleCommand = (command: string) => {
