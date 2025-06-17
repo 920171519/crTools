@@ -18,7 +18,6 @@ from routers.auth import get_current_user_info
 router = APIRouter(prefix="/api/devices", tags=["设备管理"])
 
 
-# @router.get("/", response_model=List[DeviceListItem], summary="获取设备列表")
 @router.get("/", response_model=BaseResponse, summary="获取设备列表")
 async def get_devices():
     """获取所有设备及其使用状态"""
@@ -31,11 +30,10 @@ async def get_devices():
             # 创建默认使用情况
             usage_info = await DeviceUsage.create(device=device)
         
-        # 计算占用时长
-        occupied_duration = 0
-        if usage_info.start_time and usage_info.current_user:
-            duration = datetime.now() - usage_info.start_time
-            occupied_duration = int(duration.total_seconds() / 60)
+        # 计算占用时长: 无需计算占用时间,只记录开始使用时间
+        usage_info.start_time = datetime.now()
+        if usage_info.current_user:
+            usage_info.start_time = datetime.now()
         
         result.append(DeviceListItem(
             id=device.id,
@@ -45,7 +43,7 @@ async def get_devices():
             current_user=usage_info.current_user,
             queue_count=len(usage_info.queue_users) if usage_info.queue_users else 0,
             status=usage_info.status,
-            occupied_duration=occupied_duration
+            start_time = usage_info.start_time
         ))
     
     return BaseResponse(
@@ -147,7 +145,13 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(get
             purpose=request.purpose
         )
         
-        return {"message": "设备占用成功", "status": "occupied"}
+        return BaseResponse(
+            code = 200,
+            message= "设备占用成功", 
+            data = {
+                "device_id": device.id,
+            },
+        )
     
     elif usage_info.status == DeviceStatusEnum.OCCUPIED:
         # 设备被占用，检查是否支持排队
@@ -186,17 +190,17 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         raise HTTPException(status_code=403, detail="只有当前使用者才能释放设备")
     
     # 更新使用历史记录
-    if usage_info.start_time:
-        history = await DeviceUsageHistory.filter(
-            device=device, 
-            user=request.user, 
-            end_time__isnull=True
-        ).first()
-        if history:
-            history.end_time = datetime.now()
-            duration = datetime.now() - history.start_time
-            history.duration = int(duration.total_seconds() / 60)
-            await history.save()
+    # if usage_info.start_time:
+    #     history = await DeviceUsageHistory.filter(
+    #         device=device, 
+    #         user=request.user, 
+    #         end_time__isnull=True
+    #     ).first()
+    #     if history:
+    #         history.end_time = datetime.now()
+    #         duration = datetime.now() - history.start_time
+    #         history.duration = int(duration.total_seconds() / 60)
+    #         await history.save()
     
     # 检查排队情况
     if usage_info.queue_users and len(usage_info.queue_users) > 0:
@@ -223,7 +227,14 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         usage_info.status = DeviceStatusEnum.AVAILABLE
         await usage_info.save()
         
-        return {"message": "设备已释放", "status": "available"}
+        return BaseResponse(
+            code=200,
+            message = "设备已释放",
+            data= {
+                "device_id": device.id,
+                "status": "available"
+            }
+        )
 
 
 @router.get("/{device_id}/usage", response_model=DeviceUsageResponse, summary="获取设备使用情况")

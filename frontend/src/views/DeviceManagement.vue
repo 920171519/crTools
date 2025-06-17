@@ -47,7 +47,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="current_user" label="当前使用人" width="120">
+        <el-table-column prop="current_user" label="当前使用人">
           <template #default="{ row }">
             <span v-if="row.current_user" class="current-user">
               <el-icon><User /></el-icon>
@@ -318,8 +318,6 @@ const loadDevices = async () => {
   loading.value = true
   try {
     const response = await deviceApi.getDevices()
-    console.log("test")
-    console.log(response)
     devices.value = response.data.data
   } catch (error) {
     console.log(error)
@@ -403,15 +401,13 @@ const handleUseDevice = async () => {
   try {
     await useFormRef.value.validate()
     submitLoading.value = true
-    
     const response = await deviceApi.useDevice({
       device_id: selectedDevice.value.id,
       user: useForm.user,
       expected_duration: useForm.expected_duration,
       purpose: useForm.purpose
     })
-    
-    ElMessage.success(response.data.message)
+    ElMessage.success(response.message)
     showUseDialog.value = false
     await loadDevices()
   } catch (error) {

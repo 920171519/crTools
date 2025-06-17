@@ -40,8 +40,6 @@ api.interceptors.response.use(
     if (data.code === 200) {
       return data
     } else {
-      console.log("yes")
-      console.log(data)
       ElMessage.error(data.message || '请求失败')
       return Promise.reject(new Error(data.message || '请求失败'))
     }

@@ -27,7 +27,7 @@ export interface DeviceListItem {
   current_user?: string
   queue_count: number
   status: string
-  occupied_duration: number
+  start_time: string
 }
 
 export interface DeviceCreateRequest {
@@ -58,9 +58,7 @@ export interface DeviceReleaseRequest {
 export const deviceApi = {
   // 获取设备列表
   getDevices: () => {
-    // let ret =  api.get<DeviceListItem[]>('/devices/')
-    let ret =  api.get('/devices/')
-    console.log(ret)
+    let ret =  api.get<DeviceListItem[]>('/devices/')
     return ret
   },
 
