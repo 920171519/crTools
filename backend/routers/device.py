@@ -25,7 +25,7 @@ def get_current_time():
 
 
 @router.get("/", response_model=BaseResponse, summary="获取设备列表")
-async def get_devices():
+async def get_devices(current_user: User = Depends(AuthManager.get_current_user)):
     """获取所有设备及其使用状态"""
     devices = await Device.all().prefetch_related("usage_info")
     result = []
@@ -46,6 +46,11 @@ async def get_devices():
             duration = current_time - start_time
             occupied_duration = int(duration.total_seconds() / 60)
         
+        # 检查当前用户是否在排队中
+        is_current_user_in_queue = False
+        if usage_info.queue_users and current_user.username in usage_info.queue_users:
+            is_current_user_in_queue = True
+        
         result.append(DeviceListItem(
             id=device.id,
             name=device.name,
@@ -55,15 +60,14 @@ async def get_devices():
             queue_count=len(usage_info.queue_users) if usage_info.queue_users else 0,
             status=usage_info.status,
             start_time=usage_info.start_time,
-            occupied_duration=occupied_duration
+            occupied_duration=occupied_duration,
+            is_current_user_in_queue=is_current_user_in_queue
         ))
     
     return BaseResponse(
         code=200,
         message="设备列表获取成功",
-        data={
-            "data": result
-        }
+        data=result
     )
 
 

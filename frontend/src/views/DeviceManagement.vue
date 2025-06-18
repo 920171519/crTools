@@ -114,13 +114,23 @@
               </el-button>
               
               <el-button 
-                v-else-if="row.status === 'occupied'"
+                v-else-if="row.status === 'occupied' && !row.is_current_user_in_queue"
                 type="warning" 
                 size="small" 
                 @click="joinQueue(row)"
                 :loading="useLoading[row.id]"
               >
                 排队
+              </el-button>
+              
+              <el-button 
+                v-else-if="row.status === 'occupied' && row.is_current_user_in_queue"
+                type="info" 
+                size="small" 
+                @click="cancelQueue(row)"
+                :loading="useLoading[row.id]"
+              >
+                取消排队
               </el-button>
               
               <el-button 
@@ -424,23 +434,13 @@
              </el-button>
             
             <el-button 
-              v-else-if="usageDetail?.status === 'occupied' && !isCurrentUserInQueue"
+              v-else-if="usageDetail?.status === 'occupied'"
               type="warning" 
               @click="joinQueueFromDetail"
               :loading="useLoading[deviceDetail.id]"
             >
               <el-icon><Clock /></el-icon>
               加入排队
-            </el-button>
-            
-            <el-button 
-              v-else-if="usageDetail?.status === 'occupied' && isCurrentUserInQueue"
-              type="info" 
-              @click="cancelQueueFromDetail"
-              :loading="useLoading[deviceDetail.id]"
-            >
-              <el-icon><Clock /></el-icon>
-              取消排队
             </el-button>
           </div>
         </template>
@@ -456,7 +456,7 @@ import {
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled, 
   VideoPlay, VideoPause 
 } from '@element-plus/icons-vue'
-import { deviceApi } from '@/api/device'
+import { deviceApi } from '../api/device'
 import { useUserStore } from '@/stores/user'
 
 // 获取用户store
@@ -533,9 +533,10 @@ const loadDevices = async () => {
   loading.value = true
   try {
     const response = await deviceApi.getDevices()
-    devices.value = response.data.data
+    devices.value = response.data
+    console.log('成功加载设备列表，数量:', devices.value?.length)
   } catch (error) {
-    console.log(error)
+    console.error('加载设备失败:', error)
     ElMessage.error('加载设备列表失败')
   } finally {
     loading.value = false
@@ -675,7 +676,7 @@ const handleUseDevice = async () => {
       expected_duration: useForm.expected_duration,
       purpose: useForm.purpose
     })
-    ElMessage.success(response.message)
+    ElMessage.success(response.data.message)
     showUseDialog.value = false
     await loadDevices()
   } catch (error) {

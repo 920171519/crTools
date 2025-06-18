@@ -28,6 +28,8 @@ export interface DeviceListItem {
   queue_count: number
   status: string
   start_time: string
+  occupied_duration?: number
+  is_current_user_in_queue?: boolean
 }
 
 export interface DeviceCreateRequest {
@@ -56,6 +58,12 @@ export interface DeviceReleaseRequest {
 
 export interface DeviceCancelQueueRequest {
   device_id: number
+}
+
+export interface BaseResponse<T = any> {
+  code: number
+  message: string
+  data: T
 }
 
 // 设备管理API

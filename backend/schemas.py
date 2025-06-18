@@ -3,7 +3,7 @@ Pydantic模式定义
 用于API请求和响应的数据验证
 """
 from pydantic import BaseModel, Field, validator
-from typing import Optional, List
+from typing import Optional, List, Any
 from datetime import datetime
 import re
 
@@ -13,7 +13,7 @@ class BaseResponse(BaseModel):
     """基础响应模式"""
     code: int = Field(default=200, description="状态码")
     message: str = Field(default="success", description="响应消息")
-    data: Optional[dict] = Field(default=None, description="响应数据")
+    data: Optional[Any] = Field(default=None, description="响应数据")
 
 
 class PaginationResponse(BaseModel):
@@ -286,6 +286,7 @@ class DeviceListItem(BaseModel):
     status: str
     start_time: Optional[datetime] = None
     occupied_duration: int = 0
+    is_current_user_in_queue: bool = False
 
 
 class DeviceUseRequest(BaseModel):
