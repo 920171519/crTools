@@ -54,6 +54,10 @@ export interface DeviceReleaseRequest {
   user: string
 }
 
+export interface DeviceCancelQueueRequest {
+  device_id: number
+}
+
 // 设备管理API
 export const deviceApi = {
   // 获取设备列表
@@ -89,6 +93,11 @@ export const deviceApi = {
   // 释放设备
   releaseDevice: (data: DeviceReleaseRequest) => {
     return api.post('/devices/release', data)
+  },
+
+  // 取消排队
+  cancelQueue: (data: DeviceCancelQueueRequest) => {
+    return api.post('/devices/cancel-queue', data)
   },
 
   // 获取设备使用情况

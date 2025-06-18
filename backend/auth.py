@@ -100,8 +100,11 @@ class AuthManager:
         return user
 
     @staticmethod
-    async def get_current_superuser(current_user: User = Depends(get_current_user)) -> User:
+    async def get_current_superuser(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
         """获取当前超级用户（仅超级用户可访问）"""
+        # 先获取当前用户
+        current_user = await AuthManager.get_current_user(credentials)
+        
         if not current_user.is_superuser:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

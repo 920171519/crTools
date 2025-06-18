@@ -5,6 +5,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 from datetime import datetime, timezone
+from pydantic import BaseModel
 
 from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageHistory, DeviceStatusEnum
 from models.admin import User
@@ -13,7 +14,7 @@ from schemas import (
     DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceReleaseRequest
 )
 from schemas import BaseResponse
-from routers.auth import get_current_user_info
+from auth import AuthManager
 
 router = APIRouter(prefix="/api/devices", tags=["设备管理"])
 
@@ -67,7 +68,7 @@ async def get_devices():
 
 
 @router.post("/", response_model=BaseResponse, summary="创建设备")
-async def create_device(device_data: DeviceBase, current_user: User = Depends(get_current_user_info)):
+async def create_device(device_data: DeviceBase, current_user: User = Depends(AuthManager.get_current_user)):
     """创建新设备"""
     # 检查IP是否已存在
     existing_device = await Device.filter(ip=device_data.ip).first()
@@ -137,7 +138,7 @@ async def get_device(device_id: int):
 
 
 @router.put("/{device_id}", response_model=BaseResponse, summary="更新设备信息")
-async def update_device(device_id: int, device_data: DeviceUpdate, current_user: User = Depends(get_current_user_info)):
+async def update_device(device_id: int, device_data: DeviceUpdate, current_user: User = Depends(AuthManager.get_current_user)):
     """更新设备信息"""
     device = await Device.filter(id=device_id).first()
     if not device:
@@ -171,7 +172,7 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
 
 
 @router.delete("/{device_id}", summary="删除设备")
-async def delete_device(device_id: int, current_user: User = Depends(get_current_user_info)):
+async def delete_device(device_id: int, current_user: User = Depends(AuthManager.get_current_user)):
     """删除设备"""
     device = await Device.filter(id=device_id).first()
     if not device:
@@ -182,7 +183,7 @@ async def delete_device(device_id: int, current_user: User = Depends(get_current
 
 
 @router.post("/use", summary="使用设备")
-async def use_device(request: DeviceUseRequest, current_user: User = Depends(get_current_user_info)):
+async def use_device(request: DeviceUseRequest, current_user: User = Depends(AuthManager.get_current_user)):
     """使用设备或加入排队"""
     device = await Device.filter(id=request.device_id).first()
     if not device:
@@ -247,7 +248,7 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(get
 
 
 @router.post("/release", summary="释放设备")
-async def release_device(request: DeviceReleaseRequest, current_user: User = Depends(get_current_user_info)):
+async def release_device(request: DeviceReleaseRequest, current_user: User = Depends(AuthManager.get_current_user)):
     """释放设备"""
     device = await Device.filter(id=request.device_id).first()
     if not device:
@@ -310,6 +311,40 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
                 "status": "available"
             }
         )
+
+
+class DeviceCancelQueueRequest(BaseModel):
+    """取消排队请求模型"""
+    device_id: int
+
+
+@router.post("/cancel-queue", summary="取消排队")
+async def cancel_queue(request: DeviceCancelQueueRequest, current_user: User = Depends(AuthManager.get_current_user)):
+    """取消排队"""
+    device = await Device.filter(id=request.device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if not usage_info:
+        raise HTTPException(status_code=404, detail="设备使用信息不存在")
+    
+    # 检查用户是否在排队中
+    if not usage_info.queue_users or current_user.username not in usage_info.queue_users:
+        raise HTTPException(status_code=400, detail="您当前不在排队中")
+    
+    # 从排队列表中移除用户
+    usage_info.queue_users.remove(current_user.username)
+    await usage_info.save()
+    
+    return BaseResponse(
+        code=200,
+        message="已取消排队",
+        data={
+            "device_id": device.id,
+            "queue_count": len(usage_info.queue_users)
+        }
+    )
 
 
 @router.get("/{device_id}/usage", response_model=BaseResponse, summary="获取设备使用情况")

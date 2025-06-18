@@ -424,13 +424,23 @@
              </el-button>
             
             <el-button 
-              v-else-if="usageDetail?.status === 'occupied'"
+              v-else-if="usageDetail?.status === 'occupied' && !isCurrentUserInQueue"
               type="warning" 
               @click="joinQueueFromDetail"
               :loading="useLoading[deviceDetail.id]"
             >
               <el-icon><Clock /></el-icon>
               加入排队
+            </el-button>
+            
+            <el-button 
+              v-else-if="usageDetail?.status === 'occupied' && isCurrentUserInQueue"
+              type="info" 
+              @click="cancelQueueFromDetail"
+              :loading="useLoading[deviceDetail.id]"
+            >
+              <el-icon><Clock /></el-icon>
+              取消排队
             </el-button>
           </div>
         </template>
@@ -461,6 +471,13 @@ const releaseLoading = reactive({})
 // 计算属性
 const currentUser = computed(() => userStore.userInfo?.username || '')
 const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
+
+// 检查用户是否在指定设备的排队中（用于列表）
+const isUserInDeviceQueue = (device) => {
+  // 这里需要通过API获取设备使用详情才能知道排队情况
+  // 为了性能考虑，我们可以在设备列表中添加当前用户的排队状态字段
+  return false // 暂时返回false，后续优化
+}
 
 // 添加设备相关
 const showAddDialog = ref(false)
@@ -535,6 +552,43 @@ const joinQueue = (device) => {
   selectedDevice.value = device
   useForm.user = currentUser.value
   showUseDialog.value = true
+}
+
+const cancelQueue = async (device) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要取消排队吗？',
+      '确认取消',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    useLoading[device.id] = true
+    await deviceApi.cancelQueue({
+      device_id: device.id
+    })
+    
+    ElMessage.success('已取消排队')
+    await loadDevices()
+    
+    // 如果详情抽屉打开，刷新详情数据
+    if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
+      await viewDetails(device)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      if (error.response?.data?.detail) {
+        ElMessage.error(error.response.data.detail)
+      } else {
+        ElMessage.error('取消排队失败')
+      }
+    }
+  } finally {
+    useLoading[device.id] = false
+  }
 }
 
 const releaseDevice = async (device) => {
@@ -729,6 +783,19 @@ const joinQueueFromDetail = () => {
     showDetailDrawer.value = false
   }
 }
+
+const cancelQueueFromDetail = async () => {
+  if (deviceDetail.value) {
+    await cancelQueue(deviceDetail.value)
+    // 不关闭抽屉，因为cancelQueue已经会刷新详情数据
+  }
+}
+
+// 检查当前用户是否在抽屉设备的排队中
+const isCurrentUserInQueue = computed(() => {
+  if (!usageDetail.value?.queue_users || !currentUser.value) return false
+  return usageDetail.value.queue_users.includes(currentUser.value)
+})
 
 // 生命周期
 onMounted(() => {
