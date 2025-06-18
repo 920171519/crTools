@@ -4,7 +4,7 @@
 """
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageHistory, DeviceStatusEnum
 from models.admin import User
@@ -16,6 +16,11 @@ from schemas import BaseResponse
 from routers.auth import get_current_user_info
 
 router = APIRouter(prefix="/api/devices", tags=["设备管理"])
+
+
+def get_current_time():
+    """获取当前时间，统一使用naive datetime"""
+    return datetime.now()
 
 
 @router.get("/", response_model=BaseResponse, summary="获取设备列表")
@@ -30,10 +35,15 @@ async def get_devices():
             # 创建默认使用情况
             usage_info = await DeviceUsage.create(device=device)
         
-        # 计算占用时长: 无需计算占用时间,只记录开始使用时间
-        usage_info.start_time = datetime.now()
-        if usage_info.current_user:
-            usage_info.start_time = datetime.now()
+        # 计算占用时长
+        occupied_duration = 0
+        if usage_info.start_time and usage_info.current_user:
+            # 统一使用naive datetime进行计算
+            current_time = get_current_time()
+            # 如果数据库中的时间是aware的，转换为naive
+            start_time = usage_info.start_time.replace(tzinfo=None) if usage_info.start_time.tzinfo else usage_info.start_time
+            duration = current_time - start_time
+            occupied_duration = int(duration.total_seconds() / 60)
         
         result.append(DeviceListItem(
             id=device.id,
@@ -43,7 +53,8 @@ async def get_devices():
             current_user=usage_info.current_user,
             queue_count=len(usage_info.queue_users) if usage_info.queue_users else 0,
             status=usage_info.status,
-            start_time = usage_info.start_time
+            start_time=usage_info.start_time,
+            occupied_duration=occupied_duration
         ))
     
     return BaseResponse(
@@ -55,7 +66,7 @@ async def get_devices():
     )
 
 
-@router.post("/", response_model=DeviceResponse, summary="创建设备")
+@router.post("/", response_model=BaseResponse, summary="创建设备")
 async def create_device(device_data: DeviceBase, current_user: User = Depends(get_current_user_info)):
     """创建新设备"""
     # 检查IP是否已存在
@@ -74,24 +85,58 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(ge
     internal_info.init_ports()
     await internal_info.save()
     
+    device_response = {
+        "id": device.id,
+        "name": device.name,
+        "ip": device.ip,
+        "required_vpn": device.required_vpn,
+        "creator": device.creator,
+        "need_vpn_login": device.need_vpn_login,
+        "support_queue": device.support_queue,
+        "owner": device.owner,
+        "device_type": device.device_type,
+        "remarks": device.remarks,
+        "created_at": device.created_at,
+        "updated_at": device.updated_at
+    }
+    
     return BaseResponse(
         code=200,
         message="设备创建成功",
-        data=DeviceResponse.from_orm(device)
+        data=device_response
     )
 
 
-@router.get("/{device_id}", response_model=DeviceResponse, summary="获取设备详情")
+@router.get("/{device_id}", response_model=BaseResponse, summary="获取设备详情")
 async def get_device(device_id: int):
     """根据ID获取设备详情"""
     device = await Device.filter(id=device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
     
-    return await DeviceResponse.from_tortoise_orm(device)
+    device_data = {
+        "id": device.id,
+        "name": device.name,
+        "ip": device.ip,
+        "required_vpn": device.required_vpn,
+        "creator": device.creator,
+        "need_vpn_login": device.need_vpn_login,
+        "support_queue": device.support_queue,
+        "owner": device.owner,
+        "device_type": device.device_type,
+        "remarks": device.remarks,
+        "created_at": device.created_at,
+        "updated_at": device.updated_at
+    }
+    
+    return BaseResponse(
+        code=200,
+        message="设备详情获取成功",
+        data=device_data
+    )
 
 
-@router.put("/{device_id}", response_model=DeviceResponse, summary="更新设备信息")
+@router.put("/{device_id}", response_model=BaseResponse, summary="更新设备信息")
 async def update_device(device_id: int, device_data: DeviceUpdate, current_user: User = Depends(get_current_user_info)):
     """更新设备信息"""
     device = await Device.filter(id=device_id).first()
@@ -103,7 +148,26 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
     await device.update_from_dict(update_data)
     await device.save()
     
-    return await DeviceResponse.from_tortoise_orm(device)
+    device_data = {
+        "id": device.id,
+        "name": device.name,
+        "ip": device.ip,
+        "required_vpn": device.required_vpn,
+        "creator": device.creator,
+        "need_vpn_login": device.need_vpn_login,
+        "support_queue": device.support_queue,
+        "owner": device.owner,
+        "device_type": device.device_type,
+        "remarks": device.remarks,
+        "created_at": device.created_at,
+        "updated_at": device.updated_at
+    }
+    
+    return BaseResponse(
+        code=200,
+        message="设备更新成功",
+        data=device_data
+    )
 
 
 @router.delete("/{device_id}", summary="删除设备")
@@ -132,7 +196,7 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(get
     if usage_info.status == DeviceStatusEnum.AVAILABLE:
         # 设备可用，直接占用
         usage_info.current_user = request.user
-        usage_info.start_time = datetime.now()
+        usage_info.start_time = get_current_time()
         usage_info.expected_duration = request.expected_duration
         usage_info.status = DeviceStatusEnum.OCCUPIED
         await usage_info.save()
@@ -141,7 +205,7 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(get
         await DeviceUsageHistory.create(
             device=device,
             user=request.user,
-            start_time=datetime.now(),
+            start_time=get_current_time(),
             purpose=request.purpose
         )
         
@@ -168,7 +232,15 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(get
         usage_info.queue_users.append(request.user)
         await usage_info.save()
         
-        return {"message": "已加入排队", "status": "queued", "queue_position": len(usage_info.queue_users)}
+        return BaseResponse(
+            code=200,
+            message="已加入排队",
+            data={
+                "device_id": device.id,
+                "status": "queued",
+                "queue_position": len(usage_info.queue_users)
+            }
+        )
     
     else:
         raise HTTPException(status_code=400, detail="设备当前不可用")
@@ -185,9 +257,12 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
     if not usage_info:
         raise HTTPException(status_code=404, detail="设备使用信息不存在")
     
-    # 检查是否为当前使用者
-    if usage_info.current_user != request.user:
-        raise HTTPException(status_code=403, detail="只有当前使用者才能释放设备")
+    # 检查权限：只有当前使用者或者管理员才能释放设备
+    is_current_user = usage_info.current_user == current_user.username
+    is_admin = current_user.is_superuser
+    
+    if not (is_current_user or is_admin):
+        raise HTTPException(status_code=403, detail="只有当前使用者或管理员才能释放设备")
     
     # 更新使用历史记录
     # if usage_info.start_time:
@@ -207,7 +282,7 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         # 有人排队，将设备分配给下一个用户
         next_user = usage_info.queue_users.pop(0)
         usage_info.current_user = next_user
-        usage_info.start_time = datetime.now()
+        usage_info.start_time = get_current_time()
         usage_info.expected_duration = 60  # 默认60分钟
         await usage_info.save()
         
@@ -215,7 +290,7 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         await DeviceUsageHistory.create(
             device=device,
             user=next_user,
-            start_time=datetime.now()
+            start_time=get_current_time()
         )
         
         return {"message": "设备已释放并分配给下一个用户", "next_user": next_user}
@@ -237,7 +312,7 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         )
 
 
-@router.get("/{device_id}/usage", response_model=DeviceUsageResponse, summary="获取设备使用情况")
+@router.get("/{device_id}/usage", response_model=BaseResponse, summary="获取设备使用情况")
 async def get_device_usage(device_id: int):
     """获取设备使用情况详情"""
     device = await Device.filter(id=device_id).first()
@@ -251,20 +326,30 @@ async def get_device_usage(device_id: int):
     # 计算占用时长
     occupied_duration = 0
     if usage_info.start_time and usage_info.current_user:
-        duration = datetime.now() - usage_info.start_time
+        # 统一使用naive datetime进行计算
+        current_time = get_current_time()
+        # 如果数据库中的时间是aware的，转换为naive
+        start_time = usage_info.start_time.replace(tzinfo=None) if usage_info.start_time.tzinfo else usage_info.start_time
+        duration = current_time - start_time
         occupied_duration = int(duration.total_seconds() / 60)
     
-    return DeviceUsageResponse(
-        id=usage_info.id,
-        device_id=device.id,
-        current_user=usage_info.current_user,
-        start_time=usage_info.start_time,
-        expected_duration=usage_info.expected_duration,
-        is_long_term=usage_info.is_long_term,
-        long_term_purpose=usage_info.long_term_purpose,
-        queue_users=usage_info.queue_users or [],
-        status=usage_info.status,
-        occupied_duration=occupied_duration,
-        queue_count=len(usage_info.queue_users) if usage_info.queue_users else 0,
-        updated_at=usage_info.updated_at
+    usage_data = {
+        "id": usage_info.id,
+        "device_id": device.id,
+        "current_user": usage_info.current_user,
+        "start_time": usage_info.start_time.isoformat() if usage_info.start_time else None,
+        "expected_duration": usage_info.expected_duration,
+        "is_long_term": usage_info.is_long_term,
+        "long_term_purpose": usage_info.long_term_purpose,
+        "queue_users": usage_info.queue_users or [],
+        "status": usage_info.status,
+        "occupied_duration": occupied_duration,
+        "queue_count": len(usage_info.queue_users) if usage_info.queue_users else 0,
+        "updated_at": usage_info.updated_at.isoformat() if usage_info.updated_at else None
+    }
+    
+    return BaseResponse(
+        code=200,
+        message="设备使用情况获取成功",
+        data=usage_data
     ) 

@@ -274,10 +274,11 @@ const resetPasswordForm = () => {
 // 初始化
 onMounted(async () => {  // 在组件挂载时获取用户菜单:因为有权限控制，所以从后端获取
   try {
-    // 获取用户菜单
+    // 确保先获取权限，再获取菜单
+    await userStore.fetchUserPermissions()
     await userStore.fetchUserMenus()
   } catch (error) {
-    console.error('获取菜单失败:', error)
+    console.error('获取权限或菜单失败:', error)
   }
 })
 </script>

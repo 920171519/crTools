@@ -284,7 +284,8 @@ class DeviceListItem(BaseModel):
     current_user: Optional[str] = None
     queue_count: int = 0
     status: str
-    start_time: datetime = 0
+    start_time: Optional[datetime] = None
+    occupied_duration: int = 0
 
 
 class DeviceUseRequest(BaseModel):

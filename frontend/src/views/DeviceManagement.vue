@@ -104,7 +104,7 @@
               </el-button>
               
               <el-button 
-                v-else-if="row.status === 'occupied' && row.current_user === currentUser"
+                v-else-if="row.status === 'occupied' && (row.current_user === currentUser || isAdmin)"
                 type="danger" 
                 size="small" 
                 @click="releaseDevice(row)"
@@ -254,21 +254,213 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 设备详情抽屉 -->
+    <el-drawer
+      v-model="showDetailDrawer"
+      title="设备详情"
+      direction="rtl"
+      size="600px"
+      :before-close="handleDetailDrawerClose"
+    >
+      <div v-loading="detailLoading" class="device-detail">
+        <template v-if="deviceDetail">
+          <!-- 基本信息 -->
+          <div class="detail-section">
+            <h3 class="section-title">
+              <el-icon><InfoFilled /></el-icon>
+              基本信息
+            </h3>
+            <div class="info-grid">
+              <div class="info-item">
+                <label>设备名称：</label>
+                <span>{{ deviceDetail.name }}</span>
+              </div>
+              <div class="info-item">
+                <label>设备IP：</label>
+                <el-tag type="info" size="small">{{ deviceDetail.ip }}</el-tag>
+              </div>
+              <div class="info-item">
+                <label>设备类型：</label>
+                <el-tag 
+                  :type="getDeviceTypeTag(deviceDetail.device_type)"
+                  size="small"
+                >
+                  {{ getDeviceTypeText(deviceDetail.device_type) }}
+                </el-tag>
+              </div>
+              <div class="info-item">
+                <label>所需VPN：</label>
+                <span>{{ deviceDetail.required_vpn }}</span>
+              </div>
+              <div class="info-item">
+                <label>添加人：</label>
+                <span>{{ deviceDetail.creator }}</span>
+              </div>
+              <div class="info-item">
+                <label>归属人：</label>
+                <span>{{ deviceDetail.owner }}</span>
+              </div>
+              <div class="info-item">
+                <label>登录需VPN：</label>
+                <el-tag :type="deviceDetail.need_vpn_login ? 'warning' : 'success'" size="small">
+                  {{ deviceDetail.need_vpn_login ? '是' : '否' }}
+                </el-tag>
+              </div>
+              <div class="info-item">
+                <label>支持排队：</label>
+                <el-tag :type="deviceDetail.support_queue ? 'success' : 'info'" size="small">
+                  {{ deviceDetail.support_queue ? '是' : '否' }}
+                </el-tag>
+              </div>
+              <div class="info-item full-width" v-if="deviceDetail.remarks">
+                <label>备注信息：</label>
+                <div class="remarks">{{ deviceDetail.remarks }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 使用状态 -->
+          <div class="detail-section">
+            <h3 class="section-title">
+              <el-icon><Clock /></el-icon>
+              使用状态
+            </h3>
+            <div class="usage-info">
+              <div class="usage-item">
+                <label>当前状态：</label>
+                <el-tag 
+                  :type="getStatusTag(usageDetail?.status || 'available')"
+                  size="small"
+                >
+                  {{ getStatusText(usageDetail?.status || 'available') }}
+                </el-tag>
+              </div>
+              <div class="usage-item" v-if="usageDetail?.current_user">
+                <label>当前使用人：</label>
+                <span class="current-user">
+                  <el-icon><User /></el-icon>
+                  {{ usageDetail.current_user }}
+                </span>
+              </div>
+              <div class="usage-item" v-if="usageDetail?.start_time">
+                <label>开始时间：</label>
+                <span>{{ formatDateTime(usageDetail.start_time) }}</span>
+              </div>
+              <div class="usage-item" v-if="usageDetail?.expected_duration">
+                <label>预计时长：</label>
+                <span>{{ usageDetail.expected_duration }}分钟</span>
+              </div>
+              <div class="usage-item" v-if="usageDetail?.occupied_duration">
+                <label>已使用时长：</label>
+                <span class="duration">{{ formatDuration(usageDetail.occupied_duration) }}</span>
+              </div>
+              <div class="usage-item" v-if="usageDetail?.is_long_term">
+                <label>长时间占用：</label>
+                <el-tag type="warning" size="small">是</el-tag>
+              </div>
+              <div class="usage-item full-width" v-if="usageDetail?.long_term_purpose">
+                <label>占用目的：</label>
+                <div class="purpose">{{ usageDetail.long_term_purpose }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 排队信息 -->
+          <div class="detail-section">
+            <h3 class="section-title">
+              <el-icon><UserFilled /></el-icon>
+              排队信息
+              <el-tag 
+                v-if="usageDetail?.queue_count > 0" 
+                type="warning" 
+                size="small"
+                style="margin-left: 8px;"
+              >
+                {{ usageDetail.queue_count }}人排队
+              </el-tag>
+            </h3>
+            <div class="queue-info">
+              <template v-if="usageDetail?.queue_users && usageDetail.queue_users.length > 0">
+                <div 
+                  v-for="(user, index) in usageDetail.queue_users" 
+                  :key="index"
+                  class="queue-item"
+                >
+                  <div class="queue-position">{{ index + 1 }}</div>
+                  <div class="queue-user">
+                    <el-icon><User /></el-icon>
+                    {{ user }}
+                  </div>
+                  <div class="queue-time">等待中</div>
+                </div>
+              </template>
+              <div v-else class="no-queue">
+                <el-empty description="暂无排队用户" :image-size="80" />
+              </div>
+            </div>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="detail-actions">
+                         <el-button 
+               v-if="usageDetail?.status === 'available'"
+               type="primary" 
+               @click="useDeviceFromDetail"
+               :loading="useLoading[deviceDetail.id]"
+             >
+               <el-icon><VideoPlay /></el-icon>
+               使用设备
+             </el-button>
+             
+             <el-button 
+               v-else-if="usageDetail?.status === 'occupied' && (usageDetail?.current_user === currentUser || isAdmin)"
+               type="danger" 
+               @click="releaseDeviceFromDetail"
+               :loading="releaseLoading[deviceDetail.id]"
+             >
+               <el-icon><VideoPause /></el-icon>
+               释放设备
+             </el-button>
+            
+            <el-button 
+              v-else-if="usageDetail?.status === 'occupied'"
+              type="warning" 
+              @click="joinQueueFromDetail"
+              :loading="useLoading[deviceDetail.id]"
+            >
+              <el-icon><Clock /></el-icon>
+              加入排队
+            </el-button>
+          </div>
+        </template>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Monitor, User, Plus, Refresh } from '@element-plus/icons-vue'
+import { 
+  Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled, 
+  VideoPlay, VideoPause 
+} from '@element-plus/icons-vue'
 import { deviceApi } from '@/api/device'
+import { useUserStore } from '@/stores/user'
+
+// 获取用户store
+const userStore = useUserStore()
 
 // 数据定义
 const loading = ref(false)
 const devices = ref([])
-const currentUser = ref('当前用户') // 这里应该从用户store获取
 const useLoading = reactive({})
 const releaseLoading = reactive({})
+
+// 计算属性
+const currentUser = computed(() => userStore.userInfo?.username || '')
+const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
 
 // 添加设备相关
 const showAddDialog = ref(false)
@@ -312,6 +504,12 @@ const useFormRules = {
   user: [{ required: true, message: '请输入使用人', trigger: 'blur' }],
   expected_duration: [{ required: true, message: '请输入预计使用时长', trigger: 'blur' }]
 }
+
+// 抽屉相关
+const showDetailDrawer = ref(false)
+const detailLoading = ref(false)
+const deviceDetail = ref(null)
+const usageDetail = ref(null)
 
 // 方法定义
 const loadDevices = async () => {
@@ -368,9 +566,25 @@ const releaseDevice = async (device) => {
   }
 }
 
-const viewDetails = (device) => {
-  // 查看设备详情的逻辑
-  ElMessage.info('设备详情功能开发中...')
+const viewDetails = async (device) => {
+  try {
+    detailLoading.value = true
+    showDetailDrawer.value = true
+    
+    // 获取设备详情
+    const [deviceResponse, usageResponse] = await Promise.all([
+      deviceApi.getDevice(device.id),
+      deviceApi.getDeviceUsage(device.id)
+    ])
+    
+    deviceDetail.value = deviceResponse.data
+    usageDetail.value = usageResponse.data
+  } catch (error) {
+    ElMessage.error('获取设备详情失败')
+    console.error(error)
+  } finally {
+    detailLoading.value = false
+  }
 }
 
 const handleAddDevice = async () => {
@@ -476,6 +690,46 @@ const formatDuration = (minutes) => {
   }
 }
 
+const formatDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return '-'
+  const date = new Date(dateTimeStr)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+// 抽屉相关方法
+const handleDetailDrawerClose = () => {
+  showDetailDrawer.value = false
+  deviceDetail.value = null
+  usageDetail.value = null
+}
+
+const useDeviceFromDetail = () => {
+  if (deviceDetail.value) {
+    useDevice(deviceDetail.value)
+    showDetailDrawer.value = false
+  }
+}
+
+const releaseDeviceFromDetail = async () => {
+  if (deviceDetail.value) {
+    await releaseDevice(deviceDetail.value)
+    showDetailDrawer.value = false
+  }
+}
+
+const joinQueueFromDetail = () => {
+  if (deviceDetail.value) {
+    joinQueue(deviceDetail.value)
+    showDetailDrawer.value = false
+  }
+}
+
 // 生命周期
 onMounted(() => {
   loadDevices()
@@ -553,6 +807,148 @@ onMounted(() => {
   gap: 12px;
 }
 
+/* 抽屉样式 */
+.device-detail {
+  padding: 20px;
+}
+
+.detail-section {
+  margin-bottom: 30px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 20px;
+  background: #fafafa;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  border-bottom: 2px solid #409eff;
+  padding-bottom: 8px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-item.full-width {
+  grid-column: 1 / -1;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.info-item label {
+  font-weight: 500;
+  color: #606266;
+  min-width: 80px;
+}
+
+.remarks, .purpose {
+  background: white;
+  padding: 12px;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  width: 100%;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+.usage-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.usage-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.usage-item.full-width {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.usage-item label {
+  font-weight: 500;
+  color: #606266;
+  min-width: 100px;
+}
+
+.queue-info {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.queue-position {
+  background: #409eff;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.queue-user {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #303133;
+}
+
+.queue-time {
+  color: #909399;
+  font-size: 12px;
+}
+
+.no-queue {
+  text-align: center;
+  color: #909399;
+  padding: 40px 0;
+}
+
+.detail-actions {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  padding: 20px 0;
+  border-top: 1px solid #ebeef5;
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .device-management {
@@ -567,6 +963,18 @@ onMounted(() => {
   .action-buttons .el-button {
     margin-left: 0 !important;
     margin-right: 0 !important;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .device-detail {
+    padding: 15px;
+  }
+  
+  .detail-section {
+    padding: 15px;
   }
 }
 </style> 

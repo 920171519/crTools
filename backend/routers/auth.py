@@ -273,8 +273,19 @@ async def get_user_menus(current_user: User = require_active_user):
             if parent:
                 parent["children"].append(menu_data)
     
+    # 过滤掉没有子菜单的父菜单（如果父菜单本身没有component）
+    filtered_root_menus = []
+    for menu in root_menus:
+        if menu["component"] is not None:
+            # 有组件的菜单（叶子菜单）直接显示
+            filtered_root_menus.append(menu)
+        else:
+            # 没有组件的菜单（父菜单）只有在有可访问的子菜单时才显示
+            if menu["children"]:
+                filtered_root_menus.append(menu)
+    
     return BaseResponse(
         code=200,
         message="获取菜单成功",
-        data={"menus": root_menus}
+        data={"menus": filtered_root_menus}
     ) 

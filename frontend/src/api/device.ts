@@ -58,8 +58,7 @@ export interface DeviceReleaseRequest {
 export const deviceApi = {
   // 获取设备列表
   getDevices: () => {
-    let ret =  api.get<DeviceListItem[]>('/devices/')
-    return ret
+    return api.get<DeviceListItem[]>('/devices/')
   },
 
   // 创建设备

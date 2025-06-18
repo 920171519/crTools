@@ -122,7 +122,7 @@ async def init_database():
             "parent_id": None,
             "sort_order": 100,
             "is_visible": True,
-            "permission_code": None
+            "permission_code": "user:read"
         }
     ]
     
@@ -202,6 +202,24 @@ async def init_database():
         if not user_role:
             await UserRole.create(user=admin_user, role=super_admin_role)
             print("✅ 为超级管理员分配角色")
+    
+    # 为普通用户角色分配基本权限（设备查看和使用）
+    normal_user_role = await Role.filter(name="普通用户").first()
+    if normal_user_role:
+        # 普通用户需要的权限
+        basic_permissions = [
+            "device:read",  # 查看设备
+            "device:use",   # 使用设备
+        ]
+        
+        for perm_code in basic_permissions:
+            permission = await Permission.filter(code=perm_code).first()
+            if permission:
+                # 检查权限是否已分配
+                role_perm = await RolePermission.filter(role=normal_user_role, permission=permission).first()
+                if not role_perm:
+                    await RolePermission.create(role=normal_user_role, permission=permission)
+                    print(f"✅ 为普通用户角色分配权限: {permission.name}")
     
     print("✅ 数据库初始化完成")
 

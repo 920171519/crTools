@@ -154,7 +154,7 @@ export const useUserStore = defineStore('user', () => {
   }
   
   // 从localStorage恢复状态
-  const restoreFromStorage = () => {
+  const restoreFromStorage = async () => {
     const savedToken = localStorage.getItem('crtools_token')
     const savedUser = localStorage.getItem('crtools_user')
     
@@ -162,6 +162,13 @@ export const useUserStore = defineStore('user', () => {
       token.value = savedToken
       try {
         userInfo.value = JSON.parse(savedUser)
+        // 恢复状态后重新获取权限和菜单
+        try {
+          await fetchUserPermissions()
+          await fetchUserMenus()
+        } catch (error) {
+          console.warn('恢复状态时获取权限或菜单失败:', error)
+        }
       } catch (error) {
         console.error('解析用户信息失败:', error)
         localStorage.removeItem('crtools_user')
