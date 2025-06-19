@@ -138,28 +138,16 @@
                   </el-button>
                 </template>
                 
-                <!-- 普通用户排队控制 -->
-                <template v-if="!(isAdvancedUser || isAdminUser || isAdmin)">
-                  <el-button 
-                    v-if="!row.is_current_user_in_queue"
-                    type="warning" 
-                    size="small" 
-                    @click="joinQueue(row)"
-                    :loading="useLoading[row.id]"
-                  >
-                    排队
-                  </el-button>
-                  
-                  <el-button 
-                    v-else
-                    type="info" 
-                    size="small" 
-                    @click="cancelQueue(row)"
-                    :loading="useLoading[row.id]"
-                  >
-                    取消排队
-                  </el-button>
-                </template>
+                <!-- 普通用户排队控制 - 单个按钮 -->
+                <el-button 
+                  v-if="!(isAdvancedUser || isAdminUser || isAdmin)"
+                  :type="row.is_current_user_in_queue ? 'info' : 'warning'" 
+                  size="small" 
+                  @click="row.is_current_user_in_queue ? cancelQueue(row) : joinQueue(row)"
+                  :loading="useLoading[row.id]"
+                >
+                  {{ row.is_current_user_in_queue ? '取消排队' : '排队' }}
+                </el-button>
                 
                 <!-- 高级用户/管理员的取消排队按钮 -->
                 <el-button 
@@ -785,16 +773,21 @@ const releaseDevice = async (device) => {
     )
     
     releaseLoading[device.id] = true
-    await deviceApi.releaseDevice({
+    const response = await deviceApi.releaseDevice({
       device_id: device.id,
       user: currentUser.value
     })
     
-    ElMessage.success('设备释放成功')
+    // 显示后端返回的消息
+    ElMessage.success(response.data?.message || '设备释放成功')
     await loadDevices()
   } catch (error) {
     if (error !== 'cancel') {
-      ElMessage.error('释放设备失败')
+      if (error.response?.data?.detail) {
+        ElMessage.error(error.response.data.detail)
+      } else {
+        ElMessage.error('释放设备失败')
+      }
     }
   } finally {
     releaseLoading[device.id] = false

@@ -303,7 +303,15 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
             start_time=get_current_time()
         )
         
-        return {"message": "设备已释放并分配给下一个用户", "next_user": next_user}
+        return BaseResponse(
+            code=200,
+            message="设备已释放并分配给下一个用户",
+            data={
+                "device_id": device.id,
+                "next_user": next_user,
+                "status": "reassigned"
+            }
+        )
     else:
         # 没有排队，设备变为可用
         usage_info.current_user = None
