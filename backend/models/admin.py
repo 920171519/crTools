@@ -34,15 +34,7 @@ class User(Model):
     def __str__(self):
         return f"{self.employee_id}({self.username})"
     
-    @property
-    def effective_user_type(self):
-        """获取有效的用户类型，确保总是有值"""
-        if hasattr(self, 'user_type') and self.user_type:
-            return self.user_type
-        elif self.is_superuser:
-            return UserTypeEnum.ADMIN
-        else:
-            return UserTypeEnum.NORMAL
+
     
     @classmethod
     def validate_employee_id(cls, employee_id: str) -> bool:

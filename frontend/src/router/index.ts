@@ -158,7 +158,7 @@ router.beforeEach(async (to, from, next) => {
     // 检查权限
     if (to.meta.permission) {
       if (!userStore.hasPermission(to.meta.permission as string)) {
-        ElMessage.error('权限不足')
+        // ElMessage.error('权限不足')
         next('/dashboard')
         return
       }

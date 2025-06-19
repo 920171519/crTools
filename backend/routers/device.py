@@ -411,7 +411,7 @@ async def get_device_usage(device_id: int):
 async def preempt_device(request: DevicePreemptRequest, current_user: User = Depends(AuthManager.get_current_user)):
     """高级用户抢占设备"""
     # 检查用户权限 - 管理员、超级用户、高级用户都可以抢占
-    if (current_user.effective_user_type not in ["advanced", "admin"] and 
+    if (current_user.user_type not in ["advanced", "admin"] and 
         not current_user.is_superuser):
         raise HTTPException(status_code=403, detail="只有高级用户才能抢占设备")
     
@@ -495,7 +495,7 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
 async def priority_queue(request: DevicePriorityQueueRequest, current_user: User = Depends(AuthManager.get_current_user)):
     """高级用户优先排队"""
     # 检查用户权限 - 管理员、超级用户、高级用户都可以优先排队
-    if (current_user.effective_user_type not in ["advanced", "admin"] and 
+    if (current_user.user_type not in ["advanced", "admin"] and 
         not current_user.is_superuser):
         raise HTTPException(status_code=403, detail="只有高级用户才能优先排队")
     
