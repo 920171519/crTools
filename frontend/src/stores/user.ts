@@ -3,7 +3,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import * as authApi from '@/api/auth'
+import * as authApi from '../api/auth'
 
 // 用户信息类型定义
 export interface UserInfo {
@@ -11,6 +11,7 @@ export interface UserInfo {
   employee_id: string
   username: string
   is_superuser: boolean
+  user_type: string
   roles: string[]
 }
 
@@ -36,6 +37,21 @@ export const useUserStore = defineStore('user', () => {
   // 计算属性
   const isLoggedIn = computed(() => !!token.value && !!userInfo.value)
   const isSuperUser = computed(() => userInfo.value?.is_superuser || false)
+  const isAdvancedUser = computed(() => {
+    const userType = userInfo.value?.user_type
+    const isSuperUser = userInfo.value?.is_superuser
+    // 如果是超级用户但没有user_type，默认为admin
+    if (isSuperUser && !userType) return true
+    return userType === 'advanced'
+  })
+  
+  const isAdminUser = computed(() => {
+    const userType = userInfo.value?.user_type
+    const isSuperUser = userInfo.value?.is_superuser
+    // 如果是超级用户但没有user_type，默认为admin
+    if (isSuperUser && !userType) return true
+    return userType === 'admin'
+  })
   
   // 用户登录
   const loginAction = async (loginData: { employee_id: string; password: string }) => {
@@ -189,6 +205,8 @@ export const useUserStore = defineStore('user', () => {
     // 计算属性
     isLoggedIn,
     isSuperUser,
+    isAdvancedUser,
+    isAdminUser,
     
     // 方法
     loginAction,

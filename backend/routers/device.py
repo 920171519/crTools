@@ -11,7 +11,8 @@ from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageH
 from models.admin import User
 from schemas import (
     DeviceBase, DeviceUpdate, DeviceResponse, DeviceListItem,
-    DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceReleaseRequest
+    DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceReleaseRequest,
+    DevicePreemptRequest, DevicePriorityQueueRequest, DeviceUnifiedQueueRequest
 )
 from schemas import BaseResponse
 from auth import AuthManager
@@ -227,6 +228,10 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
         if not device.support_queue:
             raise HTTPException(status_code=400, detail="该设备不支持排队等待")
         
+        # 检查是否是当前使用者尝试排队
+        if usage_info.current_user == request.user:
+            raise HTTPException(status_code=400, detail="您已经在使用此设备")
+        
         # 检查用户是否已在排队
         if request.user in (usage_info.queue_users or []):
             raise HTTPException(status_code=400, detail="您已在排队中")
@@ -391,4 +396,229 @@ async def get_device_usage(device_id: int):
         code=200,
         message="设备使用情况获取成功",
         data=usage_data
-    ) 
+    )
+
+
+@router.post("/preempt", summary="抢占设备")
+async def preempt_device(request: DevicePreemptRequest, current_user: User = Depends(AuthManager.get_current_user)):
+    """高级用户抢占设备"""
+    # 检查用户权限 - 管理员、超级用户、高级用户都可以抢占
+    if (current_user.effective_user_type not in ["advanced", "admin"] and 
+        not current_user.is_superuser):
+        raise HTTPException(status_code=403, detail="只有高级用户才能抢占设备")
+    
+    device = await Device.filter(id=request.device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if not usage_info:
+        usage_info = await DeviceUsage.create(device=device)
+    
+    # 检查设备状态
+    if usage_info.status == DeviceStatusEnum.AVAILABLE:
+        # 设备可用，直接占用
+        usage_info.current_user = request.user
+        usage_info.start_time = get_current_time()
+        usage_info.expected_duration = request.expected_duration
+        usage_info.status = DeviceStatusEnum.OCCUPIED
+        await usage_info.save()
+        
+        # 创建使用历史记录
+        await DeviceUsageHistory.create(
+            device=device,
+            user=request.user,
+            start_time=get_current_time(),
+            purpose=request.purpose
+        )
+        
+        return BaseResponse(
+            code=200,
+            message="设备占用成功",
+            data={"device_id": device.id}
+        )
+    
+    elif usage_info.status == DeviceStatusEnum.OCCUPIED:
+        # 检查是否试图抢占自己正在使用的设备
+        if usage_info.current_user == request.user:
+            raise HTTPException(status_code=400, detail="您已经在使用此设备")
+        
+        # 抢占设备，将当前用户加入排队列表首位
+        previous_user = usage_info.current_user
+        
+        # 检查抢占者是否已在排队中，如果在则先移除
+        if not usage_info.queue_users:
+            usage_info.queue_users = []
+        if request.user in usage_info.queue_users:
+            usage_info.queue_users.remove(request.user)
+        
+        # 将原用户加入排队列表首位（如果原用户不在排队中）
+        if previous_user not in usage_info.queue_users:
+            usage_info.queue_users.insert(0, previous_user)
+        
+        # 更新设备占用者
+        usage_info.current_user = request.user
+        usage_info.start_time = get_current_time()
+        usage_info.expected_duration = request.expected_duration
+        await usage_info.save()
+        
+        # 创建使用历史记录
+        await DeviceUsageHistory.create(
+            device=device,
+            user=request.user,
+            start_time=get_current_time(),
+            purpose=request.purpose
+        )
+        
+        return BaseResponse(
+            code=200,
+            message="设备抢占成功，原用户已加入排队列表首位",
+            data={
+                "device_id": device.id,
+                "previous_user": previous_user
+            }
+        )
+    
+    else:
+        raise HTTPException(status_code=400, detail="设备当前不可用")
+
+
+@router.post("/priority-queue", summary="优先排队")
+async def priority_queue(request: DevicePriorityQueueRequest, current_user: User = Depends(AuthManager.get_current_user)):
+    """高级用户优先排队"""
+    # 检查用户权限 - 管理员、超级用户、高级用户都可以优先排队
+    if (current_user.effective_user_type not in ["advanced", "admin"] and 
+        not current_user.is_superuser):
+        raise HTTPException(status_code=403, detail="只有高级用户才能优先排队")
+    
+    device = await Device.filter(id=request.device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    
+    if not device.support_queue:
+        raise HTTPException(status_code=400, detail="该设备不支持排队等待")
+    
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if not usage_info:
+        usage_info = await DeviceUsage.create(device=device)
+    
+    # 检查设备状态
+    if usage_info.status == DeviceStatusEnum.AVAILABLE:
+        # 设备可用，直接占用
+        usage_info.current_user = request.user
+        usage_info.start_time = get_current_time()
+        usage_info.expected_duration = request.expected_duration
+        usage_info.status = DeviceStatusEnum.OCCUPIED
+        await usage_info.save()
+        
+        # 创建使用历史记录
+        await DeviceUsageHistory.create(
+            device=device,
+            user=request.user,
+            start_time=get_current_time(),
+            purpose=request.purpose
+        )
+        
+        return BaseResponse(
+            code=200,
+            message="设备占用成功",
+            data={"device_id": device.id}
+        )
+    
+    elif usage_info.status == DeviceStatusEnum.OCCUPIED:
+        # 检查是否是当前使用者尝试排队
+        if usage_info.current_user == request.user:
+            raise HTTPException(status_code=400, detail="您已经在使用此设备")
+        
+        # 检查用户是否已在排队
+        if request.user in (usage_info.queue_users or []):
+            raise HTTPException(status_code=400, detail="您已在排队中")
+        
+        # 优先加入排队列表首位
+        if not usage_info.queue_users:
+            usage_info.queue_users = []
+        usage_info.queue_users.insert(0, request.user)
+        await usage_info.save()
+        
+        return BaseResponse(
+            code=200,
+            message="已优先加入排队",
+            data={
+                "device_id": device.id,
+                "status": "queued",
+                "queue_position": 1
+            }
+        )
+    
+    else:
+        raise HTTPException(status_code=400, detail="设备当前不可用")
+
+
+@router.post("/unified-queue", summary="统一排队")
+async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User = Depends(AuthManager.get_current_user)):
+    """统一排队接口：设备可用时直接使用，否则加入排队"""
+    device = await Device.filter(id=request.device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if not usage_info:
+        usage_info = await DeviceUsage.create(device=device)
+    
+    # 检查设备状态
+    if usage_info.status == DeviceStatusEnum.AVAILABLE:
+        # 设备可用，直接占用
+        usage_info.current_user = request.user
+        usage_info.start_time = get_current_time()
+        usage_info.expected_duration = request.expected_duration
+        usage_info.status = DeviceStatusEnum.OCCUPIED
+        await usage_info.save()
+        
+        # 创建使用历史记录
+        await DeviceUsageHistory.create(
+            device=device,
+            user=request.user,
+            start_time=get_current_time(),
+            purpose=request.purpose
+        )
+        
+        return BaseResponse(
+            code=200,
+            message="设备使用成功",
+            data={
+                "device_id": device.id,
+                "action": "use"
+            }
+        )
+    
+    elif usage_info.status == DeviceStatusEnum.OCCUPIED:
+        # 设备被占用，检查是否支持排队
+        if not device.support_queue:
+            raise HTTPException(status_code=400, detail="该设备不支持排队等待")
+        
+        # 检查是否是当前使用者尝试排队
+        if usage_info.current_user == request.user:
+            raise HTTPException(status_code=400, detail="您已经在使用此设备")
+        
+        # 检查用户是否已在排队
+        if request.user in (usage_info.queue_users or []):
+            raise HTTPException(status_code=400, detail="您已在排队中")
+        
+        # 加入排队列表末尾
+        if not usage_info.queue_users:
+            usage_info.queue_users = []
+        usage_info.queue_users.append(request.user)
+        await usage_info.save()
+        
+        return BaseResponse(
+            code=200,
+            message="已加入排队",
+            data={
+                "device_id": device.id,
+                "action": "queue",
+                "queue_position": len(usage_info.queue_users)
+            }
+        )
+    
+    else:
+        raise HTTPException(status_code=400, detail="设备当前不可用")

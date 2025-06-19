@@ -6,6 +6,14 @@ from tortoise.models import Model
 from tortoise import fields
 import re
 from datetime import datetime
+from enum import Enum
+
+
+class UserTypeEnum(str, Enum):
+    """用户类型枚举"""
+    NORMAL = "normal"      # 普通用户
+    ADVANCED = "advanced"  # 高级用户
+    ADMIN = "admin"        # 管理员
 
 
 class User(Model):
@@ -16,6 +24,7 @@ class User(Model):
     username = fields.CharField(max_length=50, description="姓名")
     hashed_password = fields.CharField(max_length=100, description="加密后的密码")
     is_superuser = fields.BooleanField(default=False, description="是否为超级用户")
+    user_type = fields.CharEnumField(UserTypeEnum, default=UserTypeEnum.NORMAL, description="用户类型")
 
     
     class Meta:
@@ -24,6 +33,16 @@ class User(Model):
     
     def __str__(self):
         return f"{self.employee_id}({self.username})"
+    
+    @property
+    def effective_user_type(self):
+        """获取有效的用户类型，确保总是有值"""
+        if hasattr(self, 'user_type') and self.user_type:
+            return self.user_type
+        elif self.is_superuser:
+            return UserTypeEnum.ADMIN
+        else:
+            return UserTypeEnum.NORMAL
     
     @classmethod
     def validate_employee_id(cls, employee_id: str) -> bool:

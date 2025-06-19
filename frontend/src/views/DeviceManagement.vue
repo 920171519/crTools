@@ -90,9 +90,10 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <div class="action-buttons">
+              <!-- 设备可用时的按钮 -->
               <el-button 
                 v-if="row.status === 'available'"
                 type="primary" 
@@ -103,35 +104,85 @@
                 使用
               </el-button>
               
+              <!-- 统一排队按钮 -->
               <el-button 
-                v-else-if="row.status === 'occupied' && (row.current_user === currentUser || isAdmin)"
-                type="danger" 
-                size="small" 
-                @click="releaseDevice(row)"
-                :loading="releaseLoading[row.id]"
-              >
-                释放
-              </el-button>
-              
-              <el-button 
-                v-else-if="row.status === 'occupied' && !row.is_current_user_in_queue"
                 type="warning" 
                 size="small" 
-                @click="joinQueue(row)"
+                @click="unifiedQueueAction(row)"
                 :loading="useLoading[row.id]"
               >
                 排队
               </el-button>
               
-              <el-button 
-                v-else-if="row.status === 'occupied' && row.is_current_user_in_queue"
-                type="info" 
-                size="small" 
-                @click="cancelQueue(row)"
-                :loading="useLoading[row.id]"
-              >
-                取消排队
-              </el-button>
+              <!-- 设备被占用时的按钮 -->
+              <template v-if="row.status === 'occupied'">
+                <!-- 高级用户专用按钮 -->
+                <template v-if="isAdvancedUser || isAdminUser || isAdmin">
+                  <el-button 
+                    type="danger" 
+                    size="small" 
+                    @click="preemptDevice(row)"
+                    :loading="useLoading[row.id]"
+                  >
+                    抢占
+                  </el-button>
+                  
+                  <el-button 
+                    v-if="!row.is_current_user_in_queue"
+                    type="success" 
+                    size="small" 
+                    @click="priorityQueue(row)"
+                    :loading="useLoading[row.id]"
+                  >
+                    优先排队
+                  </el-button>
+                </template>
+                
+                <!-- 普通用户排队控制 -->
+                <template v-if="!(isAdvancedUser || isAdminUser || isAdmin)">
+                  <el-button 
+                    v-if="!row.is_current_user_in_queue"
+                    type="warning" 
+                    size="small" 
+                    @click="joinQueue(row)"
+                    :loading="useLoading[row.id]"
+                  >
+                    排队
+                  </el-button>
+                  
+                  <el-button 
+                    v-else
+                    type="info" 
+                    size="small" 
+                    @click="cancelQueue(row)"
+                    :loading="useLoading[row.id]"
+                  >
+                    取消排队
+                  </el-button>
+                </template>
+                
+                <!-- 高级用户/管理员的取消排队按钮 -->
+                <el-button 
+                  v-if="row.is_current_user_in_queue && (isAdvancedUser || isAdminUser || isAdmin)"
+                  type="info" 
+                  size="small" 
+                  @click="cancelQueue(row)"
+                  :loading="useLoading[row.id]"
+                >
+                  取消排队
+                </el-button>
+                
+                <!-- 释放设备按钮 -->
+                <el-button 
+                  v-if="row.current_user === currentUser || isAdmin"
+                  type="danger" 
+                  size="small" 
+                  @click="releaseDevice(row)"
+                  :loading="releaseLoading[row.id]"
+                >
+                  释放
+                </el-button>
+              </template>
               
               <el-button 
                 type="info" 
@@ -413,34 +464,57 @@
 
           <!-- 操作按钮 -->
           <div class="detail-actions">
-                         <el-button 
-               v-if="usageDetail?.status === 'available'"
-               type="primary" 
-               @click="useDeviceFromDetail"
-               :loading="useLoading[deviceDetail.id]"
-             >
-               <el-icon><VideoPlay /></el-icon>
-               使用设备
-             </el-button>
-             
-             <el-button 
-               v-else-if="usageDetail?.status === 'occupied' && (usageDetail?.current_user === currentUser || isAdmin)"
-               type="danger" 
-               @click="releaseDeviceFromDetail"
-               :loading="releaseLoading[deviceDetail.id]"
-             >
-               <el-icon><VideoPause /></el-icon>
-               释放设备
-             </el-button>
-            
             <el-button 
-              v-else-if="usageDetail?.status === 'occupied'"
+              v-if="usageDetail?.status === 'available'"
+              type="primary" 
+              @click="useDeviceFromDetail"
+              :loading="useLoading[deviceDetail.id]"
+            >
+              <el-icon><VideoPlay /></el-icon>
+              使用设备
+            </el-button>
+            
+            <!-- 统一排队按钮 -->
+            <el-button 
               type="warning" 
-              @click="joinQueueFromDetail"
+              @click="unifiedQueueFromDetail"
               :loading="useLoading[deviceDetail.id]"
             >
               <el-icon><Clock /></el-icon>
-              加入排队
+              排队
+            </el-button>
+            
+            <!-- 高级用户专用按钮 -->
+            <template v-if="(isAdvancedUser || isAdminUser || isAdmin) && usageDetail?.status === 'occupied'">
+              <el-button 
+                type="danger" 
+                @click="preemptDeviceFromDetail"
+                :loading="useLoading[deviceDetail.id]"
+              >
+                <el-icon><VideoPlay /></el-icon>
+                抢占设备
+              </el-button>
+              
+              <el-button 
+                v-if="!isCurrentUserInQueue"
+                type="success" 
+                @click="priorityQueueFromDetail"
+                :loading="useLoading[deviceDetail.id]"
+              >
+                <el-icon><Clock /></el-icon>
+                优先排队
+              </el-button>
+            </template>
+            
+            <!-- 释放设备按钮 -->
+            <el-button 
+              v-if="usageDetail?.status === 'occupied' && (usageDetail?.current_user === currentUser || isAdmin)"
+              type="danger" 
+              @click="releaseDeviceFromDetail"
+              :loading="releaseLoading[deviceDetail.id]"
+            >
+              <el-icon><VideoPause /></el-icon>
+              释放设备
             </el-button>
           </div>
         </template>
@@ -471,6 +545,8 @@ const releaseLoading = reactive({})
 // 计算属性
 const currentUser = computed(() => userStore.userInfo?.username || '')
 const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
+const isAdvancedUser = computed(() => userStore.isAdvancedUser)
+const isAdminUser = computed(() => userStore.isAdminUser)
 
 // 检查用户是否在指定设备的排队中（用于列表）
 const isUserInDeviceQueue = (device) => {
@@ -586,6 +662,110 @@ const cancelQueue = async (device) => {
       } else {
         ElMessage.error('取消排队失败')
       }
+    }
+  } finally {
+    useLoading[device.id] = false
+  }
+}
+
+// 统一排队操作
+const unifiedQueueAction = async (device) => {
+  try {
+    useLoading[device.id] = true
+    const response = await deviceApi.unifiedQueue({
+      device_id: device.id,
+      user: currentUser.value,
+      expected_duration: 60,
+      purpose: '使用设备'
+    })
+    
+    if (response.data.action === 'use') {
+      ElMessage.success('设备使用成功')
+    } else {
+      ElMessage.success(`已加入排队，排队位置：${response.data.queue_position}`)
+    }
+    
+    await loadDevices()
+    
+    // 如果详情抽屉打开，刷新详情数据
+    if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
+      await viewDetails(device)
+    }
+  } catch (error) {
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('操作失败')
+    }
+  } finally {
+    useLoading[device.id] = false
+  }
+}
+
+// 抢占设备
+const preemptDevice = async (device) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要抢占此设备吗？原使用者将被加入排队列表首位。',
+      '确认抢占',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    useLoading[device.id] = true
+    const response = await deviceApi.preemptDevice({
+      device_id: device.id,
+      user: currentUser.value,
+      expected_duration: 60,
+      purpose: '抢占使用'
+    })
+    
+    ElMessage.success(response.data.message)
+    await loadDevices()
+    
+    // 如果详情抽屉打开，刷新详情数据
+    if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
+      await viewDetails(device)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      if (error.response?.data?.detail) {
+        ElMessage.error(error.response.data.detail)
+      } else {
+        ElMessage.error('抢占设备失败')
+      }
+    }
+  } finally {
+    useLoading[device.id] = false
+  }
+}
+
+// 优先排队
+const priorityQueue = async (device) => {
+  try {
+    useLoading[device.id] = true
+    const response = await deviceApi.priorityQueue({
+      device_id: device.id,
+      user: currentUser.value,
+      expected_duration: 60,
+      purpose: '优先排队'
+    })
+    
+    ElMessage.success(response.data.message)
+    await loadDevices()
+    
+    // 如果详情抽屉打开，刷新详情数据
+    if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
+      await viewDetails(device)
+    }
+  } catch (error) {
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('优先排队失败')
     }
   } finally {
     useLoading[device.id] = false
@@ -782,6 +962,27 @@ const joinQueueFromDetail = () => {
   if (deviceDetail.value) {
     joinQueue(deviceDetail.value)
     showDetailDrawer.value = false
+  }
+}
+
+const unifiedQueueFromDetail = () => {
+  if (deviceDetail.value) {
+    unifiedQueueAction(deviceDetail.value)
+    // 不关闭抽屉，让用户能看到结果
+  }
+}
+
+const preemptDeviceFromDetail = () => {
+  if (deviceDetail.value) {
+    preemptDevice(deviceDetail.value)
+    // 不关闭抽屉，让用户能看到结果
+  }
+}
+
+const priorityQueueFromDetail = () => {
+  if (deviceDetail.value) {
+    priorityQueue(deviceDetail.value)
+    // 不关闭抽屉，让用户能看到结果
   }
 }
 

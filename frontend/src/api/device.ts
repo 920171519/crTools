@@ -60,6 +60,27 @@ export interface DeviceCancelQueueRequest {
   device_id: number
 }
 
+export interface DevicePreemptRequest {
+  device_id: number
+  user: string
+  expected_duration?: number
+  purpose?: string
+}
+
+export interface DevicePriorityQueueRequest {
+  device_id: number
+  user: string
+  expected_duration?: number
+  purpose?: string
+}
+
+export interface DeviceUnifiedQueueRequest {
+  device_id: number
+  user: string
+  expected_duration?: number
+  purpose?: string
+}
+
 export interface BaseResponse<T = any> {
   code: number
   message: string
@@ -111,5 +132,20 @@ export const deviceApi = {
   // 获取设备使用情况
   getDeviceUsage: (deviceId: number) => {
     return api.get(`/devices/${deviceId}/usage`)
+  },
+
+  // 抢占设备
+  preemptDevice: (data: DevicePreemptRequest) => {
+    return api.post('/devices/preempt', data)
+  },
+
+  // 优先排队
+  priorityQueue: (data: DevicePriorityQueueRequest) => {
+    return api.post('/devices/priority-queue', data)
+  },
+
+  // 统一排队
+  unifiedQueue: (data: DeviceUnifiedQueueRequest) => {
+    return api.post('/devices/unified-queue', data)
   }
 } 
