@@ -178,13 +178,46 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
 
 @router.delete("/{device_id}", summary="删除设备")
 async def delete_device(device_id: int, current_user: User = Depends(AuthManager.get_current_user)):
-    """删除设备"""
+    """删除设备，只有设备归属人或管理员可以删除"""
     device = await Device.filter(id=device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
     
+    # 权限检查：只有设备归属人或管理员可以删除
+    if not (device.owner == current_user.username or current_user.is_superuser):
+        raise HTTPException(
+            status_code=403, 
+            detail="权限不足，只有设备归属人或管理员可以删除设备"
+        )
+    
+    # 检查设备是否正在使用中
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if usage_info and usage_info.status == DeviceStatusEnum.OCCUPIED:
+        raise HTTPException(
+            status_code=400, 
+            detail="设备正在使用中，无法删除"
+        )
+    
+    # 删除相关数据
+    if usage_info:
+        await usage_info.delete()
+    
+    # 删除设备内部信息
+    internal_info = await DeviceInternal.filter(device=device).first()
+    if internal_info:
+        await internal_info.delete()
+    
+    # 删除使用历史记录
+    await DeviceUsageHistory.filter(device=device).delete()
+    
+    # 删除设备
     await device.delete()
-    return {"message": "设备删除成功"}
+    
+    return BaseResponse(
+        code=200,
+        message="设备删除成功",
+        data=None
+    )
 
 
 @router.post("/use", summary="使用设备")

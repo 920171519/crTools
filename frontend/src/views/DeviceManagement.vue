@@ -504,6 +504,18 @@
               <el-icon><VideoPause /></el-icon>
               释放设备
             </el-button>
+            
+            <!-- 删除设备按钮 - 只有设备归属人或管理员才能看到 -->
+            <el-button 
+              v-if="deviceDetail.owner === currentUser || isAdmin"
+              type="danger" 
+              plain
+              @click="deleteDeviceFromDetail"
+              :loading="deleteLoading"
+            >
+              <el-icon><Delete /></el-icon>
+              删除设备
+            </el-button>
           </div>
         </template>
       </div>
@@ -516,7 +528,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled, 
-  VideoPlay, VideoPause 
+  VideoPlay, VideoPause, Delete 
 } from '@element-plus/icons-vue'
 import { deviceApi } from '../api/device'
 import { useUserStore } from '@/stores/user'
@@ -529,6 +541,7 @@ const loading = ref(false)
 const devices = ref([])
 const useLoading = reactive({})
 const releaseLoading = reactive({})
+const deleteLoading = ref(false)
 
 // 计算属性
 const currentUser = computed(() => userStore.userInfo?.username || '')
@@ -983,6 +996,42 @@ const cancelQueueFromDetail = async () => {
   if (deviceDetail.value) {
     await cancelQueue(deviceDetail.value)
     // 不关闭抽屉，因为cancelQueue已经会刷新详情数据
+  }
+}
+
+// 删除设备
+const deleteDeviceFromDetail = async () => {
+  if (!deviceDetail.value) return
+  
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除设备 "${deviceDetail.value.name}" 吗？此操作不可恢复！`,
+      '删除设备',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+        dangerouslyUseHTMLString: false
+      }
+    )
+    
+    deleteLoading.value = true
+    await deviceApi.deleteDevice(deviceDetail.value.id)
+    ElMessage.success('设备删除成功')
+    showDetailDrawer.value = false
+    await loadDevices()
+  } catch (error) {
+    if (error === 'cancel') {
+      return
+    }
+    
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('删除设备失败')
+    }
+  } finally {
+    deleteLoading.value = false
   }
 }
 
