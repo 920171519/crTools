@@ -49,7 +49,7 @@ async def get_devices(current_user: User = Depends(AuthManager.get_current_user)
         
         # 检查当前用户是否在排队中
         is_current_user_in_queue = False
-        if usage_info.queue_users and current_user.username in usage_info.queue_users:
+        if usage_info.queue_users and current_user.employee_id in usage_info.queue_users:
             is_current_user_in_queue = True
         
         result.append(DeviceListItem(
@@ -184,7 +184,7 @@ async def delete_device(device_id: int, current_user: User = Depends(AuthManager
         raise HTTPException(status_code=404, detail="设备不存在")
     
     # 权限检查：只有设备归属人或管理员可以删除
-    if not (device.owner == current_user.username or current_user.is_superuser):
+    if not (device.owner == current_user.employee_id or current_user.is_superuser):
         raise HTTPException(
             status_code=403, 
             detail="权限不足，只有设备归属人或管理员可以删除设备"
@@ -301,7 +301,7 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         raise HTTPException(status_code=404, detail="设备使用信息不存在")
     
     # 检查权限：只有当前使用者或者管理员才能释放设备
-    is_current_user = usage_info.current_user == current_user.username
+    is_current_user = usage_info.current_user == current_user.employee_id
     is_admin = current_user.is_superuser
     
     if not (is_current_user or is_admin):
@@ -380,11 +380,11 @@ async def cancel_queue(request: DeviceCancelQueueRequest, current_user: User = D
         raise HTTPException(status_code=404, detail="设备使用信息不存在")
     
     # 检查用户是否在排队中
-    if not usage_info.queue_users or current_user.username not in usage_info.queue_users:
+    if not usage_info.queue_users or current_user.employee_id not in usage_info.queue_users:
         raise HTTPException(status_code=400, detail="您当前不在排队中")
     
     # 从排队列表中移除用户
-    usage_info.queue_users.remove(current_user.username)
+    usage_info.queue_users.remove(current_user.employee_id)
     await usage_info.save()
     
     return BaseResponse(

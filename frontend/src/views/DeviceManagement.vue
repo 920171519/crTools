@@ -7,7 +7,7 @@
 
     <!-- 操作栏 -->
     <div class="action-bar">
-      <el-button type="primary" icon="Plus" @click="showAddDialog = true">
+      <el-button type="primary" icon="Plus" @click="openAddDialog">
         添加设备
       </el-button>
       <el-button icon="Refresh" @click="loadDevices">
@@ -36,16 +36,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="device_type" label="设备类型">
-          <template #default="{ row }">
-            <el-tag 
-              :type="getDeviceTypeTag(row.device_type)" 
-              size="small"
-            >
-              {{ getDeviceTypeText(row.device_type) }}
-            </el-tag>
-          </template>
-        </el-table-column>
+
         
         <el-table-column prop="current_user" label="当前使用人">
           <template #default="{ row }">
@@ -210,10 +201,6 @@
           <el-input v-model="addForm.required_vpn" placeholder="请输入所需VPN" />
         </el-form-item>
         
-        <el-form-item label="添加人" prop="creator">
-          <el-input v-model="addForm.creator" placeholder="请输入添加人" />
-        </el-form-item>
-        
         <el-form-item label="归属人" prop="owner">
           <el-input v-model="addForm.owner" placeholder="请输入归属人" />
         </el-form-item>
@@ -226,7 +213,7 @@
           </el-select>
         </el-form-item>
         
-        <el-form-item label="登录需VPN">
+        <el-form-item label="FTP连接需VPN">
           <el-switch v-model="addForm.need_vpn_login" />
         </el-form-item>
         
@@ -507,7 +494,7 @@
             
             <!-- 删除设备按钮 - 只有设备归属人或管理员才能看到 -->
             <el-button 
-              v-if="deviceDetail.owner === currentUser || isAdmin"
+              v-if="deviceDetail.owner === currentUserEmployeeId || deviceDetail.owner === currentUser || isAdmin"
               type="danger" 
               plain
               @click="deleteDeviceFromDetail"
@@ -545,6 +532,7 @@ const deleteLoading = ref(false)
 
 // 计算属性
 const currentUser = computed(() => userStore.userInfo?.username || '')
+const currentUserEmployeeId = computed(() => userStore.userInfo?.employee_id || '')
 const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
 const isAdvancedUser = computed(() => userStore.isAdvancedUser)
 const isAdminUser = computed(() => userStore.isAdminUser)
@@ -564,7 +552,6 @@ const addForm = reactive({
   name: '',
   ip: '',
   required_vpn: '',
-  creator: '',
   owner: '',
   device_type: 'test',
   need_vpn_login: false,
@@ -622,13 +609,13 @@ const loadDevices = async () => {
 
 const useDevice = (device) => {
   selectedDevice.value = device
-  useForm.user = currentUser.value
+  useForm.user = currentUserEmployeeId.value
   showUseDialog.value = true
 }
 
 const joinQueue = (device) => {
   selectedDevice.value = device
-  useForm.user = currentUser.value
+  useForm.user = currentUserEmployeeId.value
   showUseDialog.value = true
 }
 
@@ -675,7 +662,7 @@ const unifiedQueueAction = async (device) => {
     useLoading[device.id] = true
     const response = await deviceApi.unifiedQueue({
       device_id: device.id,
-      user: currentUser.value,
+      user: currentUserEmployeeId.value,
       expected_duration: 60,
       purpose: '使用设备'
     })
@@ -719,7 +706,7 @@ const preemptDevice = async (device) => {
     useLoading[device.id] = true
     const response = await deviceApi.preemptDevice({
       device_id: device.id,
-      user: currentUser.value,
+      user: currentUserEmployeeId.value,
       expected_duration: 60,
       purpose: '抢占使用'
     })
@@ -750,7 +737,7 @@ const priorityQueue = async (device) => {
     useLoading[device.id] = true
     const response = await deviceApi.priorityQueue({
       device_id: device.id,
-      user: currentUser.value,
+      user: currentUserEmployeeId.value,
       expected_duration: 60,
       purpose: '优先排队'
     })
@@ -788,7 +775,7 @@ const releaseDevice = async (device) => {
     releaseLoading[device.id] = true
     const response = await deviceApi.releaseDevice({
       device_id: device.id,
-      user: currentUser.value
+      user: currentUserEmployeeId.value
     })
     
     // 显示后端返回的消息
@@ -835,7 +822,13 @@ const handleAddDevice = async () => {
     await addFormRef.value.validate()
     addLoading.value = true
     
-    await deviceApi.createDevice(addForm)
+    // 创建设备数据，添加creator字段
+    const deviceData = {
+      ...addForm,
+      creator: userStore.userInfo?.employee_id || userStore.userInfo?.username || ''
+    }
+    
+    await deviceApi.createDevice(deviceData)
     ElMessage.success('设备添加成功')
     showAddDialog.value = false
     await loadDevices()
@@ -874,6 +867,18 @@ const handleUseDevice = async () => {
   } finally {
     submitLoading.value = false
   }
+}
+
+const openAddDialog = () => {
+  // 重置表单
+  if (addFormRef.value) {
+    addFormRef.value.resetFields()
+  }
+  
+  // 设置默认值
+  addForm.owner = userStore.userInfo?.employee_id || userStore.userInfo?.username || ''
+  
+  showAddDialog.value = true
 }
 
 const handleAddDialogClose = () => {
