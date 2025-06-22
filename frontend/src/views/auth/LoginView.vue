@@ -53,7 +53,7 @@
       </el-form>
       
       <div class="login-footer">
-        <p>默认管理员账号: A12345678 / admin123</p>
+        <p>默认管理员账号: a12345678 / admin123</p>
       </div>
     </div>
   </div>
@@ -108,7 +108,7 @@ const handleLogin = async () => {
     
     // 调用登录接口
     await userStore.loginAction({
-      employee_id: loginForm.employee_id.toUpperCase(),
+      employee_id: loginForm.employee_id,
       password: loginForm.password
     })
     

@@ -267,6 +267,71 @@
       </template>
     </el-dialog>
 
+    <!-- 编辑设备对话框 -->
+    <el-dialog 
+      v-model="showEditDialog" 
+      title="编辑设备信息" 
+      width="600px"
+      :before-close="handleEditDialogClose"
+    >
+      <el-form 
+        ref="editFormRef" 
+        :model="editForm" 
+        :rules="addFormRules" 
+        label-width="120px"
+      >
+        <el-form-item label="设备名称" prop="name">
+          <el-input v-model="editForm.name" placeholder="请输入设备名称" />
+        </el-form-item>
+        
+        <el-form-item label="设备IP" prop="ip">
+          <el-input :value="deviceDetail?.ip" disabled placeholder="IP地址不可修改" />
+        </el-form-item>
+        
+        <el-form-item label="所需VPN" prop="required_vpn">
+          <el-input v-model="editForm.required_vpn" placeholder="请输入所需VPN" />
+        </el-form-item>
+        
+        <el-form-item label="归属人" prop="owner">
+          <el-input v-model="editForm.owner" placeholder="请输入归属人" />
+        </el-form-item>
+        
+        <el-form-item label="设备类型" prop="device_type">
+          <el-select v-model="editForm.device_type" placeholder="请选择设备类型">
+            <el-option label="测试设备" value="test" />
+            <el-option label="开发设备" value="develop" />
+            <el-option label="CI设备" value="ci" />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item label="FTP连接需VPN">
+          <el-switch v-model="editForm.need_vpn_login" />
+        </el-form-item>
+        
+        <el-form-item label="支持排队">
+          <el-switch v-model="editForm.support_queue" />
+        </el-form-item>
+        
+        <el-form-item label="备注信息">
+          <el-input 
+            v-model="editForm.remarks" 
+            type="textarea" 
+            :rows="3"
+            placeholder="请输入备注信息"
+          />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="showEditDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleEditDevice" :loading="editLoading">
+            保存
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 使用设备对话框 -->
     <el-dialog 
       v-model="showUseDialog" 
@@ -332,6 +397,18 @@
             <h3 class="section-title">
               <el-icon><InfoFilled /></el-icon>
               基本信息
+              <!-- 编辑按钮 - 只有管理员可见 -->
+              <el-button 
+                v-if="isAdmin"
+                type="primary" 
+                size="small" 
+                plain
+                @click="openEditDialog"
+                class="edit-button"
+              >
+                <el-icon><Edit /></el-icon>
+                编辑
+              </el-button>
             </h3>
             <div class="info-grid">
               <div class="info-item">
@@ -591,7 +668,7 @@ import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled, 
-  VideoPlay, VideoPause, Delete 
+  VideoPlay, VideoPause, Delete, Edit 
 } from '@element-plus/icons-vue'
 import { deviceApi } from '../api/device'
 import { useUserStore } from '@/stores/user'
@@ -608,7 +685,7 @@ const deleteLoading = ref(false)
 
 // 计算属性
 const currentUser = computed(() => userStore.userInfo?.username || '')
-const currentUserEmployeeId = computed(() => userStore.userInfo?.employee_id || '')
+const currentUserEmployeeId = computed(() => userStore.userInfo?.employee_id?.toLowerCase() || '')
 const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
 const isAdvancedUser = computed(() => userStore.isAdvancedUser)
 const isAdminUser = computed(() => userStore.isAdminUser)
@@ -667,6 +744,21 @@ const showDetailDrawer = ref(false)
 const detailLoading = ref(false)
 const deviceDetail = ref(null)
 const usageDetail = ref(null)
+
+// 编辑设备相关
+const showEditDialog = ref(false)
+const editLoading = ref(false)
+const editFormRef = ref()
+const editForm = reactive({
+  name: '',
+  ip: '',
+  required_vpn: '',
+  owner: '',
+  device_type: '',
+  need_vpn_login: false,
+  support_queue: true,
+  remarks: ''
+})
 
 // 方法定义
 const loadDevices = async () => {
@@ -924,10 +1016,11 @@ const handleAddDevice = async () => {
     await addFormRef.value.validate()
     addLoading.value = true
     
-    // 创建设备数据，添加creator字段
+    // 创建设备数据，添加creator字段，确保工号为小写
     const deviceData = {
       ...addForm,
-      creator: userStore.userInfo?.employee_id || userStore.userInfo?.username || ''
+      owner: addForm.owner.toLowerCase(),
+      creator: userStore.userInfo?.employee_id?.toLowerCase() || userStore.userInfo?.username || ''
     }
     
     await deviceApi.createDevice(deviceData)
@@ -953,7 +1046,7 @@ const handleUseDevice = async () => {
     submitLoading.value = true
     const response = await deviceApi.useDevice({
       device_id: selectedDevice.value.id,
-      user: useForm.user,
+      user: useForm.user.toLowerCase(),
       expected_duration: useForm.expected_duration,
       purpose: useForm.purpose
     })
@@ -978,7 +1071,7 @@ const openAddDialog = () => {
   }
   
   // 设置默认值
-  addForm.owner = userStore.userInfo?.employee_id || userStore.userInfo?.username || ''
+  addForm.owner = userStore.userInfo?.employee_id?.toLowerCase() || userStore.userInfo?.username || ''
   
   showAddDialog.value = true
 }
@@ -986,6 +1079,59 @@ const openAddDialog = () => {
 const handleAddDialogClose = () => {
   addFormRef.value?.resetFields()
   showAddDialog.value = false
+}
+
+// 编辑设备相关方法
+const openEditDialog = () => {
+  if (!deviceDetail.value) return
+  
+  // 填充编辑表单
+  editForm.name = deviceDetail.value.name
+  editForm.ip = deviceDetail.value.ip
+  editForm.required_vpn = deviceDetail.value.required_vpn
+  editForm.owner = deviceDetail.value.owner
+  editForm.device_type = deviceDetail.value.device_type
+  editForm.need_vpn_login = deviceDetail.value.need_vpn_login
+  editForm.support_queue = deviceDetail.value.support_queue
+  editForm.remarks = deviceDetail.value.remarks || ''
+  
+  showEditDialog.value = true
+}
+
+const handleEditDevice = async () => {
+  if (!editFormRef.value || !deviceDetail.value) return
+  
+  try {
+    await editFormRef.value.validate()
+    editLoading.value = true
+    
+    // 确保owner字段为小写
+    const updateData = {
+      ...editForm,
+      owner: editForm.owner.toLowerCase()
+    }
+    
+    await deviceApi.updateDevice(deviceDetail.value.id, updateData)
+    ElMessage.success('设备信息更新成功')
+    showEditDialog.value = false
+    
+    // 刷新设备详情和列表
+    await viewDetails(deviceDetail.value)
+    await loadDevices()
+  } catch (error) {
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('更新设备信息失败')
+    }
+  } finally {
+    editLoading.value = false
+  }
+}
+
+const handleEditDialogClose = () => {
+  editFormRef.value?.resetFields()
+  showEditDialog.value = false
 }
 
 // 辅助方法
@@ -1239,6 +1385,7 @@ onMounted(() => {
 .section-title {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   margin: 0 0 16px 0;
   font-size: 16px;
@@ -1246,6 +1393,11 @@ onMounted(() => {
   color: #303133;
   border-bottom: 2px solid #409eff;
   padding-bottom: 8px;
+}
+
+.section-title .edit-button {
+  margin-left: auto;
+  margin-bottom: 4px;
 }
 
 .info-grid {

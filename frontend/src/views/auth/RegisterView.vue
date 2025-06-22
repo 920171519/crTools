@@ -143,7 +143,7 @@ const handleRegister = async () => {
     
     // 准备注册数据
     const userData = {
-      employee_id: registerForm.employee_id.toUpperCase(),
+      employee_id: registerForm.employee_id,
       username: registerForm.username,
       password: registerForm.password,
     }

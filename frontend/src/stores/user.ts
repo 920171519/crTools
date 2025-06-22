@@ -56,7 +56,10 @@ export const useUserStore = defineStore('user', () => {
   // 用户登录
   const loginAction = async (loginData: { employee_id: string; password: string }) => {
     try {
-      const response = await authApi.login(loginData)
+      const response = await authApi.login({
+        employee_id: loginData.employee_id.toLowerCase(),
+        password: loginData.password
+      })
       const { access_token, user } = response.data
       
       // 保存token和用户信息
@@ -89,7 +92,11 @@ export const useUserStore = defineStore('user', () => {
     password: string
   }) => {
     try {
-      const response = await authApi.register(userData)
+      const response = await authApi.register({
+        employee_id: userData.employee_id.toLowerCase(),
+        username: userData.username,
+        password: userData.password
+      })
       return response
     } catch (error) {
       console.error('注册失败:', error)
