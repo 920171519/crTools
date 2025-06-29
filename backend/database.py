@@ -25,15 +25,15 @@ async def init_database():
     """初始化数据库"""
     from models.admin import User, Role, Permission, UserRole, RolePermission, Menu
     # 创建超级管理员用户（如果不存在）
-    admin_user = await User.filter(employee_id="A12345678").first()
+    admin_user = await User.filter(employee_id="a12345678").first()
     if not admin_user:
         admin_user = await User.create(
-            employee_id = "A12345678",
+            employee_id = "a12345678",
             username = "超级管理员",
             hashed_password = AuthManager.get_password_hash("admin123"),
             is_superuser = True,
         )
-        print("✅ 创建默认超级管理员账号: A12345678 / admin123")
+        print("✅ 创建默认超级管理员账号: a12345678 / admin123")
     
     # 创建默认角色
     roles_data = [

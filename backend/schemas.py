@@ -37,7 +37,7 @@ class UserRegister(BaseModel):
         pattern = r'^[A-Za-z]\d{8}$'
         if not re.match(pattern, v):
             raise ValueError('工号格式错误，应为一个字母加8个数字')
-        return v.upper()  # 转换为大写
+        return v.lower()
 
 
 class UserLogin(BaseModel):
@@ -51,7 +51,7 @@ class UserLogin(BaseModel):
         pattern = r'^[A-Za-z]\d{8}$'
         if not re.match(pattern, v):
             raise ValueError('工号格式错误')
-        return v.upper()
+        return v.lower()
 
 
 class UserResponse(BaseModel):

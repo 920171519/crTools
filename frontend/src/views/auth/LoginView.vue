@@ -16,7 +16,7 @@
         <el-form-item prop="employee_id">
           <el-input 
             v-model="loginForm.employee_id"
-            placeholder="请输入工号(如: A12345678)"
+            placeholder="请输入工号(如: a12345678)"
             prefix-icon="User"
             clearable
           />

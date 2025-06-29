@@ -31,7 +31,6 @@ async def get_devices(current_user: User = Depends(AuthManager.get_current_user)
     devices = await Device.all().prefetch_related("usage_info")
     result = []
     for device in devices:
-        print(device)
         usage_info = await device.usage_info # 这里没有await，因为预取已经将关联对象加载到内存
         if not usage_info:
             # 创建默认使用情况

@@ -76,13 +76,12 @@ async def login(request: Request, login_data: UserLogin):
     # 获取客户端信息
     ip_address = LoginManager.get_client_ip(request)
     user_agent = request.headers.get("user-agent", "")
-    
+
     # 认证用户
     user = await AuthManager.authenticate_user(
         login_data.employee_id, 
         login_data.password
     )
-    
     if not user:
         # 记录失败的登录尝试
         failed_user = await User.filter(employee_id=login_data.employee_id).first()

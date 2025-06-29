@@ -35,7 +35,6 @@ class AuthManager:
         """生成密码哈希"""
         password = password.encode('utf-8')
         hashPassword = bcrypt.hashpw(password, bcrypt.gensalt())
-        print("TESTLN hashPassword: ", hashPassword, " type:", type(hashPassword))
         return hashPassword.decode('utf-8') # 这里虽然是返回给数据库存储, 但是它貌似只能存str, 不能存bytes, 因此先decode
 
     @staticmethod
