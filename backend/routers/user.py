@@ -1,11 +1,11 @@
 """
 用户管理相关的API路由
-包含用户列表查询、用户信息更新等功能
+包含用户列表查询、用户角色更新等功能
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
 from tortoise.expressions import Q
-from models.admin import User, Role, UserRole, UserTypeEnum
+from models.admin import User, Role, UserRole
 from schemas import BaseResponse, PaginationResponse, UserResponse
 from auth import AuthManager, require_active_user, PermissionChecker, Permissions
 
@@ -23,14 +23,14 @@ async def get_users(
     page_size: int = Query(10, ge=1, le=100, description="每页数量"),
     employee_id: Optional[str] = Query(None, description="工号搜索"),
     username: Optional[str] = Query(None, description="姓名搜索"),
-    user_type: Optional[str] = Query(None, description="用户类型搜索"),
+    role_name: Optional[str] = Query(None, description="角色搜索"),
     current_user: User = require_active_user,
     _: bool = require_user_read
 ):
     """
     获取用户列表
     - 支持分页
-    - 支持按工号、姓名、用户类型搜索
+    - 支持按工号、姓名、角色搜索
     - 需要user:read权限
     """
     # 构建查询条件
@@ -40,15 +40,15 @@ async def get_users(
         query = query.filter(employee_id__icontains=employee_id)
     if username:
         query = query.filter(username__icontains=username)
-    if user_type:
-        query = query.filter(user_type=user_type)
+    if role_name:
+        query = query.filter(user_roles__role__name__icontains=role_name)
     
     # 获取总数
     total = await query.count()
     
     # 分页查询
     offset = (page - 1) * page_size
-    users = await query.offset(offset).limit(page_size)
+    users = await query.offset(offset).limit(page_size).distinct()
     
     # 转换为响应格式
     user_list = []
@@ -57,16 +57,19 @@ async def get_users(
         user_roles = await UserRole.filter(user=user).prefetch_related('role')
         roles = [ur.role.name for ur in user_roles]
         
+        # 获取主要角色
+        primary_role = await user.get_primary_role()
+        
         user_data = {
             "id": user.id,
             "employee_id": user.employee_id,
             "username": user.username,
-            "user_type": user.user_type,
+            "primary_role": primary_role.name if primary_role else "普通用户",
             "is_superuser": user.is_superuser,
             "roles": roles
         }
         user_list.append(user_data)
-    
+    print(user_list)
     return BaseResponse(
         code=200,
         message="获取用户列表成功",
@@ -79,31 +82,32 @@ async def get_users(
     )
 
 
-@router.put("/{user_id}/type", response_model=BaseResponse, summary="更新用户类型")
-async def update_user_type(
+@router.put("/{user_id}/role", response_model=BaseResponse, summary="更新用户主要角色")
+async def update_user_role(
     user_id: int,
-    new_type: str,
+    new_role_name: str,
     current_user: User = require_active_user,
     _: bool = require_user_update
 ):
     """
-    更新用户类型
-    - 只有管理员可以修改普通用户和高级用户的类型
-    - 不能修改超级用户的类型
-    - 不能将用户设置为管理员类型（只能通过is_superuser字段）
+    更新用户主要角色
+    - 只有管理员可以修改用户角色
+    - 不能修改超级用户的角色
+    - 可选角色：普通用户、高级用户、管理员
     """
-    # 验证新类型是否有效
-    if new_type not in [UserTypeEnum.NORMAL, UserTypeEnum.ADVANCED]:
+    # 验证新角色是否有效
+    valid_roles = ["普通用户", "高级用户", "管理员"]
+    if new_role_name not in valid_roles:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="无效的用户类型，只能设置为普通用户或高级用户"
+            detail=f"无效的角色类型，只能设置为：{', '.join(valid_roles)}"
         )
     
-    # 检查权限：只有管理员可以修改
-    if not (current_user.is_superuser or current_user.user_type == UserTypeEnum.ADMIN):
+    # 检查权限：只有管理员或超级用户可以修改
+    if not (current_user.is_superuser or await current_user.has_role("管理员")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="只有管理员可以修改用户类型"
+            detail="只有管理员可以修改用户角色"
         )
     
     # 获取目标用户
@@ -114,32 +118,61 @@ async def update_user_type(
             detail="用户不存在"
         )
     
-    # 不能修改超级用户的类型
+    # 不能修改超级用户的角色
     if target_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="不能修改超级用户的类型"
+            detail="不能修改超级用户的角色"
         )
     
-    # 不能修改自己的类型
+    # 不能修改自己的角色
     if target_user.id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="不能修改自己的用户类型"
+            detail="不能修改自己的角色"
         )
     
-    # 更新用户类型
-    old_type = target_user.user_type
-    target_user.user_type = new_type
-    await target_user.save()
+    # 获取新角色
+    new_role = await Role.filter(name=new_role_name).first()
+    if not new_role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="指定的角色不存在"
+        )
+    
+    # 获取当前主要角色
+    old_role = await target_user.get_primary_role()
+    old_role_name = old_role.name if old_role else "普通用户"
+    
+    # 安全地移除所有非超级管理员角色
+    try:
+        # 获取需要删除的角色名称列表
+        roles_to_remove = ["普通用户", "高级用户", "管理员"]
+        
+        # 查询出用户的当前角色关联
+        user_roles = await UserRole.filter(user=target_user).prefetch_related('role')
+        
+        # 删除指定的角色关联
+        for user_role in user_roles:
+            if user_role.role.name in roles_to_remove:
+                await user_role.delete()
+        
+        # 分配新角色
+        await UserRole.create(user=target_user, role=new_role)
+    except Exception as e:
+        print(f"更新用户角色时发生错误: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="更新用户角色失败，请稍后重试"
+        )
     
     return BaseResponse(
         code=200,
-        message=f"用户类型已从{old_type}更新为{new_type}",
+        message=f"用户角色已从{old_role_name}更新为{new_role_name}",
         data={
             "user_id": user_id,
-            "old_type": old_type,
-            "new_type": new_type
+            "old_role": old_role_name,
+            "new_role": new_role_name
         }
     )
 
@@ -164,6 +197,9 @@ async def get_user_detail(
     user_roles = await UserRole.filter(user=user).prefetch_related('role')
     roles = [ur.role.name for ur in user_roles]
     
+    # 获取主要角色
+    primary_role = await user.get_primary_role()
+    
     return BaseResponse(
         code=200,
         message="获取用户信息成功",
@@ -171,7 +207,7 @@ async def get_user_detail(
             "id": user.id,
             "employee_id": user.employee_id,
             "username": user.username,
-            "user_type": user.user_type,
+            "primary_role": primary_role.name if primary_role else "普通用户",
             "is_superuser": user.is_superuser,
             "roles": roles
         }
@@ -221,4 +257,30 @@ async def delete_user(
         code=200,
         message="用户删除成功",
         data={"deleted_user_id": user_id}
+    )
+
+
+@router.get("/roles/list", response_model=BaseResponse, summary="获取可用角色列表")
+async def get_available_roles(
+    current_user: User = require_active_user,
+    _: bool = require_user_read
+):
+    """
+    获取可用角色列表
+    """
+    roles = await Role.filter(name__in=["普通用户", "高级用户", "管理员"]).order_by('-priority')
+    
+    role_list = []
+    for role in roles:
+        role_list.append({
+            "id": role.id,
+            "name": role.name,
+            "description": role.description,
+            "priority": role.priority
+        })
+    
+    return BaseResponse(
+        code=200,
+        message="获取角色列表成功",
+        data={"roles": role_list}
     ) 

@@ -125,7 +125,7 @@ async def login(request: Request, login_data: UserLogin):
                 "employee_id": user.employee_id,
                 "username": user.username,
                 "is_superuser": user.is_superuser,
-                "user_type": user.user_type
+                "primary_role": (await user.get_primary_role()).name if await user.get_primary_role() else "普通用户"
             }
         }
     )
@@ -165,7 +165,7 @@ async def get_current_user_info(current_user: User = require_active_user):
             "employee_id": current_user.employee_id,
             "username": current_user.username,
             "is_superuser": current_user.is_superuser,
-            "user_type": current_user.user_type,
+            "primary_role": (await current_user.get_primary_role()).name if await current_user.get_primary_role() else "普通用户",
             "roles": roles,
         }
     )

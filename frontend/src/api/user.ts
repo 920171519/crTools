@@ -9,15 +9,15 @@ export const getUserList = (params: {
   page_size?: number
   employee_id?: string
   username?: string
-  user_type?: string
+  role_name?: string
 }) => {
   return api.get('/users/', { params })
 }
 
-// 更新用户类型
-export const updateUserType = (userId: number, newType: string) => {
-  return api.put(`/users/${userId}/type`, null, {
-    params: { new_type: newType }
+// 更新用户角色
+export const updateUserRole = (userId: number, newRole: string) => {
+  return api.put(`/users/${userId}/role`, null, {
+    params: { new_role_name: newRole }
   })
 }
 
@@ -31,15 +31,31 @@ export const deleteUser = (userId: number) => {
   return api.delete(`/users/${userId}`)
 }
 
-// 用户类型选项
-export const USER_TYPE_OPTIONS = [
-  { label: '普通用户', value: 'normal' },
-  { label: '高级用户', value: 'advanced' },
-  { label: '管理员', value: 'admin' }
+// 获取可用角色列表
+export const getRoleList = () => {
+  return api.get('/users/roles/list')
+}
+
+// 角色类型选项
+export const ROLE_OPTIONS = [
+  { label: '普通用户', value: '普通用户' },
+  { label: '高级用户', value: '高级用户' },
+  { label: '管理员', value: '管理员' }
 ]
 
-// 获取用户类型标签
-export const getUserTypeLabel = (type: string) => {
-  const option = USER_TYPE_OPTIONS.find(item => item.value === type)
-  return option ? option.label : type
+// 获取角色标签
+export const getRoleLabel = (role: string) => {
+  const option = ROLE_OPTIONS.find(opt => opt.value === role)
+  return option ? option.label : role
+}
+
+// 获取角色标签类型（用于el-tag的type属性）
+export const getRoleTagType = (role: string) => {
+  const typeMap: Record<string, string> = {
+    '普通用户': '',
+    '高级用户': 'warning',
+    '管理员': 'danger',
+    '超级管理员': 'success'
+  }
+  return typeMap[role] || ''
 } 

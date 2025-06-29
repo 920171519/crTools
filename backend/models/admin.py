@@ -9,13 +9,6 @@ from datetime import datetime
 from enum import Enum
 
 
-class UserTypeEnum(str, Enum):
-    """用户类型枚举"""
-    NORMAL = "normal"      # 普通用户
-    ADVANCED = "advanced"  # 高级用户
-    ADMIN = "admin"        # 管理员
-
-
 class User(Model):
     """用户模型 - 基于工号的认证系统"""
     
@@ -24,7 +17,7 @@ class User(Model):
     username = fields.CharField(max_length=50, description="姓名")
     hashed_password = fields.CharField(max_length=100, description="加密后的密码")
     is_superuser = fields.BooleanField(default=False, description="是否为超级用户")
-    user_type = fields.CharEnumField(UserTypeEnum, default=UserTypeEnum.NORMAL, description="用户类型")
+    # 移除user_type字段，完全使用角色系统
 
     
     class Meta:
@@ -34,6 +27,28 @@ class User(Model):
     def __str__(self):
         return f"{self.employee_id}({self.username})"
     
+    async def get_roles(self):
+        """获取用户角色列表"""
+        user_roles = await UserRole.filter(user=self).prefetch_related('role')
+        return [ur.role for ur in user_roles]
+    
+    async def has_role(self, role_name: str) -> bool:
+        """检查用户是否有指定角色"""
+        return await UserRole.filter(user=self, role__name=role_name).exists()
+    
+    async def get_primary_role(self):
+        """获取用户主要角色（优先级：超级管理员 > 管理员 > 高级用户 > 普通用户）"""
+        if self.is_superuser:
+            return await Role.filter(name="超级管理员").first()
+        
+        # 按优先级顺序检查角色
+        role_priority = ["管理员", "高级用户", "普通用户"]
+        for role_name in role_priority:
+            if await self.has_role(role_name):
+                return await Role.filter(name=role_name).first()
+        
+        # 如果没有任何角色，返回普通用户角色
+        return await Role.filter(name="普通用户").first()
 
     
     @classmethod
@@ -49,6 +64,8 @@ class Role(Model):
     id = fields.IntField(pk=True, description="角色ID")
     name = fields.CharField(max_length=50, unique=True, description="角色名称")
     description = fields.CharField(max_length=200, null=True, description="角色描述")
+    # 角色优先级，数值越大优先级越高
+    priority = fields.IntField(default=0, description="角色优先级")
     
     # 关联用户
     users: fields.ReverseRelation["UserRole"]

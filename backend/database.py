@@ -37,9 +37,10 @@ async def init_database():
     
     # 创建默认角色
     roles_data = [
-        {"name": "超级管理员", "description": "系统超级管理员，拥有所有权限"},
-        {"name": "管理员", "description": "系统管理员，拥有大部分权限"},
-        {"name": "普通用户", "description": "普通用户，拥有基本权限"}
+        {"name": "超级管理员", "description": "系统超级管理员，拥有所有权限", "priority": 100},
+        {"name": "管理员", "description": "系统管理员，拥有大部分权限", "priority": 80},
+        {"name": "高级用户", "description": "高级用户，拥有较多权限", "priority": 60},
+        {"name": "普通用户", "description": "普通用户，拥有基本权限", "priority": 40}
     ]
     
     for role_data in roles_data:
@@ -203,23 +204,77 @@ async def init_database():
             await UserRole.create(user=admin_user, role=super_admin_role)
             print("✅ 为超级管理员分配角色")
     
-    # 为普通用户角色分配基本权限（设备查看和使用）
+    # 为各角色分配权限
+    
+    # 普通用户权限
     normal_user_role = await Role.filter(name="普通用户").first()
     if normal_user_role:
-        # 普通用户需要的权限
-        basic_permissions = [
+        normal_permissions = [
             "device:read",  # 查看设备
             "device:use",   # 使用设备
         ]
         
-        for perm_code in basic_permissions:
+        for perm_code in normal_permissions:
             permission = await Permission.filter(code=perm_code).first()
             if permission:
-                # 检查权限是否已分配
                 role_perm = await RolePermission.filter(role=normal_user_role, permission=permission).first()
                 if not role_perm:
                     await RolePermission.create(role=normal_user_role, permission=permission)
                     print(f"✅ 为普通用户角色分配权限: {permission.name}")
+    
+    # 高级用户权限（继承普通用户权限，增加设备管理权限）
+    advanced_user_role = await Role.filter(name="高级用户").first()
+    if advanced_user_role:
+        advanced_permissions = [
+            "device:read", "device:use",  # 基础权限
+            "device:create", "device:update", "device:delete",  # 设备管理权限
+        ]
+        
+        for perm_code in advanced_permissions:
+            permission = await Permission.filter(code=perm_code).first()
+            if permission:
+                role_perm = await RolePermission.filter(role=advanced_user_role, permission=permission).first()
+                if not role_perm:
+                    await RolePermission.create(role=advanced_user_role, permission=permission)
+                    print(f"✅ 为高级用户角色分配权限: {permission.name}")
+    
+    # 管理员权限（除了超级管理员功能外的所有权限）
+    admin_role = await Role.filter(name="管理员").first()
+    if admin_role:
+        admin_permissions = [
+            # 用户管理
+            "user:read", "user:create", "user:update", "user:delete",
+            # 角色管理
+            "role:read", "role:create", "role:update", "role:delete",
+            # 权限管理
+            "permission:read",
+            # 菜单管理
+            "menu:read", "menu:create", "menu:update", "menu:delete",
+            # 系统管理
+            "system:config", "system:log",
+            # 设备管理
+            "device:read", "device:create", "device:update", "device:delete", "device:use",
+        ]
+        
+        for perm_code in admin_permissions:
+            permission = await Permission.filter(code=perm_code).first()
+            if permission:
+                role_perm = await RolePermission.filter(role=admin_role, permission=permission).first()
+                if not role_perm:
+                    await RolePermission.create(role=admin_role, permission=permission)
+                    print(f"✅ 为管理员角色分配权限: {permission.name}")
+    
+    # 超级管理员权限（所有权限）
+    super_admin_role = await Role.filter(name="超级管理员").first()
+    if super_admin_role:
+        # 获取所有权限
+        all_permissions = await Permission.all()
+        
+        for permission in all_permissions:
+            role_perm = await RolePermission.filter(role=super_admin_role, permission=permission).first()
+            if not role_perm:
+                await RolePermission.create(role=super_admin_role, permission=permission)
+                print(f"✅ 为超级管理员角色分配权限: {permission.name}")
     
     print("✅ 数据库初始化完成")
 
