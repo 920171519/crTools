@@ -124,7 +124,8 @@ async def login(request: Request, login_data: UserLogin):
                 "id": user.id,
                 "employee_id": user.employee_id,
                 "username": user.username,
-                "is_superuser": user.is_superuser
+                "is_superuser": user.is_superuser,
+                "user_type": user.user_type
             }
         }
     )
@@ -164,6 +165,7 @@ async def get_current_user_info(current_user: User = require_active_user):
             "employee_id": current_user.employee_id,
             "username": current_user.username,
             "is_superuser": current_user.is_superuser,
+            "user_type": current_user.user_type,
             "roles": roles,
         }
     )

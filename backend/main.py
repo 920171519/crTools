@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_database, setup_database
-from routers import auth, device
+from routers import auth, device, user
 import uvicorn
 
 
@@ -81,6 +81,7 @@ async def general_exception_handler(request, exc):
 # 注册路由
 app.include_router(auth.router, prefix="/api")
 app.include_router(device.router)
+app.include_router(user.router)
 
 
 @app.get("/", summary="健康检查")
