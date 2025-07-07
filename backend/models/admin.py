@@ -17,7 +17,8 @@ class User(Model):
     username = fields.CharField(max_length=50, description="姓名")
     hashed_password = fields.CharField(max_length=100, description="加密后的密码")
     is_superuser = fields.BooleanField(default=False, description="是否为超级用户")
-    # 移除user_type字段，完全使用角色系统
+    # 直接关联单个角色，简化设计
+    role = fields.ForeignKeyField("models.Role", related_name="users", null=True, description="用户角色")
 
     
     class Meta:
@@ -27,28 +28,23 @@ class User(Model):
     def __str__(self):
         return f"{self.employee_id}({self.username})"
     
-    async def get_roles(self):
-        """获取用户角色列表"""
-        user_roles = await UserRole.filter(user=self).prefetch_related('role')
-        return [ur.role for ur in user_roles]
-    
     async def has_role(self, role_name: str) -> bool:
         """检查用户是否有指定角色"""
-        return await UserRole.filter(user=self, role__name=role_name).exists()
-    
-    async def get_primary_role(self):
-        """获取用户主要角色（优先级：超级管理员 > 管理员 > 高级用户 > 普通用户）"""
         if self.is_superuser:
-            return await Role.filter(name="超级管理员").first()
-        
-        # 按优先级顺序检查角色
-        role_priority = ["管理员", "高级用户", "普通用户"]
-        for role_name in role_priority:
-            if await self.has_role(role_name):
-                return await Role.filter(name=role_name).first()
-        
-        # 如果没有任何角色，返回普通用户角色
-        return await Role.filter(name="普通用户").first()
+            return True  # 超级用户拥有所有权限
+        if not self.role:
+            return False
+        await self.fetch_related('role')
+        return self.role.name == role_name
+    
+    async def get_role_name(self) -> str:
+        """获取用户角色名称"""
+        if self.is_superuser:
+            return "超级管理员"
+        if not self.role:
+            return "普通用户"
+        await self.fetch_related('role')
+        return self.role.name
 
     
     @classmethod
@@ -67,8 +63,8 @@ class Role(Model):
     # 角色优先级，数值越大优先级越高
     priority = fields.IntField(default=0, description="角色优先级")
     
-    # 关联用户
-    users: fields.ReverseRelation["UserRole"]
+    # 关联用户（反向关系由User.role定义）
+    users: fields.ReverseRelation["User"]
     # 关联权限
     permissions: fields.ReverseRelation["RolePermission"]
     
@@ -101,17 +97,7 @@ class Permission(Model):
         return f"{self.name}({self.code})"
 
 
-class UserRole(Model):
-    """用户角色关联表"""
-    
-    id = fields.IntField(pk=True, description="关联ID")
-    user = fields.ForeignKeyField("models.User", related_name="user_roles", description="用户")
-    role = fields.ForeignKeyField("models.Role", related_name="role_users", description="角色")
-    
-    class Meta:
-        table = "user_roles"
-        table_description = "用户角色关联表"
-        unique_together = ("user", "role")
+# UserRole表已移除 - 改为User直接关联Role的一对多关系
 
 
 class RolePermission(Model):

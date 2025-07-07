@@ -23,7 +23,7 @@ TORTOISE_ORM = {
 
 async def init_database():
     """初始化数据库"""
-    from models.admin import User, Role, Permission, UserRole, RolePermission, Menu
+    from models.admin import User, Role, Permission, RolePermission, Menu
     # 创建超级管理员用户（如果不存在）
     admin_user = await User.filter(employee_id="a12345678").first()
     if not admin_user:
@@ -198,14 +198,15 @@ async def init_database():
     
     # 为超级管理员分配超级管理员角色
     super_admin_role = await Role.filter(name="超级管理员").first()
-    if super_admin_role and admin_user:
-        user_role = await UserRole.filter(user=admin_user, role=super_admin_role).first()
-        if not user_role:
-            await UserRole.create(user=admin_user, role=super_admin_role)
-            print("✅ 为超级管理员分配角色")
+    if super_admin_role and admin_user and not admin_user.role:
+        admin_user.role = super_admin_role
+        await admin_user.save()
+        print("✅ 为超级管理员分配角色")
     
     # 为各角色分配权限
     
+    # 为各角色分配权限
+
     # 普通用户权限
     normal_user_role = await Role.filter(name="普通用户").first()
     if normal_user_role:
@@ -213,7 +214,7 @@ async def init_database():
             "device:read",  # 查看设备
             "device:use",   # 使用设备
         ]
-        
+
         for perm_code in normal_permissions:
             permission = await Permission.filter(code=perm_code).first()
             if permission:
@@ -221,7 +222,7 @@ async def init_database():
                 if not role_perm:
                     await RolePermission.create(role=normal_user_role, permission=permission)
                     print(f"✅ 为普通用户角色分配权限: {permission.name}")
-    
+
     # 高级用户权限（继承普通用户权限，增加设备管理权限）
     advanced_user_role = await Role.filter(name="高级用户").first()
     if advanced_user_role:
@@ -229,7 +230,7 @@ async def init_database():
             "device:read", "device:use",  # 基础权限
             "device:create", "device:update", "device:delete",  # 设备管理权限
         ]
-        
+
         for perm_code in advanced_permissions:
             permission = await Permission.filter(code=perm_code).first()
             if permission:
@@ -237,7 +238,7 @@ async def init_database():
                 if not role_perm:
                     await RolePermission.create(role=advanced_user_role, permission=permission)
                     print(f"✅ 为高级用户角色分配权限: {permission.name}")
-    
+
     # 管理员权限（除了超级管理员功能外的所有权限）
     admin_role = await Role.filter(name="管理员").first()
     if admin_role:
@@ -255,7 +256,7 @@ async def init_database():
             # 设备管理
             "device:read", "device:create", "device:update", "device:delete", "device:use",
         ]
-        
+
         for perm_code in admin_permissions:
             permission = await Permission.filter(code=perm_code).first()
             if permission:
@@ -263,13 +264,13 @@ async def init_database():
                 if not role_perm:
                     await RolePermission.create(role=admin_role, permission=permission)
                     print(f"✅ 为管理员角色分配权限: {permission.name}")
-    
+
     # 超级管理员权限（所有权限）
     super_admin_role = await Role.filter(name="超级管理员").first()
     if super_admin_role:
         # 获取所有权限
         all_permissions = await Permission.all()
-        
+
         for permission in all_permissions:
             role_perm = await RolePermission.filter(role=super_admin_role, permission=permission).first()
             if not role_perm:

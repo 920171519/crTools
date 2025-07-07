@@ -7,7 +7,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from models.admin import UserRole, RolePermission, Permission
+from models.admin import RolePermission, Permission
 from models.admin import User, LoginLog
 from schemas import TokenData
 from config import settings
@@ -137,12 +137,17 @@ class PermissionChecker:
     
     async def _get_user_permissions(self, user_id: int) -> list:
         """获取用户权限列表"""
-        
+
+        # 获取用户信息
+        user = await User.filter(id=user_id).prefetch_related('role').first()
+        if not user or not user.role:
+            return []
+
         # 通过用户角色获取权限
         permissions = await Permission.filter(
-            permission_roles__role__role_users__user_id=user_id
+            permission_roles__role_id=user.role.id
         ).values_list('code', flat=True)
-        
+
         return list(permissions)
 
 

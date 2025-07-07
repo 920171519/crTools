@@ -11,8 +11,7 @@ export interface UserInfo {
   employee_id: string
   username: string
   is_superuser: boolean
-  user_type: string
-  roles: string[]
+  role: string
 }
 
 // 菜单项类型定义
@@ -38,19 +37,19 @@ export const useUserStore = defineStore('user', () => {
   const isLoggedIn = computed(() => !!token.value && !!userInfo.value)
   const isSuperUser = computed(() => userInfo.value?.is_superuser || false)
   const isAdvancedUser = computed(() => {
-    const userType = userInfo.value?.user_type
+    const role = userInfo.value?.role || ''
     const isSuperUser = userInfo.value?.is_superuser
-    // 如果是超级用户但没有user_type，默认为admin
-    if (isSuperUser && !userType) return true
-    return userType === 'advanced'
+    // 如果是超级用户，默认具有高级权限
+    if (isSuperUser) return true
+    return role === '高级用户' || role === '管理员'
   })
-  
+
   const isAdminUser = computed(() => {
-    const userType = userInfo.value?.user_type
+    const role = userInfo.value?.role || ''
     const isSuperUser = userInfo.value?.is_superuser
-    // 如果是超级用户但没有user_type，默认为admin
-    if (isSuperUser && !userType) return true
-    return userType === 'admin'
+    // 如果是超级用户，默认具有管理员权限
+    if (isSuperUser) return true
+    return role === '管理员'
   })
   
   // 用户登录

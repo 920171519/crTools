@@ -60,8 +60,8 @@ class UserResponse(BaseModel):
     employee_id: str
     username: str
     is_superuser: bool
-    user_type: str = "normal"
-    
+    role: Optional[str] = None
+
     class Config:
         from_attributes = True
 
@@ -178,7 +178,7 @@ class PageQuery(BaseModel):
 class UserRoleAssign(BaseModel):
     """用户角色分配请求模式"""
     user_id: int = Field(..., description="用户ID")
-    role_ids: List[int] = Field(..., description="角色ID列表")
+    role_id: int = Field(..., description="角色ID")
 
 
 class RolePermissionAssign(BaseModel):

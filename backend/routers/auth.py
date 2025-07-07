@@ -6,7 +6,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from tortoise import models
-from models.admin import User, Role, UserRole
+from models.admin import User, Role
 from models.admin import Permission, RolePermission
 from models.admin import Menu, Permission
 from tortoise.expressions import Q
@@ -53,10 +53,11 @@ async def register(user_data: UserRegister):
         is_superuser=False  # 新用户默认不是超级用户
     )
     
-    # 为新用户分配默认角色（如果存在）
+    # 为新用户分配默认角色
     default_role = await Role.filter(name="普通用户").first()
     if default_role:
-        await UserRole.create(user=user, role=default_role)
+        user.role = default_role
+        await user.save()
     
     return BaseResponse(
         code=200,
@@ -113,6 +114,9 @@ async def login(request: Request, login_data: UserLogin):
         success=True
     )
     
+    # 获取用户角色
+    role_name = await user.get_role_name()
+    
     return BaseResponse(
         code=200,
         message="登录成功",
@@ -125,7 +129,7 @@ async def login(request: Request, login_data: UserLogin):
                 "employee_id": user.employee_id,
                 "username": user.username,
                 "is_superuser": user.is_superuser,
-                "primary_role": (await user.get_primary_role()).name if await user.get_primary_role() else "普通用户"
+                "role": role_name
             }
         }
     )
@@ -154,8 +158,7 @@ async def get_current_user_info(current_user: User = require_active_user):
     获取当前登录用户的详细信息
     """
     # 获取用户角色
-    user_roles = await UserRole.filter(user=current_user).prefetch_related('role')
-    roles = [ur.role.name for ur in user_roles]
+    role_name = await current_user.get_role_name()
     
     return BaseResponse(
         code=200,
@@ -165,8 +168,7 @@ async def get_current_user_info(current_user: User = require_active_user):
             "employee_id": current_user.employee_id,
             "username": current_user.username,
             "is_superuser": current_user.is_superuser,
-            "primary_role": (await current_user.get_primary_role()).name if await current_user.get_primary_role() else "普通用户",
-            "roles": roles,
+            "role": role_name,
         }
     )
 
@@ -212,9 +214,12 @@ async def get_user_permissions(current_user: User = require_active_user):
         )
     
     # 普通用户通过角色获取权限
-    permissions = await Permission.filter(
-        permission_roles__role__role_users__user_id=current_user.id
-    ).values('code', 'name', 'description')
+    if current_user.role:
+        permissions = await Permission.filter(
+            permission_roles__role_id=current_user.role_id
+        ).values('code', 'name', 'description')
+    else:
+        permissions = []
     
     return BaseResponse(
         code=200,
@@ -235,9 +240,12 @@ async def get_user_menus(current_user: User = require_active_user):
         menus = await Menu.filter(is_visible=True).order_by('sort_order')
     else:
         # 获取用户权限
-        user_permissions = await Permission.filter(
-            permission_roles__role__role_users__user_id=current_user.id
-        ).values_list('code', flat=True)
+        if current_user.role:
+            user_permissions = await Permission.filter(
+                permission_roles__role_id=current_user.role_id
+            ).values_list('code', flat=True)
+        else:
+            user_permissions = []
         
         # 获取有权限的菜单或无权限要求的菜单
         menus = await Menu.filter(

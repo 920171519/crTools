@@ -5,7 +5,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
 from tortoise.expressions import Q
-from models.admin import User, Role, UserRole
+from models.admin import User, Role
 from schemas import BaseResponse, PaginationResponse, UserResponse
 from auth import AuthManager, require_active_user, PermissionChecker, Permissions
 
@@ -34,14 +34,14 @@ async def get_users(
     - 需要user:read权限
     """
     # 构建查询条件
-    query = User.all()
+    query = User.all().prefetch_related('role')
     
     if employee_id:
         query = query.filter(employee_id__icontains=employee_id)
     if username:
         query = query.filter(username__icontains=username)
     if role_name:
-        query = query.filter(user_roles__role__name__icontains=role_name)
+        query = query.filter(role__name__icontains=role_name)
     
     # 获取总数
     total = await query.count()
@@ -54,22 +54,16 @@ async def get_users(
     user_list = []
     for user in users:
         # 获取用户角色
-        user_roles = await UserRole.filter(user=user).prefetch_related('role')
-        roles = [ur.role.name for ur in user_roles]
-        
-        # 获取主要角色
-        primary_role = await user.get_primary_role()
+        role_name = await user.get_role_name()
         
         user_data = {
             "id": user.id,
             "employee_id": user.employee_id,
             "username": user.username,
-            "primary_role": primary_role.name if primary_role else "普通用户",
+            "role": role_name,
             "is_superuser": user.is_superuser,
-            "roles": roles
         }
         user_list.append(user_data)
-    print(user_list)
     return BaseResponse(
         code=200,
         message="获取用户列表成功",
@@ -140,25 +134,13 @@ async def update_user_role(
             detail="指定的角色不存在"
         )
     
-    # 获取当前主要角色
-    old_role = await target_user.get_primary_role()
-    old_role_name = old_role.name if old_role else "普通用户"
-    
-    # 安全地移除所有非超级管理员角色
+    # 获取当前角色名称
+    old_role_name = await target_user.get_role_name()
+
+    # 直接更新用户角色
     try:
-        # 获取需要删除的角色名称列表
-        roles_to_remove = ["普通用户", "高级用户", "管理员"]
-        
-        # 查询出用户的当前角色关联
-        user_roles = await UserRole.filter(user=target_user).prefetch_related('role')
-        
-        # 删除指定的角色关联
-        for user_role in user_roles:
-            if user_role.role.name in roles_to_remove:
-                await user_role.delete()
-        
-        # 分配新角色
-        await UserRole.create(user=target_user, role=new_role)
+        target_user.role = new_role
+        await target_user.save()
     except Exception as e:
         print(f"更新用户角色时发生错误: {e}")
         raise HTTPException(
@@ -194,12 +176,9 @@ async def get_user_detail(
         )
     
     # 获取用户角色
-    user_roles = await UserRole.filter(user=user).prefetch_related('role')
-    roles = [ur.role.name for ur in user_roles]
-    
-    # 获取主要角色
-    primary_role = await user.get_primary_role()
-    
+    await user.fetch_related('role')
+    role_name = await user.get_role_name()
+
     return BaseResponse(
         code=200,
         message="获取用户信息成功",
@@ -207,9 +186,8 @@ async def get_user_detail(
             "id": user.id,
             "employee_id": user.employee_id,
             "username": user.username,
-            "primary_role": primary_role.name if primary_role else "普通用户",
-            "is_superuser": user.is_superuser,
-            "roles": roles
+            "role": role_name,
+            "is_superuser": user.is_superuser
         }
     )
 
@@ -247,10 +225,7 @@ async def delete_user(
             detail="不能删除自己"
         )
     
-    # 删除用户相关的角色关联
-    await UserRole.filter(user=target_user).delete()
-    
-    # 删除用户
+    # 删除用户（角色关联会自动处理）
     await target_user.delete()
     
     return BaseResponse(

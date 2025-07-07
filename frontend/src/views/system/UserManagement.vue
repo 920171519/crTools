@@ -26,7 +26,7 @@
               v-model="searchForm.role_name" 
               placeholder="请选择角色" 
               clearable
-              style="width: 150px"
+              style="width: 130px"
             >
               <el-option 
                 v-for="option in roleOptions"
@@ -55,11 +55,11 @@
         <el-table-column prop="username" label="姓名"/>
         <el-table-column label="角色">
           <template #default="{ row }">
-            <el-tag 
-              :type="getRoleTagType(row.primary_role)" 
+            <el-tag
+              :type="getRoleTagType(row.role)"
               size="small"
             >
-              {{ row.primary_role }}
+              {{ row.role }}
             </el-tag>
           </template>
         </el-table-column>
@@ -245,8 +245,8 @@ const handleEdit = (row: any) => {
   editForm.id = row.id
   editForm.employee_id = row.employee_id
   editForm.username = row.username
-  editForm.current_role = row.primary_role
-  editForm.new_role = row.primary_role
+  editForm.current_role = row.role
+  editForm.new_role = row.role
   editDialogVisible.value = true
 }
 
