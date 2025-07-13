@@ -143,23 +143,45 @@
                       管理: {{ isAdminOrSuper }}
                     </div> -->
 
-                    <!-- 简化的按钮逻辑 - 直接基于角色字符串判断 -->
+                    <!-- 基于角色和排队状态的动态按钮逻辑 -->
                     <template v-if="currentUserRole === '管理员' || userStore.userInfo?.is_superuser">
                       <!-- 管理员/超级管理员按钮 -->
                       <el-button type="danger" size="small" @click="preemptDevice(row)" :loading="useLoading[row.id]">抢占</el-button>
-                      <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]">优先排队</el-button>
+
+                      <!-- 根据排队状态显示不同按钮 -->
+                      <template v-if="!row.is_current_user_in_queue">
+                        <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]">优先排队</el-button>
+                        <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]">普通排队</el-button>
+                      </template>
+                      <template v-else>
+                        <el-button type="info" size="small" @click="cancelQueue(row)" :loading="useLoading[row.id]">取消排队</el-button>
+                      </template>
+
                       <el-button type="danger" size="small" @click="adminReleaseDevice(row)" :loading="releaseLoading[row.id]">强制释放</el-button>
                     </template>
 
                     <template v-else-if="currentUserRole === '高级用户'">
-                      <!-- 高级用户按钮 -->
+                      <!-- 高级用户按钮：可以选择抢占、优先排队或普通排队 -->
                       <el-button type="danger" size="small" @click="preemptDevice(row)" :loading="useLoading[row.id]">抢占</el-button>
-                      <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]">优先排队</el-button>
+
+                      <!-- 根据排队状态显示不同按钮 -->
+                      <template v-if="!row.is_current_user_in_queue">
+                        <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]">优先排队</el-button>
+                        <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]">普通排队</el-button>
+                      </template>
+                      <template v-else>
+                        <el-button type="info" size="small" @click="cancelQueue(row)" :loading="useLoading[row.id]">取消排队</el-button>
+                      </template>
                     </template>
 
                     <template v-else>
-                      <!-- 普通用户按钮 -->
-                      <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]">排队</el-button>
+                      <!-- 普通用户按钮：根据排队状态显示排队或取消排队 -->
+                      <template v-if="!row.is_current_user_in_queue">
+                        <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]">排队</el-button>
+                      </template>
+                      <template v-else>
+                        <el-button type="info" size="small" @click="cancelQueue(row)" :loading="useLoading[row.id]">取消排队</el-button>
+                      </template>
                     </template>
                   </template>
                 </template>
@@ -375,11 +397,11 @@
             <h3 class="section-title">
               <el-icon><InfoFilled /></el-icon>
               基本信息
-              <!-- 编辑按钮 - 只有管理员可见 -->
-              <el-button 
-                v-if="isAdmin"
-                type="primary" 
-                size="small" 
+              <!-- 编辑按钮 - 环境归属人或管理员可见 -->
+              <el-button
+                v-if="canEditDevice"
+                type="primary"
+                size="small"
                 plain
                 @click="openEditDialog"
                 class="edit-button"
@@ -747,6 +769,29 @@ const isAdminOrSuper = computed(() => {
   return is_superuser || role === '管理员'
 })
 
+// 判断是否可以编辑设备（环境归属人或管理员）
+const canEditDevice = computed(() => {
+  if (!deviceDetail.value || !userStore.userInfo) return false
+
+  // 管理员或超级管理员可以编辑任何设备
+  const isAdminOrSuperUser = userStore.userInfo.is_superuser || userStore.userInfo.role === '管理员'
+  if (isAdminOrSuperUser) return true
+
+  // 环境归属人可以编辑自己的设备
+  const isOwner = deviceDetail.value.owner === userStore.userInfo.employee_id
+
+  console.log('canEditDevice check:', {
+    device: deviceDetail.value.name,
+    owner: deviceDetail.value.owner,
+    currentUser: userStore.userInfo.employee_id,
+    isOwner,
+    isAdminOrSuperUser,
+    canEdit: isOwner || isAdminOrSuperUser
+  })
+
+  return isOwner || isAdminOrSuperUser
+})
+
 // 调试用的计算属性
 const debugInfo = computed(() => {
   const info = {
@@ -879,11 +924,37 @@ const directUseDevice = async (device) => {
   }
 }
 
-const joinQueue = (device) => {
-  // 显示使用设备对话框进行排队
-  selectedDevice.value = device
-  useForm.user = currentUserEmployeeId.value
-  showUseDialog.value = true
+const joinQueue = async (device) => {
+  try {
+    useLoading[device.id] = true
+    const response = await deviceApi.unifiedQueue({
+      device_id: device.id,
+      user: currentUserEmployeeId.value,
+      expected_duration: 60,
+      purpose: '普通排队'
+    })
+
+    if (response.data?.queue_position) {
+      ElMessage.success(`已加入排队，排队位置：${response.data.queue_position}`)
+    } else {
+      ElMessage.success('已加入排队')
+    }
+
+    await loadDevices()
+
+    // 如果详情抽屉打开，刷新详情数据
+    if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
+      await viewDetails(device)
+    }
+  } catch (error) {
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('加入排队失败')
+    }
+  } finally {
+    useLoading[device.id] = false
+  }
 }
 
 const cancelQueue = async (device) => {
