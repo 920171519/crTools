@@ -5,6 +5,25 @@
       <p>管理和监控Linux设备的使用情况</p>
     </div>
 
+    <!-- 调试信息 -->
+    <!-- <el-card v-if="true" style="margin-bottom: 20px;">
+      <template #header>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>调试信息</span>
+          <el-button size="small" @click="refreshUserInfo">刷新用户信息</el-button>
+        </div>
+      </template>
+      <div>
+        <p><strong>当前用户角色:</strong> {{ currentUserRole }}</p>
+        <p><strong>用户信息:</strong> {{ userStore.userInfo }}</p>
+        <p><strong>isNormalUser:</strong> {{ isNormalUser }}</p>
+        <p><strong>isAdvancedUserOnly:</strong> {{ isAdvancedUserOnly }}</p>
+        <p><strong>isAdminOrSuper:</strong> {{ isAdminOrSuper }}</p>
+        <p><strong>Store isAdvancedUser:</strong> {{ userStore.isAdvancedUser }}</p>
+        <p><strong>Store isAdminUser:</strong> {{ userStore.isAdminUser }}</p>
+      </div>
+    </el-card> -->
+
     <!-- 操作栏 -->
     <div class="action-bar">
       <el-button type="primary" icon="Plus" @click="openAddDialog">
@@ -81,112 +100,71 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <div class="action-buttons">
-              <!-- 普通用户按钮逻辑 -->
-              <template v-if="!(isAdvancedUser || isAdminUser || isAdmin)">
-                <!-- 设备可用：显示使用按钮 -->
-                <el-button 
-                  v-if="row.status === 'available'"
-                  type="primary" 
-                  size="small" 
-                  @click="useDevice(row)"
-                  :loading="useLoading[row.id]"
-                >
-                  使用
-                </el-button>
-                
-                <!-- 设备被自己占用：显示释放按钮 -->
-                <el-button 
-                  v-else-if="row.status === 'occupied' && row.current_user === currentUserEmployeeId"
-                  type="danger" 
-                  size="small" 
+              <!-- 设备可用时：所有用户都可以使用 -->
+              <el-button
+                v-if="row.status === 'available'"
+                type="primary"
+                size="small"
+                @click="useDevice(row)"
+                :loading="useLoading[row.id]"
+              >
+                使用
+              </el-button>
+
+              <!-- 设备被占用时的操作 -->
+              <template v-if="row.status === 'occupied'">
+                <!-- 当前用户占用的设备：显示释放按钮 -->
+                <el-button
+                  v-if="row.current_user === currentUserEmployeeId"
+                  type="danger"
+                  size="small"
                   @click="releaseDevice(row)"
                   :loading="releaseLoading[row.id]"
                 >
                   释放
                 </el-button>
-                
-                <!-- 设备被他人占用且未排队：显示排队按钮 -->
-                <el-button 
-                  v-else-if="row.status === 'occupied' && row.current_user !== currentUserEmployeeId && !row.is_current_user_in_queue"
-                  type="warning" 
-                  size="small" 
-                  @click="joinQueue(row)"
-                  :loading="useLoading[row.id]"
-                >
-                  排队
-                </el-button>
-                
-                <!-- 设备被他人占用且已排队：显示取消排队按钮 -->
-                <el-button 
-                  v-else-if="row.status === 'occupied' && row.current_user !== currentUserEmployeeId && row.is_current_user_in_queue"
-                  type="info" 
-                  size="small" 
-                  @click="cancelQueue(row)"
-                  :loading="useLoading[row.id]"
-                >
-                  取消排队
-                </el-button>
-              </template>
-              
-              <!-- 高级用户/管理员按钮逻辑 -->
-              <template v-else>
-                <!-- 设备可用时的按钮 -->
-                <el-button 
-                  v-if="row.status === 'available'"
-                  type="primary" 
-                  size="small" 
-                  @click="useDevice(row)"
-                  :loading="useLoading[row.id]"
-                >
-                  使用
-                </el-button>
-                
-                <!-- 设备被占用时的高级按钮 -->
-                <template v-if="row.status === 'occupied'">
-                  <el-button 
-                    type="danger" 
-                    size="small" 
-                    @click="preemptDevice(row)"
-                    :loading="useLoading[row.id]"
-                  >
-                    抢占
-                  </el-button>
-                  
-                  <el-button 
-                    v-if="!row.is_current_user_in_queue"
-                    type="success" 
-                    size="small" 
-                    @click="priorityQueue(row)"
-                    :loading="useLoading[row.id]"
-                  >
-                    优先排队
-                  </el-button>
-                  
-                  <el-button 
-                    v-if="row.is_current_user_in_queue"
-                    type="info" 
-                    size="small" 
-                    @click="cancelQueue(row)"
-                    :loading="useLoading[row.id]"
-                  >
-                    取消排队
-                  </el-button>
-                  
-                  <!-- 释放设备按钮 -->
-                  <el-button 
-                    v-if="row.current_user === currentUserEmployeeId || isAdmin"
-                    type="danger" 
-                    size="small" 
-                    @click="releaseDevice(row)"
-                    :loading="releaseLoading[row.id]"
-                  >
-                    释放
-                  </el-button>
+
+                <!-- 设备被他人占用时的操作 -->
+                <template v-else>
+                  <!-- 等待用户信息加载 -->
+                  <template v-if="!userInfoLoaded">
+                    <el-button size="small" loading>加载中...</el-button>
+                  </template>
+
+                  <template v-else>
+                    <!-- 调试信息 -->
+                    <!-- <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
+                      角色: {{ currentUserRole }} |
+                      普通: {{ isNormalUser }} |
+                      高级: {{ isAdvancedUserOnly }} |
+                      管理: {{ isAdminOrSuper }}
+                    </div> -->
+
+                    <!-- 简化的按钮逻辑 - 直接基于角色字符串判断 -->
+                    <template v-if="currentUserRole === '管理员' || userStore.userInfo?.is_superuser">
+                      <!-- 管理员/超级管理员按钮 -->
+                      <el-button type="danger" size="small" @click="preemptDevice(row)" :loading="useLoading[row.id]">抢占</el-button>
+                      <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]">优先排队</el-button>
+                      <el-button type="danger" size="small" @click="adminReleaseDevice(row)" :loading="releaseLoading[row.id]">强制释放</el-button>
+                    </template>
+
+                    <template v-else-if="currentUserRole === '高级用户'">
+                      <!-- 高级用户按钮 -->
+                      <el-button type="danger" size="small" @click="preemptDevice(row)" :loading="useLoading[row.id]">抢占</el-button>
+                      <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]">优先排队</el-button>
+                    </template>
+
+                    <template v-else>
+                      <!-- 普通用户按钮 -->
+                      <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]">排队</el-button>
+                    </template>
+                  </template>
                 </template>
               </template>
+
               
               <!-- 详情按钮 - 所有用户都显示 -->
               <el-button 
@@ -664,7 +642,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch, onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { 
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled, 
@@ -681,6 +659,7 @@ const loading = ref(false)
 const devices = ref([])
 const useLoading = reactive({})
 const releaseLoading = reactive({})
+const userInfoLoaded = ref(false)
 const deleteLoading = ref(false)
 
 // 计算属性
@@ -689,6 +668,100 @@ const currentUserEmployeeId = computed(() => userStore.userInfo?.employee_id?.to
 const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
 const isAdvancedUser = computed(() => userStore.isAdvancedUser)
 const isAdminUser = computed(() => userStore.isAdminUser)
+
+// 确保用户信息正确加载
+onMounted(async () => {
+  // 等待用户store恢复状态
+  await userStore.restoreFromStorage()
+
+  // 强制从服务器获取最新的用户信息（避免角色修改后的缓存问题）
+  try {
+    console.log('从服务器获取最新用户信息...')
+    await userStore.fetchUserInfo()
+    console.log('最新用户信息:', userStore.userInfo)
+  } catch (error) {
+    console.error('获取用户信息失败:', error)
+    // 如果获取失败，使用缓存的信息
+    console.log('使用缓存的用户信息:', userStore.userInfo)
+  }
+
+  userInfoLoaded.value = true
+  await loadDevices()
+})
+
+// 调试时使用的按钮: 手动刷新用户信息
+const refreshUserInfo = async () => {
+  try {
+    console.log('手动刷新用户信息...')
+    await userStore.fetchUserInfo()
+    console.log('用户信息刷新完成:', userStore.userInfo)
+    ElMessage.success('用户信息已刷新')
+  } catch (error) {
+    console.error('刷新用户信息失败:', error)
+    ElMessage.error('刷新用户信息失败')
+  }
+}
+
+// 监听用户信息变化
+watch(() => userStore.userInfo, (newUserInfo, oldUserInfo) => {
+  if (newUserInfo && oldUserInfo && newUserInfo.role !== oldUserInfo.role) {
+    console.log('检测到用户角色变化:', oldUserInfo.role, '->', newUserInfo.role)
+    ElMessage.info(`用户角色已更新为: ${newUserInfo.role}`)
+  }
+}, { deep: true })
+
+// 页面激活时检查用户信息
+onActivated(async () => {
+  console.log('设备管理页面激活，检查用户信息...')
+  try {
+    await userStore.fetchUserInfo()
+    console.log('用户信息已更新:', userStore.userInfo)
+  } catch (error) {
+    console.error('激活时获取用户信息失败:', error)
+  }
+})
+
+// 新的权限计算属性 - 简化逻辑
+const currentUserRole = computed(() => {
+  const role = userStore.userInfo?.role || '未知'
+  console.log('currentUserRole:', role, 'userInfo:', userStore.userInfo)
+  return role
+})
+
+const isNormalUser = computed(() => {
+  const role = userStore.userInfo?.role
+  console.log('isNormalUser check:', { role, is_superuser: userStore.userInfo?.is_superuser })
+  return role === '普通用户' && !userStore.userInfo?.is_superuser
+})
+
+const isAdvancedUserOnly = computed(() => {
+  const role = userStore.userInfo?.role
+  console.log('isAdvancedUserOnly check:', { role, is_superuser: userStore.userInfo?.is_superuser })
+  return role === '高级用户' && !userStore.userInfo?.is_superuser
+})
+
+const isAdminOrSuper = computed(() => {
+  const role = userStore.userInfo?.role
+  const is_superuser = userStore.userInfo?.is_superuser
+  console.log('isAdminOrSuper check:', { role, is_superuser })
+  return is_superuser || role === '管理员'
+})
+
+// 调试用的计算属性
+const debugInfo = computed(() => {
+  const info = {
+    userInfo: userStore.userInfo,
+    role: userStore.userInfo?.role,
+    is_superuser: userStore.userInfo?.is_superuser,
+    isNormalUser: isNormalUser.value,
+    isAdvancedUserOnly: isAdvancedUserOnly.value,
+    isAdminOrSuper: isAdminOrSuper.value,
+    storeIsAdvancedUser: userStore.isAdvancedUser,
+    storeIsAdminUser: userStore.isAdminUser
+  }
+  console.log('Debug Info:', info)
+  return info
+})
 
 // 检查用户是否在指定设备的排队中（用于列表）
 const isUserInDeviceQueue = (device) => {
@@ -981,6 +1054,45 @@ const releaseDevice = async (device) => {
         ElMessage.error(error.response.data.detail)
       } else {
         ElMessage.error('释放设备失败')
+      }
+    }
+  } finally {
+    releaseLoading[device.id] = false
+  }
+}
+
+// 管理员强制释放设备
+const adminReleaseDevice = async (device) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要强制释放设备 ${device.name} 吗？当前使用者：${device.current_user}`,
+      '强制释放确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    releaseLoading[device.id] = true
+    const response = await deviceApi.releaseDevice({
+      device_id: device.id,
+      user: device.current_user // 使用当前占用者的用户名
+    })
+
+    ElMessage.success(response.data?.message || '设备强制释放成功')
+    await loadDevices()
+
+    // 如果详情抽屉打开，刷新详情数据
+    if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
+      await viewDetails(device)
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      if (error.response?.data?.detail) {
+        ElMessage.error(error.response.data.detail)
+      } else {
+        ElMessage.error('强制释放设备失败')
       }
     }
   } finally {
@@ -1292,10 +1404,7 @@ const isCurrentUserInQueue = computed(() => {
   return usageDetail.value.queue_users.includes(currentUserEmployeeId.value)
 })
 
-// 生命周期
-onMounted(() => {
-  loadDevices()
-})
+// 生命周期已在上面的onMounted中处理
 </script>
 
 <style scoped>

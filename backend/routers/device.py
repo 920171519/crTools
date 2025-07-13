@@ -294,17 +294,18 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
+
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         raise HTTPException(status_code=404, detail="设备使用信息不存在")
-    
-    # 检查权限：只有当前使用者或者管理员才能释放设备
+
+    # 检查权限：当前使用者、管理员或超级管理员才能释放设备
     is_current_user = usage_info.current_user == current_user.employee_id
-    is_admin = current_user.is_superuser
-    
-    if not (is_current_user or is_admin):
-        raise HTTPException(status_code=403, detail="只有当前使用者或管理员才能释放设备")
+    is_admin_or_super = (current_user.is_superuser or
+                        await current_user.has_role("管理员"))
+
+    if not (is_current_user or is_admin_or_super):
+        raise HTTPException(status_code=403, detail="只有当前使用者、管理员或超级管理员才能释放设备")
     
     # 更新使用历史记录
     # if usage_info.start_time:
@@ -442,10 +443,13 @@ async def get_device_usage(device_id: int):
 @router.post("/preempt", summary="抢占设备")
 async def preempt_device(request: DevicePreemptRequest, current_user: User = Depends(AuthManager.get_current_user)):
     """高级用户抢占设备"""
-    # 检查用户权限 - 管理员、超级用户、高级用户都可以抢占
-    if (not current_user.has_role("高级用户") and not current_user.has_role("管理员") and 
-        not current_user.is_superuser):
-        raise HTTPException(status_code=403, detail="只有高级用户才能抢占设备")
+    # 检查用户权限 - 只有高级用户、管理员、超级用户才能抢占
+    is_advanced_or_admin = (current_user.is_superuser or
+                           await current_user.has_role("管理员") or
+                           await current_user.has_role("高级用户"))
+
+    if not is_advanced_or_admin:
+        raise HTTPException(status_code=403, detail="只有高级用户、管理员或超级管理员才能抢占设备")
     
     device = await Device.filter(id=request.device_id).first()
     if not device:
@@ -526,10 +530,13 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
 @router.post("/priority-queue", summary="优先排队")
 async def priority_queue(request: DevicePriorityQueueRequest, current_user: User = Depends(AuthManager.get_current_user)):
     """高级用户优先排队"""
-    # 检查用户权限 - 管理员、超级用户、高级用户都可以优先排队
-    if (not current_user.has_role("高级用户") and not current_user.has_role("管理员") and 
-        not current_user.is_superuser):
-        raise HTTPException(status_code=403, detail="只有高级用户才能优先排队")
+    # 检查用户权限 - 只有高级用户、管理员、超级用户才能优先排队
+    is_advanced_or_admin = (current_user.is_superuser or
+                           await current_user.has_role("管理员") or
+                           await current_user.has_role("高级用户"))
+
+    if not is_advanced_or_admin:
+        raise HTTPException(status_code=403, detail="只有高级用户、管理员或超级管理员才能优先排队")
     
     device = await Device.filter(id=request.device_id).first()
     if not device:

@@ -63,13 +63,6 @@
             </el-tag>
           </template>
         </el-table-column>
-        <!-- <el-table-column prop="is_superuser" label="超级用户" >
-          <template #default="{ row }">
-            <el-tag :type="row.is_superuser ? 'success' : 'info'" size="small">
-              {{ row.is_superuser ? '是' : '否' }}
-            </el-tag>
-          </template>
-        </el-table-column> -->
         <el-table-column label="操作" width="200">
           <template #default="{ row }">
             <el-button 
