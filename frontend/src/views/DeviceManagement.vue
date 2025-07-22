@@ -69,7 +69,7 @@
         
         <el-table-column prop="occupied_duration" label="已使用时长" width="120">
           <template #default="{ row }">
-            <span v-if="row.occupied_duration > 0" class="duration">
+            <span v-if="row.status === 'occupied' && row.occupied_duration >= 1" class="duration">
               {{ formatDuration(row.occupied_duration) }}
             </span>
             <span v-else>-</span>
@@ -490,9 +490,11 @@
                 <label>预计时长：</label>
                 <span>{{ usageDetail.expected_duration }}分钟</span>
               </div>
-              <div class="usage-item" v-if="usageDetail?.occupied_duration">
+              <div class="usage-item" v-if="usageDetail?.current_user">
                 <label>已使用时长：</label>
-                <span class="duration">{{ formatDuration(usageDetail.occupied_duration) }}</span>
+                <span class="duration" v-if="usageDetail.occupied_duration >= 1">
+                  {{ formatDuration(usageDetail.occupied_duration) }}
+                </span>
               </div>
               <div class="usage-item" v-if="usageDetail?.is_long_term">
                 <label>长时间占用：</label>
@@ -775,7 +777,9 @@ const canEditDevice = computed(() => {
 
   // 管理员或超级管理员可以编辑任何设备
   const isAdminOrSuperUser = userStore.userInfo.is_superuser || userStore.userInfo.role === '管理员'
-  if (isAdminOrSuperUser) return true
+  if (isAdminOrSuperUser) {
+    return true
+  }
 
   // 环境归属人可以编辑自己的设备
   const isOwner = deviceDetail.value.owner === userStore.userInfo.employee_id

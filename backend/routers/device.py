@@ -36,7 +36,7 @@ async def get_devices(current_user: User = Depends(AuthManager.get_current_user)
             # 创建默认使用情况
             usage_info = await DeviceUsage.create(device=device)
         
-        # 计算占用时长
+        # 计算占用时长（精确到秒，但以分钟为单位显示）
         occupied_duration = 0
         if usage_info.start_time and usage_info.current_user:
             # 统一使用naive datetime进行计算
@@ -44,7 +44,8 @@ async def get_devices(current_user: User = Depends(AuthManager.get_current_user)
             # 如果数据库中的时间是aware的，转换为naive
             start_time = usage_info.start_time.replace(tzinfo=None) if usage_info.start_time.tzinfo else usage_info.start_time
             duration = current_time - start_time
-            occupied_duration = int(duration.total_seconds() / 60)
+            # 改为向上取整，确保即使不到1分钟也显示为1分钟
+            occupied_duration = max(1, int((duration.total_seconds() + 59) / 60))
         
         # 检查当前用户是否在排队中
         is_current_user_in_queue = False
@@ -408,7 +409,7 @@ async def get_device_usage(device_id: int):
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
     
-    # 计算占用时长
+    # 计算占用时长（精确到秒，但以分钟为单位显示）
     occupied_duration = 0
     if usage_info.start_time and usage_info.current_user:
         # 统一使用naive datetime进行计算
@@ -416,7 +417,8 @@ async def get_device_usage(device_id: int):
         # 如果数据库中的时间是aware的，转换为naive
         start_time = usage_info.start_time.replace(tzinfo=None) if usage_info.start_time.tzinfo else usage_info.start_time
         duration = current_time - start_time
-        occupied_duration = int(duration.total_seconds() / 60)
+        # 改为向上取整，确保即使不到1分钟也显示为1分钟
+        occupied_duration = max(1, int((duration.total_seconds() + 59) / 60))
     
     usage_data = {
         "id": usage_info.id,

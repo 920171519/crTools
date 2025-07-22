@@ -3,12 +3,13 @@ crTools后台管理系统 - 主应用入口
 基于FastAPI的后台管理系统API
 """
 from contextlib import asynccontextmanager
+from routers import router_auth
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_database, setup_database
-from routers import auth, device, user
+from routers import device, user
 import uvicorn
 
 
@@ -79,7 +80,7 @@ async def general_exception_handler(request, exc):
 
 
 # 注册路由
-app.include_router(auth.router, prefix="/api")
+app.include_router(router_auth.router, prefix="/api")
 app.include_router(device.router)
 app.include_router(user.router)
 
