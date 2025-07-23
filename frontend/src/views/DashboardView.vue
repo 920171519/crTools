@@ -88,74 +88,17 @@
       </div>
     </el-card>
 
-    <!-- 统计卡片 -->
-    <el-row :gutter="20" class="stats-row">
-      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card" shadow="hover">
-          <div class="stat-content">
-            <div class="stat-icon user-icon">
-              <el-icon size="30"><User /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number">{{ stats.totalUsers }}</div>
-              <div class="stat-label">总用户数</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      
-      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card" shadow="hover">
-          <div class="stat-content">
-            <div class="stat-icon role-icon">
-              <el-icon size="30"><User /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number">{{ stats.totalRoles }}</div>
-              <div class="stat-label">总角色数</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      
-      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card" shadow="hover">
-          <div class="stat-content">
-            <div class="stat-icon permission-icon">
-              <el-icon size="30"><Key /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number">{{ stats.totalPermissions }}</div>
-              <div class="stat-label">总权限数</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      
-      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
-        <el-card class="stat-card" shadow="hover">
-          <div class="stat-content">
-            <div class="stat-icon menu-icon">
-              <el-icon size="30"><Menu /></el-icon>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number">{{ stats.totalMenus }}</div>
-              <div class="stat-label">总菜单数</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+
 
     <!-- 信息区域 -->
     <el-row :gutter="20" class="content-row">
-      <!-- 登录信息 -->
+      <!-- 设备相关信息 -->
       <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <el-card class="recent-login-card" shadow="never">
           <template #header>
             <div class="card-header">
               <el-icon><Clock /></el-icon>
-              <span>登录信息</span>
+              <span>设备相关信息</span>
             </div>
           </template>
           <div class="login-info">
@@ -166,15 +109,24 @@
             <div class="info-item">
               <span class="info-label">用户角色：</span>
               <span class="info-value">
-                <el-tag 
-                  v-for="role in userStore.userInfo?.roles" 
-                  :key="role" 
-                  size="small" 
+                <el-tag
+                  size="small"
                   type="primary"
-                  style="margin-right: 5px;"
                 >
-                  {{ role }}
+                  {{ userStore.userInfo?.role || '未知' }}
                 </el-tag>
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">占用设备：</span>
+              <span class="info-value">
+                <el-tag size="small" type="warning">{{ deviceStats.occupiedCount }}台</el-tag>
+              </span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">排队设备：</span>
+              <span class="info-value">
+                <el-tag size="small" type="info">{{ deviceStats.queueCount }}台</el-tag>
               </span>
             </div>
           </div>
@@ -210,20 +162,19 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { 
-  User, UserFilled, Key, Menu, Document, Setting, 
+import { deviceApi } from '@/api/device'
+import {
+  User, UserFilled, Key, Menu, Document, Setting,
   Lightning, Clock, Monitor
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-// 统计数据
-const stats = ref({
-  totalUsers: 0,
-  totalRoles: 0,
-  totalPermissions: 0,
-  totalMenus: 0
+// 设备统计数据
+const deviceStats = ref({
+  occupiedCount: 0,
+  queueCount: 0
 })
 
 // 当前时间
@@ -270,21 +221,42 @@ const formatTime = (timeStr?: string) => {
   })
 }
 
-// 加载统计数据
-const loadStats = async () => {
-  // 这里可以调用API获取统计数据
-  // 目前使用模拟数据
-  stats.value = {
-    totalUsers: 156,
-    totalRoles: 8,
-    totalPermissions: 24,
-    totalMenus: 12
+// 加载设备统计数据
+const loadDeviceStats = async () => {
+  try {
+    const response = await deviceApi.getDevices()
+    const devices = response.data
+
+    let occupiedCount = 0
+    let queueCount = 0
+
+    devices.forEach(device => {
+      // 统计当前用户占用的设备
+      if (device.current_user === userStore.userInfo?.employee_id) {
+        occupiedCount++
+      }
+      // 统计当前用户排队的设备
+      if (device.is_current_user_in_queue) {
+        queueCount++
+      }
+    })
+
+    deviceStats.value = {
+      occupiedCount,
+      queueCount
+    }
+  } catch (error) {
+    console.error('加载设备统计失败:', error)
+    deviceStats.value = {
+      occupiedCount: 0,
+      queueCount: 0
+    }
   }
 }
 
 // 初始化
 onMounted(() => {
-  loadStats()
+  loadDeviceStats()
 })
 </script>
 
@@ -419,69 +391,7 @@ onMounted(() => {
   color: #909399;
 }
 
-.stats-row {
-  margin-bottom: 20px;
-}
 
-.stat-card {
-  height: 120px;
-  border: none;
-  transition: transform 0.3s;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-}
-
-.stat-content {
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-.stat-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 16px;
-  color: white;
-}
-
-.user-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.role-icon {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-.permission-icon {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-.menu-icon {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-}
-
-.stat-info {
-  flex: 1;
-}
-
-.stat-number {
-  font-size: 28px;
-  font-weight: bold;
-  color: #303133;
-  line-height: 1;
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #909399;
-}
 
 .content-row {
   margin-bottom: 20px;
@@ -567,10 +477,6 @@ onMounted(() => {
 
   .module-info h3 {
     font-size: 16px;
-  }
-
-  .stat-number {
-    font-size: 24px;
   }
 }
 </style> 

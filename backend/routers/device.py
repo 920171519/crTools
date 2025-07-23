@@ -668,6 +668,152 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
                 "queue_position": len(usage_info.queue_users)
             }
         )
+
+
+@router.post("/batch-release-my-devices", summary="批量释放我的设备")
+async def batch_release_my_devices(current_user: User = Depends(AuthManager.get_current_user)):
+    """批量释放当前用户占用的所有设备"""
+    try:
+        # 查找当前用户占用的所有设备
+        usage_infos = await DeviceUsage.filter(current_user=current_user.employee_id).prefetch_related("device")
+
+        if not usage_infos:
+            return BaseResponse(
+                code=200,
+                message="您当前没有占用任何设备",
+                data={"released_count": 0}
+            )
+
+        released_count = 0
+        failed_devices = []
+
+        for usage_info in usage_infos:
+            try:
+                # 释放设备
+                usage_info.current_user = None
+                usage_info.start_time = None
+                usage_info.expected_duration = 0  # 设置为0而不是None
+                usage_info.purpose = None
+                usage_info.status = DeviceStatusEnum.AVAILABLE
+                usage_info.is_long_term = False
+                usage_info.long_term_purpose = None
+
+                # 如果有排队用户，让第一个用户占用设备
+                if usage_info.queue_users:
+                    next_user = usage_info.queue_users[0]
+                    usage_info.current_user = next_user
+                    usage_info.start_time = get_current_time()
+                    usage_info.status = DeviceStatusEnum.OCCUPIED
+                    usage_info.queue_users = usage_info.queue_users[1:]  # 移除第一个用户
+
+                await usage_info.save()
+                released_count += 1
+
+            except Exception as e:
+                failed_devices.append(usage_info.device.name)
+                print(f"释放设备 {usage_info.device.name} 失败: {e}")
+
+        message = f"成功释放 {released_count} 台设备"
+        if failed_devices:
+            message += f"，{len(failed_devices)} 台失败"
+
+        return BaseResponse(
+            code=200,
+            message=message,
+            data={
+                "released_count": released_count,
+                "failed_count": len(failed_devices),
+                "failed_devices": failed_devices
+            }
+        )
+
+    except Exception as e:
+        print(f"批量释放设备失败: {e}")
+        return BaseResponse(
+            code=500,
+            message="批量释放设备失败",
+            data=None
+        )
+
+
+@router.post("/batch-cancel-my-queues", summary="批量取消我的排队")
+async def batch_cancel_my_queues(current_user: User = Depends(AuthManager.get_current_user)):
+    """批量取消当前用户的所有排队"""
+    try:
+        # 查找包含当前用户排队的所有设备
+        all_usage_infos = await DeviceUsage.all().prefetch_related("device")
+
+        cancelled_count = 0
+        failed_devices = []
+
+        for usage_info in all_usage_infos:
+            if usage_info.queue_users and current_user.employee_id in usage_info.queue_users:
+                try:
+                    # 从排队列表中移除当前用户
+                    queue_users = usage_info.queue_users.copy()
+                    queue_users.remove(current_user.employee_id)
+                    usage_info.queue_users = queue_users
+
+                    await usage_info.save()
+                    cancelled_count += 1
+
+                except Exception as e:
+                    failed_devices.append(usage_info.device.name)
+                    print(f"取消设备 {usage_info.device.name} 排队失败: {e}")
+
+        if cancelled_count == 0:
+            return BaseResponse(
+                code=200,
+                message="您当前没有排队任何设备",
+                data={"cancelled_count": 0}
+            )
+
+        message = f"成功取消 {cancelled_count} 台设备排队"
+        if failed_devices:
+            message += f"，{len(failed_devices)} 台失败"
+
+        return BaseResponse(
+            code=200,
+            message=message,
+            data={
+                "cancelled_count": cancelled_count,
+                "failed_count": len(failed_devices),
+                "failed_devices": failed_devices
+            }
+        )
+
+    except Exception as e:
+        print(f"批量取消排队失败: {e}")
+        return BaseResponse(
+            code=500,
+            message="批量取消排队失败",
+            data=None
+        )
     
     else:
         raise HTTPException(status_code=400, detail="设备当前不可用")
+
+
+@router.post("/admin/force-cleanup-all", summary="管理员强制清理所有设备")
+async def admin_force_cleanup_all_devices(current_user: User = Depends(AuthManager.get_current_user)):
+    """管理员强制清理所有设备的占用和排队状态"""
+    # 检查管理员权限
+    if not (current_user.is_superuser or current_user.role == '管理员'):
+        raise HTTPException(status_code=403, detail="权限不足，只有管理员可以执行此操作")
+
+    try:
+        # 导入调度器（避免循环导入）
+        from scheduler.scheduler import device_scheduler
+
+        # 执行清理任务
+        await device_scheduler.force_cleanup_all_devices()
+
+        return BaseResponse(
+            code=200,
+            message="所有设备已强制清理完成",
+            data={"action": "force_cleanup_all", "executor": current_user.employee_id}
+        )
+
+    except Exception as e:
+        print(f"管理员强制清理失败: {e}")
+        raise HTTPException(status_code=500, detail="强制清理失败")

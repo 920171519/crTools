@@ -21,6 +21,7 @@ dependencies = [
     "python-dotenv==1.0.1",
     "aerich>=0.8.2",
     "bcrypt>=4.1.2",
+    "apscheduler>=3.10.4",
 ]
 
 [tool.black]

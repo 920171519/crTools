@@ -6,7 +6,7 @@
     </div>
 
     <!-- 调试信息 -->
-    <!-- <el-card v-if="true" style="margin-bottom: 20px;">
+    <el-card v-if="true" style="margin-bottom: 20px;">
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span>调试信息</span>
@@ -22,10 +22,21 @@
         <p><strong>Store isAdvancedUser:</strong> {{ userStore.isAdvancedUser }}</p>
         <p><strong>Store isAdminUser:</strong> {{ userStore.isAdminUser }}</p>
       </div>
-    </el-card> -->
+    </el-card>
 
     <!-- 操作栏 -->
     <div class="action-bar">
+      <!-- 批量操作按钮 -->
+      <el-button type="warning" @click="releaseAllMyDevices" :loading="batchLoading.release">
+        <el-icon><VideoPlay /></el-icon>
+        一键释放所有占用设备
+      </el-button>
+      <el-button type="info" @click="cancelAllMyQueues" :loading="batchLoading.cancel">
+        <el-icon><VideoPause /></el-icon>
+        一键取消所有排队
+      </el-button>
+
+      <!-- 管理员操作按钮 -->
       <el-button type="primary" icon="Plus" @click="openAddDialog">
         添加设备
       </el-button>
@@ -685,6 +696,12 @@ const useLoading = reactive({})
 const releaseLoading = reactive({})
 const userInfoLoaded = ref(false)
 const deleteLoading = ref(false)
+
+// 批量操作加载状态
+const batchLoading = reactive({
+  release: false,
+  cancel: false
+})
 
 // 计算属性
 const currentUser = computed(() => userStore.userInfo?.username || '')
@@ -1478,6 +1495,73 @@ const isCurrentUserInQueue = computed(() => {
   if (!usageDetail.value?.queue_users || !currentUserEmployeeId.value) return false
   return usageDetail.value.queue_users.includes(currentUserEmployeeId.value)
 })
+
+// 批量操作方法
+const releaseAllMyDevices = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要释放所有您占用的设备吗？',
+      '批量释放确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    batchLoading.release = true
+
+    try {
+      const response = await deviceApi.batchReleaseMyDevices()
+      ElMessage.success(response.data.message)
+      await loadDevices()
+    } catch (apiError) {
+      console.error('批量释放API调用失败:', apiError)
+      ElMessage.error('批量释放设备失败')
+    }
+
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量释放设备失败:', error)
+      ElMessage.error('批量释放设备失败')
+    }
+  } finally {
+    batchLoading.release = false
+  }
+}
+
+const cancelAllMyQueues = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要取消所有您的排队吗？',
+      '批量取消排队确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+
+    batchLoading.cancel = true
+
+    try {
+      const response = await deviceApi.batchCancelMyQueues()
+      ElMessage.success(response.data.message)
+      await loadDevices()
+    } catch (apiError) {
+      console.error('批量取消排队API调用失败:', apiError)
+      ElMessage.error('批量取消排队失败')
+    }
+
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量取消排队失败:', error)
+      ElMessage.error('批量取消排队失败')
+    }
+  } finally {
+    batchLoading.cancel = false
+  }
+}
 
 // 生命周期已在上面的onMounted中处理
 </script>

@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_database, setup_database
 from routers import device, user
+from scheduler import start_scheduler, stop_scheduler
 import uvicorn
 
 
@@ -18,14 +19,22 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时执行
     print("🚀 crTools后台管理系统启动中...")
-    
+
     # 初始化数据库数据
     await init_database()
-    
+
+    # 启动定时任务调度器
+    await start_scheduler()
+    print("⏰ 定时任务调度器已启动")
+
     yield
-    
+
     # 关闭时执行
     print("🛑 crTools后台管理系统关闭")
+
+    # 停止定时任务调度器
+    await stop_scheduler()
+    print("⏰ 定时任务调度器已停止")
 
 
 # 创建FastAPI应用实例

@@ -147,5 +147,15 @@ export const deviceApi = {
   // 统一排队
   unifiedQueue: (data: DeviceUnifiedQueueRequest) => {
     return api.post('/devices/unified-queue', data)
+  },
+
+  // 批量释放我的设备
+  batchReleaseMyDevices: () => {
+    return api.post('/devices/batch-release-my-devices')
+  },
+
+  // 批量取消我的排队
+  batchCancelMyQueues: () => {
+    return api.post('/devices/batch-cancel-my-queues')
   }
-} 
+}
