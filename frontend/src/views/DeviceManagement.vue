@@ -932,7 +932,7 @@ const directUseDevice = async (device) => {
       purpose: '使用设备'
     })
     
-    ElMessage.success(response.data.message || '设备使用成功')
+    ElMessage.success(response.message || '设备使用成功')
     await loadDevices()
   } catch (error) {
     if (error.response?.data?.detail) {
@@ -1070,7 +1070,7 @@ const preemptDevice = async (device) => {
       purpose: '抢占使用'
     })
     
-    ElMessage.success(response.data.message)
+    ElMessage.success(response.message)
     await loadDevices()
     
     // 如果详情抽屉打开，刷新详情数据
@@ -1101,7 +1101,7 @@ const priorityQueue = async (device) => {
       purpose: '优先排队'
     })
     
-    ElMessage.success(response.data.message)
+    ElMessage.success(response.message)
     await loadDevices()
     
     // 如果详情抽屉打开，刷新详情数据
@@ -1138,7 +1138,7 @@ const releaseDevice = async (device) => {
     })
     
     // 显示后端返回的消息
-    ElMessage.success(response.data?.message || '设备释放成功')
+    ElMessage.success(response.message)
     await loadDevices()
   } catch (error) {
     if (error !== 'cancel') {
@@ -1172,7 +1172,7 @@ const adminReleaseDevice = async (device) => {
       user: device.current_user // 使用当前占用者的用户名
     })
 
-    ElMessage.success(response.data?.message || '设备强制释放成功')
+    ElMessage.success(response.message)
     await loadDevices()
 
     // 如果详情抽屉打开，刷新详情数据
@@ -1254,7 +1254,7 @@ const handleUseDevice = async () => {
       expected_duration: useForm.expected_duration,
       purpose: useForm.purpose
     })
-    ElMessage.success(response.data.message)
+    ElMessage.success(response.message)
     showUseDialog.value = false
     await loadDevices()
   } catch (error) {
@@ -1513,7 +1513,7 @@ const releaseAllMyDevices = async () => {
 
     try {
       const response = await deviceApi.batchReleaseMyDevices()
-      ElMessage.success(response.data.message)
+      ElMessage.success(response.message)
       await loadDevices()
     } catch (apiError) {
       console.error('批量释放API调用失败:', apiError)
@@ -1546,7 +1546,7 @@ const cancelAllMyQueues = async () => {
 
     try {
       const response = await deviceApi.batchCancelMyQueues()
-      ElMessage.success(response.data.message)
+      ElMessage.success(response.message)
       await loadDevices()
     } catch (apiError) {
       console.error('批量取消排队API调用失败:', apiError)
