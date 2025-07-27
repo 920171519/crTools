@@ -6,7 +6,7 @@
     </div>
 
     <!-- 调试信息 -->
-    <el-card v-if="true" style="margin-bottom: 20px;">
+    <!-- <el-card v-if="true" style="margin-bottom: 20px;">
       <template #header>
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span>调试信息</span>
@@ -21,6 +21,43 @@
         <p><strong>isAdminOrSuper:</strong> {{ isAdminOrSuper }}</p>
         <p><strong>Store isAdvancedUser:</strong> {{ userStore.isAdvancedUser }}</p>
         <p><strong>Store isAdminUser:</strong> {{ userStore.isAdminUser }}</p>
+      </div>
+    </el-card> -->
+
+    <!-- 搜索栏 -->
+    <el-card shadow="never" style="margin-bottom: 20px;">
+      <div class="search-bar">
+        <el-form :model="searchForm" inline>
+          <el-form-item label="环境名称">
+            <el-input v-model="searchForm.name" placeholder="请输入环境名称" clearable />
+          </el-form-item>
+          <el-form-item label="环境IP">
+            <el-input v-model="searchForm.ip" placeholder="请输入环境IP" clearable />
+          </el-form-item>
+          <el-form-item label="环境状态">
+            <el-select
+              v-model="searchForm.status"
+              placeholder="请选择状态"
+              clearable
+              style="width: 130px"
+            >
+              <el-option label="可用" value="available" />
+              <el-option label="占用中" value="occupied" />
+              <el-option label="维护中" value="maintenance" />
+              <el-option label="不可占用" value="offline" />
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleSearch">
+              <el-icon><Search /></el-icon>
+              搜索
+            </el-button>
+            <el-button @click="handleReset">
+              <el-icon><Refresh /></el-icon>
+              重置
+            </el-button>
+          </el-form-item>
+        </el-form>
       </div>
     </el-card>
 
@@ -46,7 +83,7 @@
     </div>
 
     <!-- 设备列表 -->
-    <div class="device-list">
+    <el-card shadow="never">
       <el-table :data="devices" stripe style="width: 100%" v-loading="loading">
         <!-- <el-table-column prop="name" label="环境名称" width="150"> -->
         <el-table-column prop="name" label="环境名称" >
@@ -211,7 +248,23 @@
           </template>
         </el-table-column>
       </el-table>
-    </div>
+
+      <!-- 分页 -->
+      <div class="pagination">
+        <el-pagination
+          v-model:current-page="pagination.page"
+          v-model:page-size="pagination.page_size"
+          :page-sizes="[10, 20, 50, 100]"
+          :small="false"
+          :disabled="false"
+          :background="false"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="pagination.total"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
+    </el-card>
 
     <!-- 添加设备对话框 -->
     <el-dialog 
@@ -679,9 +732,9 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch, onActivated } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { 
-  Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled, 
-  VideoPlay, VideoPause, Delete, Edit 
+import {
+  Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled,
+  VideoPlay, VideoPause, Delete, Edit, Search
 } from '@element-plus/icons-vue'
 import { deviceApi } from '../api/device'
 import { useUserStore } from '@/stores/user'
@@ -696,6 +749,20 @@ const useLoading = reactive({})
 const releaseLoading = reactive({})
 const userInfoLoaded = ref(false)
 const deleteLoading = ref(false)
+
+// 搜索表单
+const searchForm = reactive({
+  name: '',
+  ip: '',
+  status: ''
+})
+
+// 分页信息
+const pagination = reactive({
+  page: 1,
+  page_size: 10,
+  total: 0
+})
 
 // 批量操作加载状态
 const batchLoading = reactive({
@@ -903,8 +970,13 @@ const editForm = reactive({
 const loadDevices = async () => {
   loading.value = true
   try {
-    const response = await deviceApi.getDevices()
-    devices.value = response.data
+    const response = await deviceApi.getDevices({
+      page: pagination.page,
+      page_size: pagination.page_size,
+      ...searchForm
+    })
+    devices.value = response.data.items
+    pagination.total = response.data.total
     console.log('成功加载设备列表，数量:', devices.value?.length)
   } catch (error) {
     console.error('加载设备失败:', error)
@@ -1563,6 +1635,36 @@ const cancelAllMyQueues = async () => {
   }
 }
 
+// 搜索处理
+const handleSearch = () => {
+  pagination.page = 1
+  loadDevices()
+}
+
+// 重置搜索
+const handleReset = () => {
+  Object.assign(searchForm, {
+    name: '',
+    ip: '',
+    status: ''
+  })
+  pagination.page = 1
+  loadDevices()
+}
+
+// 分页大小改变
+const handleSizeChange = (val: number) => {
+  pagination.page_size = val
+  pagination.page = 1
+  loadDevices()
+}
+
+// 当前页改变
+const handleCurrentChange = (val: number) => {
+  pagination.page = val
+  loadDevices()
+}
+
 // 生命周期已在上面的onMounted中处理
 </script>
 
@@ -1587,10 +1689,20 @@ const cancelAllMyQueues = async () => {
   font-size: 14px;
 }
 
+.search-bar {
+  margin-bottom: 0;
+}
+
 .action-bar {
   margin-bottom: 20px;
   display: flex;
   gap: 12px;
+}
+
+.pagination {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
 }
 
 .device-list {

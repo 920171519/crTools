@@ -76,7 +76,6 @@ async def login(request: Request, login_data: UserLogin):
     """
     # 获取客户端信息
     ip_address = LoginManager.get_client_ip(request)
-    user_agent = request.headers.get("user-agent", "")
 
     # 认证用户
     user = await AuthManager.authenticate_user(
@@ -89,7 +88,6 @@ async def login(request: Request, login_data: UserLogin):
         await LoginManager.record_login_attempt(
             user=failed_user,
             ip_address=ip_address,
-            user_agent=user_agent,
             success=False,
             failure_reason="姓名或密码错误"
         )
@@ -110,7 +108,6 @@ async def login(request: Request, login_data: UserLogin):
     await LoginManager.record_login_attempt(
         user=user,
         ip_address=ip_address,
-        user_agent=user_agent,
         success=True
     )
     
@@ -144,13 +141,11 @@ async def logout(request: Request, current_user: User = require_active_user):
     """
     # 获取客户端信息
     ip_address = LoginManager.get_client_ip(request)
-    user_agent = request.headers.get("user-agent", "")
 
     # 记录登出日志
     await LoginManager.record_logout_attempt(
         user=current_user,
-        ip_address=ip_address,
-        user_agent=user_agent
+        ip_address=ip_address
     )
 
     return BaseResponse(

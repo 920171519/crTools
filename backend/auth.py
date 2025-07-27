@@ -158,7 +158,6 @@ class LoginManager:
     async def record_login_attempt(
         user: Optional[User],
         ip_address: str,
-        user_agent: str,
         success: bool,
         failure_reason: Optional[str] = None
     ):
@@ -167,7 +166,6 @@ class LoginManager:
             await LoginLog.create(
                 user=user,
                 ip_address=ip_address,
-                user_agent=user_agent,
                 login_result=success,
                 failure_reason=failure_reason
             )
@@ -175,14 +173,12 @@ class LoginManager:
     @staticmethod
     async def record_logout_attempt(
         user: User,
-        ip_address: str,
-        user_agent: str
+        ip_address: str
     ):
         """记录登出尝试"""
         await LoginLog.create(
             user=user,
             ip_address=ip_address,
-            user_agent=user_agent,
             login_result=False,  # False表示登出
             failure_reason="用户主动登出"
         )

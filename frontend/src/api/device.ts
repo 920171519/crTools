@@ -87,11 +87,26 @@ export interface BaseResponse<T = any> {
   data: T
 }
 
+export interface DeviceSearchParams {
+  page?: number
+  page_size?: number
+  name?: string
+  ip?: string
+  status?: string
+}
+
+export interface DeviceListResponse {
+  items: DeviceListItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
 // 设备管理API
 export const deviceApi = {
   // 获取设备列表
-  getDevices: () => {
-    return api.get<DeviceListItem[]>('/devices/')
+  getDevices: (params?: DeviceSearchParams) => {
+    return api.get<DeviceListResponse>('/devices/', { params })
   },
 
   // 创建设备

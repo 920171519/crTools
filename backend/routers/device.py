@@ -2,7 +2,7 @@
 设备管理路由
 提供设备的增删改查、使用管理等API接口
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel
@@ -26,15 +26,60 @@ def get_current_time():
 
 
 @router.get("/", response_model=BaseResponse, summary="获取设备列表")
-async def get_devices(current_user: User = Depends(AuthManager.get_current_user)):
-    """获取所有设备及其使用状态"""
-    devices = await Device.all().prefetch_related("usage_info")
+async def get_devices(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
+    name: Optional[str] = Query(None, description="环境名称搜索"),
+    ip: Optional[str] = Query(None, description="环境IP搜索"),
+    status: Optional[str] = Query(None, description="环境状态搜索"),
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """
+    获取设备列表
+    - 支持分页
+    - 支持按环境名称、IP、状态搜索
+    """
+    # 构建查询条件
+    query = Device.all().prefetch_related("usage_info")
+
+    if name:
+        query = query.filter(name__icontains=name)
+    if ip:
+        query = query.filter(ip__icontains=ip)
+
+    # 如果有状态搜索，需要先获取所有设备然后过滤
+    if status:
+        # 获取所有符合名称和IP条件的设备
+        all_devices = await query
+        filtered_devices = []
+
+        for device in all_devices:
+            usage_info = await device.usage_info
+            if not usage_info:
+                usage_info = await DeviceUsage.create(device=device)
+
+            if usage_info.status == status:
+                filtered_devices.append(device)
+
+        # 计算总数和分页
+        total = len(filtered_devices)
+        offset = (page - 1) * page_size
+        devices = filtered_devices[offset:offset + page_size]
+    else:
+        # 没有状态搜索时，正常分页查询
+        total = await query.count()
+        offset = (page - 1) * page_size
+        devices = await query.offset(offset).limit(page_size)
+
     result = []
     for device in devices:
-        usage_info = await device.usage_info # 这里没有await，因为预取已经将关联对象加载到内存
-        if not usage_info:
-            # 创建默认使用情况
-            usage_info = await DeviceUsage.create(device=device)
+        if hasattr(device, 'usage_info') and device.usage_info:
+            usage_info = device.usage_info
+        else:
+            usage_info = await device.usage_info
+            if not usage_info:
+                # 创建默认使用情况
+                usage_info = await DeviceUsage.create(device=device)
         
         # 计算占用时长（精确到秒，但以分钟为单位显示）
         occupied_duration = 0
@@ -51,7 +96,7 @@ async def get_devices(current_user: User = Depends(AuthManager.get_current_user)
         is_current_user_in_queue = False
         if usage_info.queue_users and current_user.employee_id in usage_info.queue_users:
             is_current_user_in_queue = True
-        
+
         result.append(DeviceListItem(
             id=device.id,
             name=device.name,
@@ -64,11 +109,16 @@ async def get_devices(current_user: User = Depends(AuthManager.get_current_user)
             occupied_duration=occupied_duration,
             is_current_user_in_queue=is_current_user_in_queue
         ))
-    
+
     return BaseResponse(
         code=200,
         message="设备列表获取成功",
-        data=result
+        data={
+            "items": result,
+            "total": total,
+            "page": page,
+            "page_size": page_size
+        }
     )
 
 

@@ -34,49 +34,53 @@ async def get_operation_logs(
             if any(t in ["login", "logout"] for t in operation_types):
                 # 查询登录日志
                 login_query = LoginLog.all()
-                
+
                 if employee_id:
                     # 通过用户关联查询
                     login_query = login_query.filter(user__employee_id__icontains=employee_id)
-                
-                # 分页
-                offset = (page - 1) * page_size
-                login_logs = await login_query.offset(offset).limit(page_size).prefetch_related('user')
-                total = await login_query.count()
-                
-                # 转换为统一格式
-                items = []
-                for log in login_logs:
+
+                # 获取所有登录日志用于过滤
+                all_login_logs = await login_query.prefetch_related('user')
+
+                # 根据操作类型过滤
+                filtered_items = []
+                for log in all_login_logs:
                     # 根据login_result和failure_reason判断操作类型
                     if log.login_result:
                         # 登录成功
-                        operation_type = "login"
+                        log_operation_type = "login"
                         operation_result = "success"
                         description = "用户登录成功"
                     elif log.failure_reason == "用户主动登出":
                         # 用户登出
-                        operation_type = "logout"
+                        log_operation_type = "logout"
                         operation_result = "success"
                         description = "用户登出"
                     else:
                         # 登录失败
-                        operation_type = "login"
+                        log_operation_type = "login"
                         operation_result = "failed"
                         description = f"用户登录失败: {log.failure_reason or '未知原因'}"
 
-                    items.append({
-                        "id": log.id,
-                        "employee_id": log.user.employee_id,
-                        "username": log.user.username,
-                        "operation_type": operation_type,
-                        "operation_result": operation_result,
-                        "device_name": None,
-                        "description": description,
-                        "ip_address": log.ip_address,
-                        "user_agent": log.user_agent,
-                        "created_at": log.login_time.isoformat() if log.login_time else None
-                    })
-                
+                    # 检查是否匹配搜索的操作类型
+                    if log_operation_type in operation_types:
+                        filtered_items.append({
+                            "id": log.id,
+                            "employee_id": log.user.employee_id,
+                            "username": log.user.username,
+                            "operation_type": log_operation_type,
+                            "operation_result": operation_result,
+                            "device_name": None,
+                            "description": description,
+                            "ip_address": log.ip_address,
+                            "created_at": log.login_time.isoformat() if log.login_time else None
+                        })
+
+                # 手动分页
+                total = len(filtered_items)
+                offset = (page - 1) * page_size
+                items = filtered_items[offset:offset + page_size]
+
                 return BaseResponse(
                     code=200,
                     message="获取登录日志成功",
@@ -87,10 +91,10 @@ async def get_operation_logs(
                         "page_size": page_size
                     }
                 )
-            
+
             else:
-                # 查询设备操作日志（排除登录退出）
-                query_conditions["operation_type__not_in"] = ["login", "logout"]
+                # 查询设备操作日志，添加操作类型过滤
+                query_conditions["operation_type__in"] = operation_types
         else:
             # 默认查询设备操作日志（排除登录退出）
             query_conditions["operation_type__not_in"] = ["login", "logout"]
@@ -125,7 +129,6 @@ async def get_operation_logs(
                 "device_name": log.device_name,
                 "description": log.description,
                 "ip_address": log.ip_address,
-                "user_agent": log.user_agent,
                 "created_at": log.created_at.isoformat() if log.created_at else None
             })
         

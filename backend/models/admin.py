@@ -137,15 +137,14 @@ class Menu(Model):
 
 class LoginLog(Model):
     """登录日志模型"""
-    
+
     id = fields.IntField(pk=True, description="日志ID")
     user = fields.ForeignKeyField("models.User", related_name="login_logs", description="用户")
     login_time = fields.DatetimeField(auto_now_add=True, description="登录时间")
     ip_address = fields.CharField(max_length=45, description="IP地址")
-    user_agent = fields.TextField(null=True, description="用户代理")
     login_result = fields.BooleanField(description="登录结果")
     failure_reason = fields.CharField(max_length=200, null=True, description="失败原因")
-    
+
     class Meta:
         table = "login_logs"
         table_description = "登录日志表"
@@ -162,7 +161,6 @@ class OperationLog(Model):
     device_name = fields.CharField(max_length=100, null=True, description="设备名称")
     description = fields.TextField(null=True, description="操作描述")
     ip_address = fields.CharField(max_length=45, null=True, description="IP地址")
-    user_agent = fields.TextField(null=True, description="用户代理")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
 
     class Meta:
@@ -177,8 +175,7 @@ class OperationLog(Model):
         operation_result: str = "success",
         device_name: str = None,
         description: str = None,
-        ip_address: str = None,
-        user_agent: str = None
+        ip_address: str = None
     ):
         """创建操作日志的便捷方法"""
         return await cls.create(
@@ -188,6 +185,5 @@ class OperationLog(Model):
             operation_result=operation_result,
             device_name=device_name,
             description=description,
-            ip_address=ip_address,
-            user_agent=user_agent
+            ip_address=ip_address
         )

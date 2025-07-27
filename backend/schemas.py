@@ -196,10 +196,9 @@ class LoginLogResponse(BaseModel):
     username: str
     login_time: datetime
     ip_address: str
-    user_agent: Optional[str]
     login_result: bool
     failure_reason: Optional[str]
-    
+
     class Config:
         from_attributes = True
 
