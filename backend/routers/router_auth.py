@@ -136,14 +136,22 @@ async def login(request: Request, login_data: UserLogin):
 
 
 @router.post("/logout", response_model=BaseResponse, summary="用户登出")
-async def logout(current_user: User = require_active_user):
+async def logout(request: Request, current_user: User = require_active_user):
     """
     用户登出接口
     注意：JWT是无状态的，真正的登出需要在前端删除token
     这里主要用于记录登出日志
     """
-    # 在实际应用中，可以维护一个token黑名单
-    # 或者使用Redis存储已登出的token
+    # 获取客户端信息
+    ip_address = LoginManager.get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "")
+
+    # 记录登出日志
+    await LoginManager.record_logout_attempt(
+        user=current_user,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
 
     return BaseResponse(
         code=200,

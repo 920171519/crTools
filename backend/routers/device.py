@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageHistory, DeviceStatusEnum
-from models.admin import User
+from models.admin import User, OperationLog
 from schemas import (
     DeviceBase, DeviceUpdate, DeviceResponse, DeviceListItem,
     DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceReleaseRequest,
@@ -226,11 +226,11 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
+
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
-    
+
     # 检查设备状态
     if usage_info.status == DeviceStatusEnum.AVAILABLE:
         # 设备可用，直接占用
@@ -239,7 +239,7 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
         usage_info.expected_duration = request.expected_duration
         usage_info.status = DeviceStatusEnum.OCCUPIED
         await usage_info.save()
-        
+
         # 创建使用历史记录
         await DeviceUsageHistory.create(
             device=device,
@@ -247,10 +247,19 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
             start_time=get_current_time(),
             purpose=request.purpose
         )
-        
+
+        # 记录操作日志
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_use",
+            operation_result="success",
+            device_name=device.name,
+            description=f"成功使用设备 {device.name}，预计使用时长 {request.expected_duration} 分钟"
+        )
+
         return BaseResponse(
             code = 200,
-            message= "设备占用成功", 
+            message= "设备占用成功",
             data = {
                 "device_id": device.id,
             },
@@ -274,7 +283,16 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
             usage_info.queue_users = []
         usage_info.queue_users.append(request.user)
         await usage_info.save()
-        
+
+        # 记录操作日志
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_queue",
+            operation_result="success",
+            device_name=device.name,
+            description=f"加入设备 {device.name} 排队，排队位置: {len(usage_info.queue_users)}"
+        )
+
         return BaseResponse(
             code=200,
             message="已加入排队",
@@ -307,12 +325,16 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
 
     if not (is_current_user or is_admin_or_super):
         raise HTTPException(status_code=403, detail="只有当前使用者、管理员或超级管理员才能释放设备")
-    
+
+    # 记录释放操作的相关信息
+    release_user = usage_info.current_user
+    is_force_release = not is_current_user
+
     # 更新使用历史记录
     # if usage_info.start_time:
     #     history = await DeviceUsageHistory.filter(
-    #         device=device, 
-    #         user=request.user, 
+    #         device=device,
+    #         user=request.user,
     #         end_time__isnull=True
     #     ).first()
     #     if history:
@@ -320,7 +342,7 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
     #         duration = datetime.now() - history.start_time
     #         history.duration = int(duration.total_seconds() / 60)
     #         await history.save()
-    
+
     # 检查排队情况
     if usage_info.queue_users and len(usage_info.queue_users) > 0:
         # 有人排队，将设备分配给下一个用户
@@ -336,7 +358,17 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
             user=next_user,
             start_time=get_current_time()
         )
-        
+
+        # 记录释放操作日志
+        release_type = "强制释放" if is_force_release else "释放"
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_release",
+            operation_result="success",
+            device_name=device.name,
+            description=f"{release_type}设备 {device.name}，设备已分配给下一个用户 {next_user}"
+        )
+
         return BaseResponse(
             code=200,
             message="设备已释放并分配给下一个用户",
@@ -353,7 +385,17 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         usage_info.expected_duration = 0
         usage_info.status = DeviceStatusEnum.AVAILABLE
         await usage_info.save()
-        
+
+        # 记录释放操作日志
+        release_type = "强制释放" if is_force_release else "释放"
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_release",
+            operation_result="success",
+            device_name=device.name,
+            description=f"{release_type}设备 {device.name}，设备现在可用"
+        )
+
         return BaseResponse(
             code=200,
             message = "设备已释放",
@@ -387,7 +429,16 @@ async def cancel_queue(request: DeviceCancelQueueRequest, current_user: User = D
     # 从排队列表中移除用户
     usage_info.queue_users.remove(current_user.employee_id)
     await usage_info.save()
-    
+
+    # 记录取消排队操作日志
+    await OperationLog.create_log(
+        user=current_user,
+        operation_type="device_cancel_queue",
+        operation_result="success",
+        device_name=device.name,
+        description=f"取消设备 {device.name} 排队"
+    )
+
     return BaseResponse(
         code=200,
         message="已取消排队",
@@ -477,7 +528,16 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
             start_time=get_current_time(),
             purpose=request.purpose
         )
-        
+
+        # 记录抢占操作日志（设备可用时直接占用）
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_preempt",
+            operation_result="success",
+            device_name=device.name,
+            description=f"抢占设备 {device.name}（设备可用，直接占用）"
+        )
+
         return BaseResponse(
             code=200,
             message="设备占用成功",
@@ -515,7 +575,16 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
             start_time=get_current_time(),
             purpose=request.purpose
         )
-        
+
+        # 记录抢占操作日志
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_preempt",
+            operation_result="success",
+            device_name=device.name,
+            description=f"抢占设备 {device.name}，原用户 {previous_user} 已加入排队列表首位"
+        )
+
         return BaseResponse(
             code=200,
             message="设备抢占成功，原用户已加入排队列表首位",
@@ -567,7 +636,16 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
             start_time=get_current_time(),
             purpose=request.purpose
         )
-        
+
+        # 记录优先排队操作日志（设备可用时直接占用）
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_priority_queue",
+            operation_result="success",
+            device_name=device.name,
+            description=f"优先排队设备 {device.name}（设备可用，直接占用）"
+        )
+
         return BaseResponse(
             code=200,
             message="设备占用成功",
@@ -588,7 +666,16 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
             usage_info.queue_users = []
         usage_info.queue_users.insert(0, request.user)
         await usage_info.save()
-        
+
+        # 记录优先排队操作日志
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_priority_queue",
+            operation_result="success",
+            device_name=device.name,
+            description=f"优先排队设备 {device.name}，排队位置: 1"
+        )
+
         return BaseResponse(
             code=200,
             message="已优先加入排队",
@@ -630,7 +717,16 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
             start_time=get_current_time(),
             purpose=request.purpose
         )
-        
+
+        # 记录统一排队操作日志（设备可用时直接使用）
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_unified_queue",
+            operation_result="success",
+            device_name=device.name,
+            description=f"统一排队设备 {device.name}（设备可用，直接使用）"
+        )
+
         return BaseResponse(
             code=200,
             message="设备使用成功",
@@ -658,7 +754,16 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
             usage_info.queue_users = []
         usage_info.queue_users.append(request.user)
         await usage_info.save()
-        
+
+        # 记录统一排队操作日志（加入排队）
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="device_unified_queue",
+            operation_result="success",
+            device_name=device.name,
+            description=f"统一排队设备 {device.name}，排队位置: {len(usage_info.queue_users)}"
+        )
+
         return BaseResponse(
             code=200,
             message="已加入排队",
@@ -709,6 +814,16 @@ async def batch_release_my_devices(current_user: User = Depends(AuthManager.get_
                 await usage_info.save()
                 released_count += 1
 
+                # 记录批量释放操作日志
+                next_user_info = f"，设备已分配给下一个用户 {next_user}" if usage_info.queue_users else "，设备现在可用"
+                await OperationLog.create_log(
+                    user=current_user,
+                    operation_type="device_batch_release",
+                    operation_result="success",
+                    device_name=usage_info.device.name,
+                    description=f"批量释放设备 {usage_info.device.name}{next_user_info}"
+                )
+
             except Exception as e:
                 failed_devices.append(usage_info.device.name)
                 print(f"释放设备 {usage_info.device.name} 失败: {e}")
@@ -756,6 +871,15 @@ async def batch_cancel_my_queues(current_user: User = Depends(AuthManager.get_cu
 
                     await usage_info.save()
                     cancelled_count += 1
+
+                    # 记录批量取消排队操作日志
+                    await OperationLog.create_log(
+                        user=current_user,
+                        operation_type="device_batch_cancel_queue",
+                        operation_result="success",
+                        device_name=usage_info.device.name,
+                        description=f"批量取消设备 {usage_info.device.name} 排队"
+                    )
 
                 except Exception as e:
                     failed_devices.append(usage_info.device.name)

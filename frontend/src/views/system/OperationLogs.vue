@@ -43,33 +43,37 @@
                 <span>用户登录退出日志</span>
               </div>
             </template>
-            
-            <el-table 
-              :data="loginLogs" 
-              :loading="loginLoading"
-              height="500"
-              stripe
-            >
-              <el-table-column prop="employee_id" label="工号" width="120" />
-              <el-table-column prop="username" label="用户名" width="120" />
-              <el-table-column prop="operation_type" label="操作" width="80">
-                <template #default="{ row }">
-                  <el-tag 
-                    :type="row.operation_type === 'login' ? 'success' : 'warning'"
-                    size="small"
-                  >
-                    {{ row.operation_type === 'login' ? '登录' : '退出' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="ip_address" label="IP地址" width="130" />
-              <el-table-column prop="user_agent" label="浏览器" min-width="150" show-overflow-tooltip />
-              <el-table-column prop="created_at" label="时间" width="160">
-                <template #default="{ row }">
-                  {{ formatTime(row.created_at) }}
-                </template>
-              </el-table-column>
-            </el-table>
+
+            <div class="table-container">
+              <el-table
+                :data="loginLogs"
+                :loading="loginLoading"
+                height="500"
+                stripe
+                :table-layout="'fixed'"
+                style="width: 100%"
+              >
+                <el-table-column prop="employee_id" label="工号" width="120" align="center" />
+                <el-table-column prop="username" label="用户名" width="120" align="center" />
+                <el-table-column prop="operation_type" label="操作" width="80" align="center">
+                  <template #default="{ row }">
+                    <el-tag
+                      :type="row.operation_type === 'login' ? 'success' : 'warning'"
+                      size="small"
+                    >
+                      {{ row.operation_type === 'login' ? '登录' : '退出' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="ip_address" label="IP地址" width="130" align="center" />
+                <el-table-column prop="user_agent" label="浏览器" min-width="150" show-overflow-tooltip />
+                <el-table-column prop="created_at" label="时间" width="160" align="center">
+                  <template #default="{ row }">
+                    {{ formatTime(row.created_at) }}
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
 
             <!-- 分页 -->
             <div class="pagination-container">
@@ -95,42 +99,45 @@
                 <span>设备操作日志</span>
               </div>
             </template>
-            
-            <el-table 
-              :data="deviceLogs" 
-              :loading="deviceLoading"
-              height="500"
-              stripe
-            >
-              <el-table-column prop="employee_id" label="操作人" width="100" />
-              <el-table-column prop="device_name" label="设备名称" width="120" />
-              <el-table-column prop="operation_type" label="操作" width="100">
-                <template #default="{ row }">
-                  <el-tag 
-                    :type="getDeviceOperationTagType(row.operation_type)"
-                    size="small"
-                  >
-                    {{ getDeviceOperationText(row.operation_type) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="operation_result" label="结果" width="80">
-                <template #default="{ row }">
-                  <el-tag 
-                    :type="row.operation_result === 'success' ? 'success' : 'danger'"
-                    size="small"
-                  >
-                    {{ row.operation_result === 'success' ? '成功' : '失败' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
-              <el-table-column prop="created_at" label="时间" width="160">
-                <template #default="{ row }">
-                  {{ formatTime(row.created_at) }}
-                </template>
-              </el-table-column>
-            </el-table>
+
+            <div class="table-container">
+              <el-table
+                :data="deviceLogs"
+                :loading="deviceLoading"
+                height="500"
+                stripe
+                :table-layout="'fixed'"
+                style="width: 100%"
+              >
+                <el-table-column prop="employee_id" label="操作人" width="120" align="center" />
+                <el-table-column prop="device_name" label="设备名称" width="140" align="center" />
+                <el-table-column prop="operation_type" label="操作" width="100" align="center">
+                  <template #default="{ row }">
+                    <el-tag
+                      :type="getDeviceOperationTagType(row.operation_type)"
+                      size="small"
+                    >
+                      {{ getDeviceOperationText(row.operation_type) }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="operation_result" label="结果" width="80" align="center">
+                  <template #default="{ row }">
+                    <el-tag
+                      :type="row.operation_result === 'success' ? 'success' : 'danger'"
+                      size="small"
+                    >
+                      {{ row.operation_result === 'success' ? '成功' : '失败' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="created_at" label="时间" width="180" align="center">
+                  <template #default="{ row }">
+                    {{ formatTime(row.created_at) }}
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
 
             <!-- 分页 -->
             <div class="pagination-container">
@@ -192,13 +199,15 @@ const formatTime = (timeStr) => {
 // 获取设备操作标签类型
 const getDeviceOperationTagType = (type) => {
   const typeMap = {
-    'use': 'success',
-    'release': 'info',
-    'queue': 'warning',
-    'cancel_queue': 'info',
-    'preempt': 'danger',
-    'priority_queue': 'warning',
-    'force_release': 'danger'
+    'device_use': 'success',
+    'device_release': 'info',
+    'device_queue': 'warning',
+    'device_cancel_queue': 'info',
+    'device_preempt': 'danger',
+    'device_priority_queue': 'warning',
+    'device_unified_queue': 'primary',
+    'device_batch_release': 'info',
+    'device_batch_cancel_queue': 'info'
   }
   return typeMap[type] || 'info'
 }
@@ -206,13 +215,15 @@ const getDeviceOperationTagType = (type) => {
 // 获取设备操作文本
 const getDeviceOperationText = (type) => {
   const textMap = {
-    'use': '使用',
-    'release': '释放',
-    'queue': '排队',
-    'cancel_queue': '取消排队',
-    'preempt': '抢占',
-    'priority_queue': '优先排队',
-    'force_release': '强制释放'
+    'device_use': '使用',
+    'device_release': '释放',
+    'device_queue': '普通排队',
+    'device_cancel_queue': '取消排队',
+    'device_preempt': '抢占',
+    'device_priority_queue': '优先排队',
+    'device_unified_queue': '统一排队',
+    'device_batch_release': '批量释放',
+    'device_batch_cancel_queue': '批量取消排队'
   }
   return textMap[type] || type
 }
@@ -224,10 +235,10 @@ const loadLoginLogs = async () => {
     const params = {
       page: loginPagination.value.page,
       page_size: loginPagination.value.page_size,
-      operation_type: 'login,logout',
-      ...searchForm.value
+      employee_id: searchForm.value.employee_id,
+      operation_type: 'login,logout'
     }
-    
+
     const response = await operationLogApi.getOperationLogs(params)
     loginLogs.value = response.data.items
     loginPagination.value.total = response.data.total
@@ -246,10 +257,10 @@ const loadDeviceLogs = async () => {
     const params = {
       page: devicePagination.value.page,
       page_size: devicePagination.value.page_size,
-      operation_type: 'device',
-      ...searchForm.value
+      employee_id: searchForm.value.employee_id,
+      // 不传operation_type，让后端默认返回设备操作日志
     }
-    
+
     const response = await operationLogApi.getOperationLogs(params)
     deviceLogs.value = response.data.items
     devicePagination.value.total = response.data.total
@@ -336,11 +347,15 @@ onMounted(() => {
   display: flex;
   gap: 20px;
   height: 600px;
+  overflow: hidden;
 }
 
 .left-panel,
 .right-panel {
   flex: 1;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
 }
 
 .log-panel {
@@ -358,5 +373,74 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+}
+
+/* 表格容器样式 - 重新设计 */
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  background: white;
+}
+
+/* 表格基础样式 */
+.table-container :deep(.el-table) {
+  width: 100% !important;
+  min-width: 700px;
+  border: none;
+}
+
+/* 表格头部和主体样式 */
+.table-container :deep(.el-table__header-wrapper) {
+  overflow: visible;
+}
+
+.table-container :deep(.el-table__body-wrapper) {
+  overflow: visible;
+}
+
+/* 单元格样式 */
+.table-container :deep(.el-table__cell) {
+  padding: 12px 8px;
+  text-align: center;
+  vertical-align: middle;
+  border-right: 1px solid #ebeef5;
+}
+
+.table-container :deep(.el-table__cell:last-child) {
+  border-right: none;
+}
+
+/* 表格行样式 */
+.table-container :deep(.el-table__row) {
+  height: 50px;
+}
+
+/* 自定义滚动条样式 */
+.table-container::-webkit-scrollbar {
+  height: 12px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 6px;
+  border: 2px solid #f5f5f5;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #909399;
+}
+
+/* 强制显示滚动条 */
+.table-container {
+  scrollbar-width: thin;
+  scrollbar-color: #c0c4cc #f5f5f5;
 }
 </style>

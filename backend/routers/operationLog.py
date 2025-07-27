@@ -29,7 +29,9 @@ async def get_operation_logs(
         
         # 处理操作类型过滤
         if operation_type:
-            if operation_type in ["login", "logout"]:
+            # 支持逗号分隔的操作类型
+            operation_types = [t.strip() for t in operation_type.split(',')]
+            if any(t in ["login", "logout"] for t in operation_types):
                 # 查询登录日志
                 login_query = LoginLog.all()
                 
@@ -45,14 +47,31 @@ async def get_operation_logs(
                 # 转换为统一格式
                 items = []
                 for log in login_logs:
+                    # 根据login_result和failure_reason判断操作类型
+                    if log.login_result:
+                        # 登录成功
+                        operation_type = "login"
+                        operation_result = "success"
+                        description = "用户登录成功"
+                    elif log.failure_reason == "用户主动登出":
+                        # 用户登出
+                        operation_type = "logout"
+                        operation_result = "success"
+                        description = "用户登出"
+                    else:
+                        # 登录失败
+                        operation_type = "login"
+                        operation_result = "failed"
+                        description = f"用户登录失败: {log.failure_reason or '未知原因'}"
+
                     items.append({
                         "id": log.id,
                         "employee_id": log.user.employee_id,
                         "username": log.user.username,
-                        "operation_type": "login" if log.login_result else "logout",
-                        "operation_result": "success" if log.login_result else "failed",
+                        "operation_type": operation_type,
+                        "operation_result": operation_result,
                         "device_name": None,
-                        "description": f"用户{'登录成功' if log.login_result else '登录失败'}",
+                        "description": description,
                         "ip_address": log.ip_address,
                         "user_agent": log.user_agent,
                         "created_at": log.login_time.isoformat() if log.login_time else None
@@ -69,10 +88,13 @@ async def get_operation_logs(
                     }
                 )
             
-            elif operation_type == "device":
-                # 查询设备操作日志
+            else:
+                # 查询设备操作日志（排除登录退出）
                 query_conditions["operation_type__not_in"] = ["login", "logout"]
-        
+        else:
+            # 默认查询设备操作日志（排除登录退出）
+            query_conditions["operation_type__not_in"] = ["login", "logout"]
+
         # 查询操作日志
         query = OperationLog.all()
         

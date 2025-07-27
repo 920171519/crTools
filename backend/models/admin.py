@@ -168,3 +168,26 @@ class OperationLog(Model):
     class Meta:
         table = "operation_logs"
         table_description = "操作日志表"
+
+    @classmethod
+    async def create_log(
+        cls,
+        user: "User",
+        operation_type: str,
+        operation_result: str = "success",
+        device_name: str = None,
+        description: str = None,
+        ip_address: str = None,
+        user_agent: str = None
+    ):
+        """创建操作日志的便捷方法"""
+        return await cls.create(
+            employee_id=user.employee_id,
+            username=user.username,
+            operation_type=operation_type,
+            operation_result=operation_result,
+            device_name=device_name,
+            description=description,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
