@@ -57,23 +57,7 @@ async def init_database():
         {"name": "用户更新", "code": "user:update", "resource": "user", "action": "update", "description": "更新用户信息"},
         {"name": "用户删除", "code": "user:delete", "resource": "user", "action": "delete", "description": "删除用户"},
         
-        # 角色管理权限
-        {"name": "角色查看", "code": "role:read", "resource": "role", "action": "read", "description": "查看角色信息"},
-        {"name": "角色创建", "code": "role:create", "resource": "role", "action": "create", "description": "创建角色"},
-        {"name": "角色更新", "code": "role:update", "resource": "role", "action": "update", "description": "更新角色信息"},
-        {"name": "角色删除", "code": "role:delete", "resource": "role", "action": "delete", "description": "删除角色"},
-        
-        # 权限管理权限
-        {"name": "权限查看", "code": "permission:read", "resource": "permission", "action": "read", "description": "查看权限信息"},
-        {"name": "权限创建", "code": "permission:create", "resource": "permission", "action": "create", "description": "创建权限"},
-        {"name": "权限更新", "code": "permission:update", "resource": "permission", "action": "update", "description": "更新权限信息"},
-        {"name": "权限删除", "code": "permission:delete", "resource": "permission", "action": "delete", "description": "删除权限"},
-        
-        # 菜单管理权限
-        {"name": "菜单查看", "code": "menu:read", "resource": "menu", "action": "read", "description": "查看菜单信息"},
-        {"name": "菜单创建", "code": "menu:create", "resource": "menu", "action": "create", "description": "创建菜单"},
-        {"name": "菜单更新", "code": "menu:update", "resource": "menu", "action": "update", "description": "更新菜单信息"},
-        {"name": "菜单删除", "code": "menu:delete", "resource": "menu", "action": "delete", "description": "删除菜单"},
+
         
         # 系统管理权限
         {"name": "系统配置", "code": "system:config", "resource": "system", "action": "config", "description": "系统配置管理"},
@@ -85,6 +69,10 @@ async def init_database():
         {"name": "设备更新", "code": "device:update", "resource": "device", "action": "update", "description": "更新设备信息"},
         {"name": "设备删除", "code": "device:delete", "resource": "device", "action": "delete", "description": "删除设备"},
         {"name": "设备使用", "code": "device:use", "resource": "device", "action": "use", "description": "使用设备"},
+
+        # 后台管理权限
+        {"name": "后台管理", "code": "admin:read", "resource": "admin", "action": "read", "description": "访问后台管理"},
+        {"name": "系统设置", "code": "admin:settings", "resource": "admin", "action": "settings", "description": "修改系统设置"},
     ]
     
     for perm_data in permissions_data:
@@ -115,86 +103,59 @@ async def init_database():
             "is_visible": True,
             "permission_code": "device:read"
         },
+        # 直接显示子菜单，不要父菜单
         {
-            "name": "环境管理",
-            "path": "/system",
+            "name": "用户管理",
+            "path": "/system/users",
+            "component": "UserManagement",
+            "icon": "User",
+            "parent_id": None,
+            "sort_order": 101,
+            "is_visible": True,
+            "permission_code": "user:read"
+        },
+
+        {
+            "name": "后台管理",
+            "path": "/admin",
             "component": None,
             "icon": "Setting",
             "parent_id": None,
-            "sort_order": 100,
+            "sort_order": 200,
             "is_visible": True,
-            "permission_code": "user:read"
+            "permission_code": "admin:read"
         }
     ]
     
-    # 先创建父菜单
+    # 创建所有菜单
     for menu_data in menus_data:
         menu = await Menu.filter(path=menu_data["path"]).first()
         if not menu:
             menu = await Menu.create(**menu_data)
             print(f"✅ 创建菜单: {menu.name}")
-    
-    # 获取系统管理菜单ID
-    system_menu = await Menu.filter(path="/system").first()
-    if system_menu:
-        sub_menus_data = [
+
+    # 获取后台管理菜单ID，创建设置子菜单
+    admin_menu = await Menu.filter(path="/admin").first()
+    if admin_menu:
+        admin_sub_menus_data = [
             {
-                "name": "用户管理",
-                "path": "/system/users",
-                "component": "UserManagement",
-                "icon": "User",
-                "parent_id": system_menu.id,
-                "sort_order": 101,
+                "name": "系统设置",
+                "path": "/admin/settings",
+                "component": "SystemSettings",
+                "icon": "Setting",
+                "parent_id": admin_menu.id,
+                "sort_order": 201,
                 "is_visible": True,
-                "permission_code": "user:read"
-            },
-            {
-                "name": "角色管理",
-                "path": "/system/roles",
-                "component": "RoleManagement",
-                "icon": "UserFilled",
-                "parent_id": system_menu.id,
-                "sort_order": 102,
-                "is_visible": True,
-                "permission_code": "role:read"
-            },
-            {
-                "name": "权限管理",
-                "path": "/system/permissions",
-                "component": "PermissionManagement",
-                "icon": "Key",
-                "parent_id": system_menu.id,
-                "sort_order": 103,
-                "is_visible": True,
-                "permission_code": "permission:read"
-            },
-            {
-                "name": "菜单管理",
-                "path": "/system/menus",
-                "component": "MenuManagement",
-                "icon": "Menu",
-                "parent_id": system_menu.id,
-                "sort_order": 104,
-                "is_visible": True,
-                "permission_code": "menu:read"
-            },
-            {
-                "name": "登录日志",
-                "path": "/system/logs",
-                "component": "LoginLogs",
-                "icon": "Document",
-                "parent_id": system_menu.id,
-                "sort_order": 105,
-                "is_visible": True,
-                "permission_code": "system:log"
+                "permission_code": "admin:settings"
             }
         ]
-        
-        for menu_data in sub_menus_data:
-            menu = await Menu.filter(path=menu_data["path"]).first()
-            if not menu:
-                menu = await Menu.create(**menu_data)
-                print(f"✅ 创建子菜单: {menu.name}")
+
+        # 创建后台管理子菜单
+        for sub_menu_data in admin_sub_menus_data:
+            sub_menu = await Menu.filter(path=sub_menu_data["path"]).first()
+            if not sub_menu:
+                sub_menu = await Menu.create(**sub_menu_data)
+                print(f"✅ 创建后台管理子菜单: {sub_menu.name}")
     
     # 为超级管理员分配超级管理员角色
     super_admin_role = await Role.filter(name="超级管理员").first()
@@ -245,16 +206,12 @@ async def init_database():
         admin_permissions = [
             # 用户管理
             "user:read", "user:create", "user:update", "user:delete",
-            # 角色管理
-            "role:read", "role:create", "role:update", "role:delete",
-            # 权限管理
-            "permission:read",
-            # 菜单管理
-            "menu:read", "menu:create", "menu:update", "menu:delete",
             # 系统管理
             "system:config", "system:log",
             # 设备管理
             "device:read", "device:create", "device:update", "device:delete", "device:use",
+            # 后台管理
+            "admin:read", "admin:settings",
         ]
 
         for perm_code in admin_permissions:

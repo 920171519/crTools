@@ -36,43 +36,15 @@
           </div>
         </div>
         
-        <div class="module-item" @click="goToPage('/system/roles')" v-if="userStore.hasPermission('role:read')">
-          <div class="module-icon role-module">
-            <el-icon size="32"><UserFilled /></el-icon>
-          </div>
-          <div class="module-info">
-            <h3>角色管理</h3>
-            <p>配置用户角色权限</p>
-          </div>
-        </div>
-        
-        <div class="module-item" @click="goToPage('/system/permissions')" v-if="userStore.hasPermission('permission:read')">
-          <div class="module-icon permission-module">
-            <el-icon size="32"><Key /></el-icon>
-          </div>
-          <div class="module-info">
-            <h3>权限管理</h3>
-            <p>管理系统访问权限</p>
-          </div>
-        </div>
-        
-        <div class="module-item" @click="goToPage('/system/menus')" v-if="userStore.hasPermission('menu:read')">
-          <div class="module-icon menu-module">
-            <el-icon size="32"><Menu /></el-icon>
-          </div>
-          <div class="module-info">
-            <h3>菜单管理</h3>
-            <p>配置系统导航菜单</p>
-          </div>
-        </div>
+
         
         <div class="module-item" @click="goToPage('/system/logs')" v-if="userStore.hasPermission('system:log')">
           <div class="module-icon log-module">
             <el-icon size="32"><Document /></el-icon>
           </div>
           <div class="module-info">
-            <h3>登录日志</h3>
-            <p>查看系统访问记录</p>
+            <h3>操作日志</h3>
+            <p>查看用户登录和设备操作记录</p>
           </div>
         </div>
         
@@ -164,7 +136,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { deviceApi } from '@/api/device'
 import {
-  User, UserFilled, Key, Menu, Document, Setting,
+  User, Document, Setting,
   Lightning, Clock, Monitor
 } from '@element-plus/icons-vue'
 

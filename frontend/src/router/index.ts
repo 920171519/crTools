@@ -75,44 +75,25 @@ const routes: RouteRecordRaw[] = [
           title: '用户管理'
         }
       },
-      {
-        path: 'system/roles',
-        name: 'RoleManagement',
-        component: () => import('@/views/system/RoleManagement.vue'),
-        meta: {
-          requiresAuth: true,
-          permission: 'role:read',
-          title: '角色管理'
-        }
-      },
-      {
-        path: 'system/permissions',
-        name: 'PermissionManagement',
-        component: () => import('@/views/system/PermissionManagement.vue'),
-        meta: {
-          requiresAuth: true,
-          permission: 'permission:read',
-          title: '权限管理'
-        }
-      },
-      {
-        path: 'system/menus',
-        name: 'MenuManagement',
-        component: () => import('@/views/system/MenuManagement.vue'),
-        meta: {
-          requiresAuth: true,
-          permission: 'menu:read',
-          title: '菜单管理'
-        }
-      },
+
       {
         path: 'system/logs',
-        name: 'LoginLogs',
-        component: () => import('@/views/system/LoginLogs.vue'),
+        name: 'OperationLogs',
+        component: () => import('@/views/system/OperationLogs.vue'),
         meta: {
           requiresAuth: true,
           permission: 'system:log',
-          title: '登录日志'
+          title: '操作日志'
+        }
+      },
+      {
+        path: 'admin/settings',
+        name: 'SystemSettings',
+        component: () => import('@/views/admin/SystemSettings.vue'),
+        meta: {
+          requiresAuth: true,
+          permission: 'admin:settings',
+          title: '系统设置'
         }
       }
     ]

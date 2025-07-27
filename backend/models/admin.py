@@ -149,3 +149,22 @@ class LoginLog(Model):
     class Meta:
         table = "login_logs"
         table_description = "登录日志表"
+
+
+class OperationLog(Model):
+    """操作日志模型"""
+
+    id = fields.IntField(pk=True, description="日志ID")
+    employee_id = fields.CharField(max_length=20, description="操作人工号")
+    username = fields.CharField(max_length=50, description="操作人用户名")
+    operation_type = fields.CharField(max_length=50, description="操作类型")
+    operation_result = fields.CharField(max_length=20, default="success", description="操作结果")
+    device_name = fields.CharField(max_length=100, null=True, description="设备名称")
+    description = fields.TextField(null=True, description="操作描述")
+    ip_address = fields.CharField(max_length=45, null=True, description="IP地址")
+    user_agent = fields.TextField(null=True, description="用户代理")
+    created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
+
+    class Meta:
+        table = "operation_logs"
+        table_description = "操作日志表"

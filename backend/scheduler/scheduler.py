@@ -15,20 +15,63 @@ logger = logging.getLogger(__name__)
 class DeviceScheduler:
     def __init__(self):
         self.scheduler = AsyncIOScheduler()
-        
+
     async def start(self):
         """启动定时任务调度器"""
-        # 添加每天零点30分的定时任务
+        # 从数据库获取清理时间设置
+        cleanup_time = await self._get_cleanup_time()
+        hour, minute = self._parse_time(cleanup_time)
+
+        # 添加定时清理任务
         self.scheduler.add_job(
             self.daily_device_cleanup,
-            CronTrigger(hour=23, minute=54),  # 每天00:30执行
+            CronTrigger(hour=hour, minute=minute),
             id='daily_device_cleanup',
             name='每日设备清理任务',
             replace_existing=True
         )
-        
+
         self.scheduler.start()
-        logger.info("定时任务调度器已启动")
+        logger.info(f"定时任务调度器已启动，清理时间: {cleanup_time}")
+
+    async def _get_cleanup_time(self):
+        """获取清理时间设置"""
+        try:
+            from models.systemModel import SystemSettings
+            settings = await SystemSettings.first()
+            return settings.cleanup_time if settings else "00:30"
+        except Exception as e:
+            logger.error(f"获取清理时间设置失败: {e}")
+            return "00:30"  # 默认时间
+
+    def _parse_time(self, time_str):
+        """解析时间字符串"""
+        try:
+            hour, minute = time_str.split(':')
+            return int(hour), int(minute)
+        except (ValueError, AttributeError):
+            return 0, 30  # 默认00:30
+
+    async def update_cleanup_schedule(self, cleanup_time):
+        """更新清理任务的调度时间"""
+        if not cleanup_time:
+            cleanup_time = "00:30"
+
+        hour, minute = self._parse_time(cleanup_time)
+
+        # 移除旧任务并添加新任务
+        if self.scheduler.get_job('daily_device_cleanup'):
+            self.scheduler.remove_job('daily_device_cleanup')
+
+        self.scheduler.add_job(
+            self.daily_device_cleanup,
+            CronTrigger(hour=hour, minute=minute),
+            id='daily_device_cleanup',
+            name='每日设备清理任务',
+            replace_existing=True
+        )
+
+        logger.info(f"定时清理任务已更新，新的清理时间: {cleanup_time}")
         
     async def stop(self):
         """停止定时任务调度器"""
