@@ -42,6 +42,14 @@ export interface VPNListResponse {
   page_size: number
 }
 
+export interface IPSearchResult {
+  employee_id: string
+  username: string
+  region: string
+  network: string
+  ip_address: string
+}
+
 // VPN配置管理API
 export const vpnApi = {
   // 管理员VPN配置管理
@@ -68,5 +76,12 @@ export const vpnApi = {
 
   updateUserVPNConfig: (vpnConfigId: number, data: UserVPNConfigUpdate) => {
     return api.put(`/vpn/user-configs/${vpnConfigId}`, data)
+  },
+
+  // IP搜索功能
+  searchUserByIP: (ipAddress: string) => {
+    return api.get<IPSearchResult[]>('/vpn/search-ip', {
+      params: { ip_address: ipAddress }
+    })
   }
 }

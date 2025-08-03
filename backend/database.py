@@ -150,7 +150,7 @@ async def init_database():
                 "permission_code": "admin:settings"
             },
             {
-                "name": "VPN配置",
+                "name": "VPN管理",
                 "path": "/admin/vpn-config",
                 "component": "VPNConfig",
                 "icon": "Key",

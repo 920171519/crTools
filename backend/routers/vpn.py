@@ -268,10 +268,10 @@ async def update_user_vpn_config(
                 message="VPN配置不存在",
                 data=None
             )
-        
+
         # 查找或创建用户VPN配置
         user_config = await UserVPNConfig.filter(user=current_user, vpn_config=vpn_config).first()
-        
+
         if user_config:
             # 更新现有配置
             user_config.ip_address = config_data.ip_address
@@ -283,7 +283,7 @@ async def update_user_vpn_config(
                 vpn_config=vpn_config,
                 ip_address=config_data.ip_address
             )
-        
+
         return BaseResponse(
             code=200,
             message="更新VPN IP配置成功",
@@ -297,5 +297,44 @@ async def update_user_vpn_config(
         return BaseResponse(
             code=500,
             message="更新用户VPN配置失败",
+            data=None
+        )
+
+
+# ===== IP搜索功能 =====
+
+@router.get("/search-ip", response_model=BaseResponse, summary="根据IP地址搜索用户VPN配置")
+async def search_user_by_ip(
+    ip_address: str = Query(..., description="要搜索的IP地址"),
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """根据IP地址搜索用户VPN配置（管理员）"""
+    try:
+        # 搜索包含该IP地址的用户VPN配置
+        user_configs = await UserVPNConfig.filter(
+            ip_address__icontains=ip_address
+        ).prefetch_related('user', 'vpn_config')
+
+        # 构建响应数据
+        results = []
+        for config in user_configs:
+            results.append({
+                "employee_id": config.user.employee_id,
+                "username": config.user.username,
+                "region": config.vpn_config.region,
+                "network": config.vpn_config.network,
+                "ip_address": config.ip_address
+            })
+
+        return BaseResponse(
+            code=200,
+            message=f"搜索到 {len(results)} 条匹配记录",
+            data=results
+        )
+    except Exception as e:
+        print(f"IP搜索失败: {e}")
+        return BaseResponse(
+            code=500,
+            message="IP搜索失败",
             data=None
         )

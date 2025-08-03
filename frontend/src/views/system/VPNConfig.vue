@@ -3,7 +3,7 @@
     <el-card shadow="never">
       <template #header>
         <div class="card-header">
-          <span>VPN配置管理</span>
+          <span>VPN项配置与管理</span>
         </div>
       </template>
 
@@ -80,6 +80,50 @@
       </div>
     </el-card>
 
+    <!-- IP搜索功能区域 -->
+    <el-card shadow="never" style="margin-top: 20px;">
+      <template #header>
+        <div class="card-header">
+          <span>IP地址搜索</span>
+        </div>
+      </template>
+
+      <!-- IP搜索输入区 -->
+      <div class="ip-search-section">
+        <div class="search-input-group">
+          <el-input
+            v-model="ipSearchValue"
+            placeholder="输入IP地址搜索用户配置（支持部分匹配）"
+            style="width: 350px; margin-right: 15px;"
+            clearable
+            @keyup.enter="handleIPSearch"
+          />
+          <el-button type="success" @click="handleIPSearch" :loading="ipSearchLoading">
+            <el-icon><Search /></el-icon>
+            搜索IP
+          </el-button>
+          <el-button v-if="ipSearchResults.length > 0" @click="clearIPSearch">
+            <el-icon><Close /></el-icon>
+            清除搜索
+          </el-button>
+        </div>
+      </div>
+
+      <!-- IP搜索结果 -->
+      <div v-if="ipSearchResults.length > 0" class="search-results">
+        <div class="results-header">
+          <span class="results-count">搜索结果：共找到 {{ ipSearchResults.length }} 条记录</span>
+        </div>
+        <el-table :data="ipSearchResults" stripe style="width: 100%; margin-top: 15px;">
+          <el-table-column prop="employee_id" label="用户工号" min-width="120" align="center" />
+          <el-table-column prop="username" label="用户姓名" min-width="120" align="center" />
+          <el-table-column prop="region" label="地域" min-width="120" align="center" />
+          <el-table-column prop="network" label="网段" min-width="150" align="center" />
+          <el-table-column prop="ip_address" label="IP地址" min-width="150" align="center" />
+        </el-table>
+      </div>
+    </el-card>
+
     <!-- 添加/编辑对话框 -->
     <el-dialog
       :title="dialogTitle"
@@ -115,14 +159,19 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, FormInstance } from 'element-plus'
-import { Plus, Refresh, Search, Edit, Delete } from '@element-plus/icons-vue'
-import { vpnApi, VPNConfig, VPNConfigCreate, VPNConfigUpdate } from '@/api/vpn'
+import { Plus, Refresh, Search, Edit, Delete, Close } from '@element-plus/icons-vue'
+import { vpnApi, VPNConfig, VPNConfigCreate, VPNConfigUpdate, IPSearchResult } from '@/api/vpn'
 
 // 数据定义
 const loading = ref(false)
 const vpnConfigs = ref<VPNConfig[]>([])
 const deleteLoading = reactive<Record<number, boolean>>({})
 const submitLoading = ref(false)
+
+// IP搜索相关
+const ipSearchValue = ref('')
+const ipSearchLoading = ref(false)
+const ipSearchResults = ref<IPSearchResult[]>([])
 
 // 搜索表单
 const searchForm = reactive({
@@ -302,6 +351,37 @@ const handleDelete = async (row: VPNConfig) => {
 
 
 
+// IP搜索处理
+const handleIPSearch = async () => {
+  if (!ipSearchValue.value.trim()) {
+    ElMessage.warning('请输入要搜索的IP地址')
+    return
+  }
+
+  ipSearchLoading.value = true
+  try {
+    const response = await vpnApi.searchUserByIP(ipSearchValue.value.trim())
+    ipSearchResults.value = response.data
+
+    if (response.data.length === 0) {
+      ElMessage.info('未找到匹配的用户配置')
+    } else {
+      ElMessage.success(`找到 ${response.data.length} 条匹配记录`)
+    }
+  } catch (error: any) {
+    console.error('IP搜索失败:', error)
+    ElMessage.error(error.response?.data?.message || 'IP搜索失败')
+  } finally {
+    ipSearchLoading.value = false
+  }
+}
+
+// 清除IP搜索结果
+const clearIPSearch = () => {
+  ipSearchValue.value = ''
+  ipSearchResults.value = []
+}
+
 // 生命周期
 onMounted(() => {
   loadVPNConfigs()
@@ -327,6 +407,31 @@ onMounted(() => {
   margin-bottom: 20px;
   display: flex;
   gap: 12px;
+}
+
+.ip-search-section {
+  margin-bottom: 20px;
+}
+
+.search-input-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-results {
+  border-top: 1px solid #ebeef5;
+  padding-top: 20px;
+}
+
+.results-header {
+  margin-bottom: 10px;
+}
+
+.results-count {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
 }
 
 .pagination {
