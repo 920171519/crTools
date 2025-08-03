@@ -203,6 +203,49 @@ class LoginLogResponse(BaseModel):
         from_attributes = True
 
 
+# ===== VPN配置模式 =====
+class VPNConfigBase(BaseModel):
+    """VPN配置基础模式"""
+    region: str = Field(..., min_length=1, max_length=50, description="地域")
+    network: str = Field(..., min_length=1, max_length=50, description="网段")
+
+
+class VPNConfigCreate(VPNConfigBase):
+    """创建VPN配置请求模式"""
+    pass
+
+
+class VPNConfigUpdate(BaseModel):
+    """更新VPN配置请求模式"""
+    region: Optional[str] = Field(None, min_length=1, max_length=50, description="地域")
+    network: Optional[str] = Field(None, min_length=1, max_length=50, description="网段")
+
+
+class VPNConfigResponse(VPNConfigBase):
+    """VPN配置响应模式"""
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+class UserVPNConfigUpdate(BaseModel):
+    """用户VPN IP配置更新请求模式"""
+    ip_address: Optional[str] = Field(None, max_length=45, description="IP地址")
+
+
+class UserVPNConfigResponse(BaseModel):
+    """用户VPN配置响应模式"""
+    id: int
+    vpn_config_id: int
+    vpn_region: str
+    vpn_network: str
+    ip_address: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+
 # 设备相关Schema
 class DeviceBase(BaseModel):
     """设备基本信息基础模型"""

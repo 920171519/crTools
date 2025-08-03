@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_database, setup_database
-from routers import device, user, system, operationLog
+from routers import device, user, system, operationLog, vpn
 from scheduler import start_scheduler, stop_scheduler
 import uvicorn
 
@@ -94,6 +94,7 @@ app.include_router(device.router)
 app.include_router(user.router)
 app.include_router(system.router, prefix="/api")
 app.include_router(operationLog.router)
+app.include_router(vpn.router, prefix="/api")
 
 
 @app.get("/", summary="健康检查")

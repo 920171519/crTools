@@ -95,6 +95,16 @@ const routes: RouteRecordRaw[] = [
           permission: 'admin:settings',
           title: '系统设置'
         }
+      },
+      {
+        path: 'admin/vpn-config',
+        name: 'VPNConfig',
+        component: () => import('@/views/system/VPNConfig.vue'),
+        meta: {
+          requiresAuth: true,
+          permission: 'admin:vpn',
+          title: 'VPN配置'
+        }
       }
     ]
   },

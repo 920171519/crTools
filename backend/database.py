@@ -14,7 +14,7 @@ TORTOISE_ORM = {
     },
     "apps": {
         "models": {
-            "models": ["models", "aerich.models"],
+            "models": ["models.admin", "models.deviceModel", "models.systemModel", "models.vpnModel", "aerich.models"],
             "default_connection": "default",
         },
     },
@@ -73,6 +73,7 @@ async def init_database():
         # 后台管理权限
         {"name": "后台管理", "code": "admin:read", "resource": "admin", "action": "read", "description": "访问后台管理"},
         {"name": "系统设置", "code": "admin:settings", "resource": "admin", "action": "settings", "description": "修改系统设置"},
+        {"name": "VPN配置管理", "code": "admin:vpn", "resource": "admin", "action": "vpn", "description": "管理VPN配置"},
     ]
     
     for perm_data in permissions_data:
@@ -147,6 +148,16 @@ async def init_database():
                 "sort_order": 201,
                 "is_visible": True,
                 "permission_code": "admin:settings"
+            },
+            {
+                "name": "VPN配置",
+                "path": "/admin/vpn-config",
+                "component": "VPNConfig",
+                "icon": "Key",
+                "parent_id": admin_menu.id,
+                "sort_order": 202,
+                "is_visible": True,
+                "permission_code": "admin:vpn"
             }
         ]
 
@@ -211,7 +222,7 @@ async def init_database():
             # 设备管理
             "device:read", "device:create", "device:update", "device:delete", "device:use",
             # 后台管理
-            "admin:read", "admin:settings",
+            "admin:read", "admin:settings", "admin:vpn",
         ]
 
         for perm_code in admin_permissions:
