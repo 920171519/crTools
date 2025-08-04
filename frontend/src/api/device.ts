@@ -47,8 +47,13 @@ export interface DeviceCreateRequest {
 export interface DeviceUseRequest {
   device_id: number
   user: string
-  expected_duration: number
-  purpose?: string
+}
+
+export interface DeviceLongTermUseRequest {
+  device_id: number
+  user: string
+  end_date: string
+  purpose: string
 }
 
 export interface DeviceReleaseRequest {
@@ -172,5 +177,10 @@ export const deviceApi = {
   // 批量取消我的排队
   batchCancelMyQueues: () => {
     return api.post('/devices/batch-cancel-my-queues')
+  },
+
+  // 长时间占用设备
+  longTermUseDevice: (data: DeviceLongTermUseRequest) => {
+    return api.post('/devices/long-term-use', data)
   }
 }

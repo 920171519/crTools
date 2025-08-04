@@ -19,6 +19,7 @@ class DeviceStatusEnum(str, Enum):
     """设备状态枚举"""
     AVAILABLE = "available"  # 可用
     OCCUPIED = "occupied"    # 占用中
+    LONG_TERM_OCCUPIED = "long_term_occupied"  # 长时间占用
     MAINTENANCE = "maintenance"  # 维护中
     OFFLINE = "offline"      # 离线
 
@@ -60,7 +61,7 @@ class Device(Model):
 
 class DeviceUsage(Model):
     """设备使用情况模型"""
-    
+
     id = fields.IntField(pk=True, description="使用情况ID")
     device = fields.OneToOneField("models.Device", related_name="usage_info", description="设备")
     current_user = fields.CharField(max_length=50, null=True, description="当前占用人")
@@ -68,6 +69,7 @@ class DeviceUsage(Model):
     expected_duration = fields.IntField(default=0, description="预计占用时间(分钟)")
     is_long_term = fields.BooleanField(default=False, description="是否为长时间占用")
     long_term_purpose = fields.TextField(null=True, description="长时间占用的用途备注")
+    end_date = fields.DatetimeField(null=True, description="长时间占用截至时间")
     queue_users = fields.JSONField(default=list, description="排队中的用户列表")
     status = fields.CharEnumField(DeviceStatusEnum, default=DeviceStatusEnum.AVAILABLE, description="设备状态")
     updated_at = fields.DatetimeField(auto_now=True, description="更新时间")

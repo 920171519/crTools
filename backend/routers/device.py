@@ -11,7 +11,7 @@ from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageH
 from models.admin import User, OperationLog
 from schemas import (
     DeviceBase, DeviceUpdate, DeviceResponse, DeviceListItem,
-    DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceReleaseRequest,
+    DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceLongTermUseRequest, DeviceReleaseRequest,
     DevicePreemptRequest, DevicePriorityQueueRequest, DeviceUnifiedQueueRequest
 )
 from schemas import BaseResponse
@@ -272,7 +272,7 @@ async def delete_device(device_id: int, current_user: User = Depends(AuthManager
 
 @router.post("/use", summary="使用设备")
 async def use_device(request: DeviceUseRequest, current_user: User = Depends(AuthManager.get_current_user)):
-    """使用设备或加入排队"""
+    """直接使用设备（普通占用）"""
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
@@ -282,40 +282,113 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
         usage_info = await DeviceUsage.create(device=device)
 
     # 检查设备状态
-    if usage_info.status == DeviceStatusEnum.AVAILABLE:
-        # 设备可用，直接占用
-        usage_info.current_user = request.user
-        usage_info.start_time = get_current_time()
-        usage_info.expected_duration = request.expected_duration
-        usage_info.status = DeviceStatusEnum.OCCUPIED
-        await usage_info.save()
+    if usage_info.status != DeviceStatusEnum.AVAILABLE:
+        raise HTTPException(status_code=400, detail="设备当前不可用")
 
-        # 创建使用历史记录
-        await DeviceUsageHistory.create(
-            device=device,
-            user=request.user,
-            start_time=get_current_time(),
-            purpose=request.purpose
-        )
+    # 直接占用设备
+    usage_info.current_user = request.user
+    usage_info.start_time = get_current_time()
+    usage_info.expected_duration = 60  # 默认60分钟
+    usage_info.status = DeviceStatusEnum.OCCUPIED
+    usage_info.is_long_term = False
+    usage_info.long_term_purpose = None
+    usage_info.end_date = None
+    await usage_info.save()
 
-        # 记录操作日志
-        await OperationLog.create_log(
-            user=current_user,
-            operation_type="device_use",
-            operation_result="success",
-            device_name=device.name,
-            description=f"成功使用设备 {device.name}，预计使用时长 {request.expected_duration} 分钟"
-        )
+    # 创建使用历史记录
+    await DeviceUsageHistory.create(
+        device=device,
+        user=request.user,
+        start_time=get_current_time(),
+        purpose="普通使用"
+    )
 
-        return BaseResponse(
-            code = 200,
-            message= "设备占用成功",
-            data = {
-                "device_id": device.id,
-            },
-        )
-    
-    elif usage_info.status == DeviceStatusEnum.OCCUPIED:
+    # 记录操作日志
+    await OperationLog.create_log(
+        user=current_user,
+        operation_type="device_use",
+        operation_result="success",
+        device_name=device.name,
+        description=f"成功使用设备 {device.name}"
+    )
+
+    return BaseResponse(
+        code=200,
+        message="设备占用成功",
+        data={
+            "device_id": device.id,
+        },
+    )
+
+
+@router.post("/long-term-use", summary="申请长时间占用设备")
+async def long_term_use_device(request: DeviceLongTermUseRequest, current_user: User = Depends(AuthManager.get_current_user)):
+    """申请长时间占用设备"""
+    device = await Device.filter(id=request.device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if not usage_info:
+        usage_info = await DeviceUsage.create(device=device)
+
+    # 检查设备状态
+    if usage_info.status != DeviceStatusEnum.AVAILABLE:
+        raise HTTPException(status_code=400, detail="设备当前不可用")
+
+    # 验证截至时间
+    if request.end_date <= get_current_time():
+        raise HTTPException(status_code=400, detail="截至时间必须是未来时间")
+
+    # 长时间占用设备
+    usage_info.current_user = request.user
+    usage_info.start_time = get_current_time()
+    usage_info.expected_duration = 0  # 长时间占用不设置预计时长
+    usage_info.status = DeviceStatusEnum.LONG_TERM_OCCUPIED
+    usage_info.is_long_term = True
+    usage_info.long_term_purpose = request.purpose
+    usage_info.end_date = request.end_date
+    await usage_info.save()
+
+    # 创建使用历史记录
+    await DeviceUsageHistory.create(
+        device=device,
+        user=request.user,
+        start_time=get_current_time(),
+        purpose=request.purpose
+    )
+
+    # 记录操作日志
+    await OperationLog.create_log(
+        user=current_user,
+        operation_type="device_long_term_use",
+        operation_result="success",
+        device_name=device.name,
+        description=f"成功申请长时间占用设备 {device.name}，截至时间：{request.end_date}"
+    )
+
+    return BaseResponse(
+        code=200,
+        message="长时间占用申请成功",
+        data={
+            "device_id": device.id,
+            "end_date": str(request.end_date),
+        },
+    )
+
+
+@router.post("/queue", summary="排队等待设备")
+async def queue_device(request: DeviceUseRequest, current_user: User = Depends(AuthManager.get_current_user)):
+    """排队等待设备"""
+    device = await Device.filter(id=request.device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if not usage_info:
+        usage_info = await DeviceUsage.create(device=device)
+
+    if usage_info.status == DeviceStatusEnum.OCCUPIED:
         # 设备被占用，检查是否支持排队
         if not device.support_queue:
             raise HTTPException(status_code=400, detail="该设备不支持排队等待")
@@ -529,6 +602,7 @@ async def get_device_usage(device_id: int):
         "expected_duration": usage_info.expected_duration,
         "is_long_term": usage_info.is_long_term,
         "long_term_purpose": usage_info.long_term_purpose,
+        "end_date": usage_info.end_date.isoformat() if usage_info.end_date else None,
         "queue_users": usage_info.queue_users or [],
         "status": usage_info.status,
         "occupied_duration": occupied_duration,
@@ -972,7 +1046,9 @@ async def batch_cancel_my_queues(current_user: User = Depends(AuthManager.get_cu
 async def admin_force_cleanup_all_devices(current_user: User = Depends(AuthManager.get_current_user)):
     """管理员强制清理所有设备的占用和排队状态"""
     # 检查管理员权限
-    if not (current_user.is_superuser or current_user.role == '管理员'):
+    is_admin = (current_user.is_superuser or
+                await current_user.has_role("管理员"))
+    if not is_admin:
         raise HTTPException(status_code=403, detail="权限不足，只有管理员可以执行此操作")
 
     try:

@@ -205,6 +205,9 @@ const manualCleanup = async () => {
     cleanupLoading.value = true
     const response = await systemApi.manualCleanup()
     ElMessage.success(response.message)
+
+    // 发送全局事件通知设备管理页面刷新
+    window.dispatchEvent(new CustomEvent('device-cleanup-completed'))
   } catch (error) {
     if (error !== 'cancel') {
       console.error('手动清理失败:', error)

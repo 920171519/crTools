@@ -4,7 +4,7 @@ Pydantic模式定义
 """
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Any
-from datetime import datetime
+from datetime import datetime, date
 import re
 
 
@@ -336,8 +336,14 @@ class DeviceUseRequest(BaseModel):
     """使用设备请求模型"""
     device_id: int
     user: str
-    expected_duration: int = Field(60, description="预计使用时间(分钟)")
-    purpose: Optional[str] = None
+
+
+class DeviceLongTermUseRequest(BaseModel):
+    """长时间占用设备请求模型"""
+    device_id: int
+    user: str
+    end_date: datetime = Field(..., description="截至时间")
+    purpose: str = Field(..., description="使用目的")
 
 
 class DeviceReleaseRequest(BaseModel):

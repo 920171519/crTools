@@ -43,6 +43,7 @@
             >
               <el-option label="可用" value="available" />
               <el-option label="占用中" value="occupied" />
+              <el-option label="长时间占用" value="long_term_occupied" />
               <el-option label="维护中" value="maintenance" />
               <el-option label="不可占用" value="offline" />
             </el-select>
@@ -117,7 +118,7 @@
         
         <el-table-column prop="occupied_duration" label="已使用时长" width="120">
           <template #default="{ row }">
-            <span v-if="row.status === 'occupied' && row.occupied_duration >= 1" class="duration">
+            <span v-if="(row.status === 'occupied' || row.status === 'long_term_occupied') && row.occupied_duration >= 1" class="duration">
               {{ formatDuration(row.occupied_duration) }}
             </span>
             <span v-else>-</span>
@@ -152,15 +153,24 @@
           <template #default="{ row }">
             <div class="action-buttons">
               <!-- 设备可用时：所有用户都可以使用 -->
-              <el-button
-                v-if="row.status === 'available'"
-                type="primary"
-                size="small"
-                @click="useDevice(row)"
-                :loading="useLoading[row.id]"
-              >
-                使用
-              </el-button>
+              <template v-if="row.status === 'available'">
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="useDevice(row)"
+                  :loading="useLoading[row.id]"
+                >
+                  使用
+                </el-button>
+                <el-button
+                  type="warning"
+                  size="small"
+                  @click="openLongTermUseDialog(row)"
+                  :loading="useLoading[row.id]"
+                >
+                  申请长时间占用
+                </el-button>
+              </template>
 
               <!-- 设备被占用时的操作 -->
               <template v-if="row.status === 'occupied'">
@@ -235,7 +245,32 @@
                 </template>
               </template>
 
-              
+              <!-- 设备长时间占用时的操作 -->
+              <template v-if="row.status === 'long_term_occupied'">
+                <!-- 当前用户占用的设备：显示释放按钮 -->
+                <el-button
+                  v-if="row.current_user === currentUserEmployeeId"
+                  type="danger"
+                  size="small"
+                  @click="releaseDevice(row)"
+                  :loading="releaseLoading[row.id]"
+                >
+                  释放
+                </el-button>
+
+                <!-- 管理员/超级管理员按钮 -->
+                <template v-if="currentUserRole === '管理员' || userStore.userInfo?.is_superuser">
+                  <el-button
+                    type="danger"
+                    size="small"
+                    @click="adminReleaseDevice(row)"
+                    :loading="releaseLoading[row.id]"
+                  >
+                    强制释放
+                  </el-button>
+                </template>
+              </template>
+
               <!-- 详情按钮 - 所有用户都显示 -->
               <el-button 
                 type="info" 
@@ -396,50 +431,52 @@
       </template>
     </el-dialog>
 
-    <!-- 使用设备对话框 -->
-    <el-dialog 
-      v-model="showUseDialog" 
-      title="使用设备" 
+    <!-- 长时间占用设备对话框 -->
+    <el-dialog
+      v-model="showLongTermUseDialog"
+      title="申请长时间占用设备"
       width="500px"
     >
-      <el-form 
-        ref="useFormRef" 
-        :model="useForm" 
-        :rules="useFormRules" 
+      <el-form
+        ref="longTermUseFormRef"
+        :model="longTermUseForm"
+        :rules="longTermUseFormRules"
         label-width="120px"
       >
         <el-form-item label="设备名称">
           <el-input :value="selectedDevice?.name" disabled />
         </el-form-item>
-        
+
         <el-form-item label="使用人" prop="user">
-          <el-input v-model="useForm.user" placeholder="请输入使用人" />
+          <el-input v-model="longTermUseForm.user" disabled />
         </el-form-item>
-        
-        <el-form-item label="预计时长" prop="expected_duration">
-          <el-input-number 
-            v-model="useForm.expected_duration" 
-            :min="1" 
-            :max="480" 
-            controls-position="right"
+
+        <el-form-item label="截至时间" prop="end_date">
+          <el-date-picker
+            v-model="longTermUseForm.end_date"
+            type="datetime"
+            placeholder="选择截至时间"
+            :disabled-date="disabledDate"
+            format="YYYY-MM-DD HH:mm"
+            value-format="YYYY-MM-DD HH:mm"
+            style="width: 100%"
           />
-          <span style="margin-left: 8px;">分钟</span>
         </el-form-item>
-        
-        <el-form-item label="使用目的">
-          <el-input 
-            v-model="useForm.purpose" 
-            type="textarea" 
+
+        <el-form-item label="使用目的" prop="purpose">
+          <el-input
+            v-model="longTermUseForm.purpose"
+            type="textarea"
             :rows="3"
             placeholder="请输入使用目的"
           />
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showUseDialog = false">取消</el-button>
-          <el-button type="primary" @click="handleUseDevice" :loading="submitLoading">
+          <el-button @click="showLongTermUseDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleLongTermUseDevice" :loading="submitLoading">
             确定
           </el-button>
         </span>
@@ -546,27 +583,28 @@
                   {{ usageDetail.current_user }}
                 </span>
               </div>
-              <div class="usage-item" v-if="usageDetail?.start_time">
+              <div class="usage-item">
                 <label>开始时间：</label>
-                <span>{{ formatDateTime(usageDetail.start_time) }}</span>
+                <span>{{ usageDetail?.start_time ? formatDateTime(usageDetail.start_time) : '-' }}</span>
               </div>
-              <div class="usage-item" v-if="usageDetail?.expected_duration">
-                <label>预计时长：</label>
-                <span>{{ usageDetail.expected_duration }}分钟</span>
+              <div class="usage-item">
+                <label>截至时间：</label>
+                <span>{{ usageDetail?.end_date ? formatDateTime(usageDetail.end_date) : '-' }}</span>
               </div>
-              <div class="usage-item" v-if="usageDetail?.current_user">
+              <div class="usage-item">
                 <label>已使用时长：</label>
-                <span class="duration" v-if="usageDetail.occupied_duration >= 1">
+                <span class="duration" v-if="usageDetail?.occupied_duration >= 1">
                   {{ formatDuration(usageDetail.occupied_duration) }}
                 </span>
+                <span v-else>-</span>
               </div>
-              <div class="usage-item" v-if="usageDetail?.is_long_term">
+              <div class="usage-item">
                 <label>长时间占用：</label>
-                <el-tag type="warning" size="small">是</el-tag>
+                <span>{{ usageDetail?.is_long_term ? '是' : '否' }}</span>
               </div>
-              <div class="usage-item full-width" v-if="usageDetail?.long_term_purpose">
+              <div class="usage-item full-width">
                 <label>占用目的：</label>
-                <div class="purpose">{{ usageDetail.long_term_purpose }}</div>
+                <div class="purpose">{{ usageDetail?.long_term_purpose || '-' }}</div>
               </div>
             </div>
           </div>
@@ -622,9 +660,9 @@
               </el-button>
               
               <!-- 设备被自己占用：显示释放按钮 -->
-              <el-button 
-                v-else-if="usageDetail?.status === 'occupied' && usageDetail?.current_user === currentUserEmployeeId"
-                type="danger" 
+              <el-button
+                v-else-if="(usageDetail?.status === 'occupied' || usageDetail?.status === 'long_term_occupied') && usageDetail?.current_user === currentUserEmployeeId"
+                type="danger"
                 @click="releaseDeviceFromDetail"
                 :loading="releaseLoading[deviceDetail.id]"
               >
@@ -668,9 +706,10 @@
               </el-button>
               
               <!-- 高级用户专用按钮 -->
-              <template v-if="usageDetail?.status === 'occupied'">
-                <el-button 
-                  type="danger" 
+              <template v-if="usageDetail?.status === 'occupied' || usageDetail?.status === 'long_term_occupied'">
+                <el-button
+                  v-if="usageDetail?.status === 'occupied'"
+                  type="danger"
                   @click="preemptDeviceFromDetail"
                   :loading="useLoading[deviceDetail.id]"
                 >
@@ -699,14 +738,14 @@
                 </el-button>
                 
                 <!-- 释放设备按钮 -->
-                <el-button 
+                <el-button
                   v-if="usageDetail?.current_user === currentUserEmployeeId || isAdmin"
-                  type="danger" 
+                  type="danger"
                   @click="releaseDeviceFromDetail"
                   :loading="releaseLoading[deviceDetail.id]"
                 >
                   <el-icon><VideoPause /></el-icon>
-                  释放设备
+                  {{ isAdmin && usageDetail?.current_user !== currentUserEmployeeId ? '强制释放' : '释放设备' }}
                 </el-button>
               </template>
             </template>
@@ -730,7 +769,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch, onActivated } from 'vue'
+import { ref, reactive, onMounted, computed, watch, onActivated, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled,
@@ -795,6 +834,17 @@ onMounted(async () => {
 
   userInfoLoaded.value = true
   await loadDevices()
+
+  // 监听设备清理完成事件
+  const handleCleanupCompleted = () => {
+    loadDevices()
+  }
+  window.addEventListener('device-cleanup-completed', handleCleanupCompleted)
+
+  // 组件卸载时移除事件监听
+  onUnmounted(() => {
+    window.removeEventListener('device-cleanup-completed', handleCleanupCompleted)
+  })
 })
 
 // 调试时使用的按钮: 手动刷新用户信息
@@ -929,20 +979,21 @@ const addFormRules = {
   owner: [{ required: true, message: '请输入归属人', trigger: 'blur' }]
 }
 
-// 使用设备相关
-const showUseDialog = ref(false)
+// 长时间占用设备相关
+const showLongTermUseDialog = ref(false)
 const submitLoading = ref(false)
 const selectedDevice = ref(null)
-const useFormRef = ref()
-const useForm = reactive({
+const longTermUseFormRef = ref()
+const longTermUseForm = reactive({
   user: '',
-  expected_duration: 60,
+  end_date: '',
   purpose: ''
 })
 
-const useFormRules = {
+const longTermUseFormRules = {
   user: [{ required: true, message: '请输入使用人', trigger: 'blur' }],
-  expected_duration: [{ required: true, message: '请输入预计使用时长', trigger: 'blur' }]
+  end_date: [{ required: true, message: '请选择截至时间', trigger: 'change' }],
+  purpose: [{ required: true, message: '请输入使用目的', trigger: 'blur' }]
 }
 
 // 抽屉相关
@@ -986,25 +1037,16 @@ const loadDevices = async () => {
   }
 }
 
-const useDevice = (device) => {
-  // 所有用户都显示对话框
-  selectedDevice.value = device
-  useForm.user = currentUserEmployeeId.value
-  showUseDialog.value = true
-}
-
-// 直接使用设备（普通用户）
-const directUseDevice = async (device) => {
+const useDevice = async (device) => {
+  // 直接使用设备，不弹出对话框
   try {
     useLoading[device.id] = true
     const response = await deviceApi.useDevice({
       device_id: device.id,
-      user: currentUserEmployeeId.value,
-      expected_duration: 60,
-      purpose: '使用设备'
+      user: currentUserEmployeeId.value
     })
-    
-    ElMessage.success(response.message || '设备使用成功')
+
+    ElMessage.success(response.data?.message || '设备使用成功')
     await loadDevices()
   } catch (error) {
     if (error.response?.data?.detail) {
@@ -1015,6 +1057,47 @@ const directUseDevice = async (device) => {
   } finally {
     useLoading[device.id] = false
   }
+}
+
+// 打开长时间占用对话框
+const openLongTermUseDialog = (device) => {
+  selectedDevice.value = device
+  longTermUseForm.user = currentUserEmployeeId.value
+  longTermUseForm.end_date = ''
+  longTermUseForm.purpose = ''
+  showLongTermUseDialog.value = true
+}
+
+// 处理长时间占用设备
+const handleLongTermUseDevice = async () => {
+  if (!longTermUseFormRef.value) return
+
+  try {
+    await longTermUseFormRef.value.validate()
+    submitLoading.value = true
+    const response = await deviceApi.longTermUseDevice({
+      device_id: selectedDevice.value.id,
+      user: longTermUseForm.user.toLowerCase(),
+      end_date: longTermUseForm.end_date,
+      purpose: longTermUseForm.purpose
+    })
+    ElMessage.success(response.data?.message || '长时间占用申请成功')
+    showLongTermUseDialog.value = false
+    await loadDevices()
+  } catch (error) {
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('申请失败')
+    }
+  } finally {
+    submitLoading.value = false
+  }
+}
+
+// 禁用过去的日期
+const disabledDate = (time) => {
+  return time.getTime() < Date.now() - 8.64e7 // 禁用今天之前的日期
 }
 
 const joinQueue = async (device) => {
@@ -1314,31 +1397,7 @@ const handleAddDevice = async () => {
   }
 }
 
-const handleUseDevice = async () => {
-  if (!useFormRef.value) return
-  
-  try {
-    await useFormRef.value.validate()
-    submitLoading.value = true
-    const response = await deviceApi.useDevice({
-      device_id: selectedDevice.value.id,
-      user: useForm.user.toLowerCase(),
-      expected_duration: useForm.expected_duration,
-      purpose: useForm.purpose
-    })
-    ElMessage.success(response.message)
-    showUseDialog.value = false
-    await loadDevices()
-  } catch (error) {
-    if (error.response?.data?.detail) {
-      ElMessage.error(error.response.data.detail)
-    } else {
-      ElMessage.error('操作失败')
-    }
-  } finally {
-    submitLoading.value = false
-  }
-}
+
 
 const openAddDialog = () => {
   // 重置表单
@@ -1433,6 +1492,7 @@ const getStatusText = (status) => {
   const statusMap = {
     available: '可用',
     occupied: '占用中',
+    long_term_occupied: '长时间占用',
     maintenance: '维护中',
     offline: '不可占用',
     queue: '排队中'
@@ -1444,6 +1504,7 @@ const getStatusTag = (status) => {
   const tagMap = {
     available: 'success',
     occupied: 'warning',
+    long_term_occupied: 'danger',
     maintenance: 'info',
     offline: 'danger'
   }
@@ -1469,6 +1530,16 @@ const formatDateTime = (dateTimeStr) => {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit'
+  })
+}
+
+const formatDate = (dateStr) => {
+  if (!dateStr) return '-'
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
   })
 }
 
