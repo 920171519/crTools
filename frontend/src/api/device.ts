@@ -30,6 +30,8 @@ export interface DeviceListItem {
   start_time: string
   occupied_duration?: number
   is_current_user_in_queue?: boolean
+  connectivity_status?: boolean
+  last_connectivity_check?: string
 }
 
 export interface DeviceCreateRequest {
@@ -84,6 +86,17 @@ export interface DeviceUnifiedQueueRequest {
   user: string
   expected_duration?: number
   purpose?: string
+}
+
+export interface ConnectivityStatus {
+  status: boolean
+  last_check: string | null
+  last_ping: string | null
+  error?: string
+}
+
+export interface ConnectivityResponse {
+  [deviceId: string]: ConnectivityStatus
 }
 
 export interface BaseResponse<T = any> {
@@ -182,5 +195,23 @@ export const deviceApi = {
   // 长时间占用设备
   longTermUseDevice: (data: DeviceLongTermUseRequest) => {
     return api.post('/devices/long-term-use', data)
+  },
+
+  // 获取设备连通性状态
+  getDevicesConnectivityStatus: (deviceIds: number[]) => {
+    const deviceIdsStr = deviceIds.join(',')
+    return api.get<ConnectivityResponse>('/devices/connectivity-status', {
+      params: { device_ids: deviceIdsStr }
+    })
+  },
+
+  // 获取单个设备连通性状态
+  getDeviceConnectivityStatus: (deviceId: number) => {
+    return api.get(`/devices/${deviceId}/connectivity`)
+  },
+
+  // 获取连通性缓存信息（调试用）
+  getConnectivityCacheInfo: () => {
+    return api.get('/devices/connectivity-cache-info')
   }
 }

@@ -140,15 +140,29 @@
         
         <el-table-column prop="status" label="环境状态" width="100">
           <template #default="{ row }">
-            <el-tag 
-              :type="getStatusTag(row.status)" 
+            <el-tag
+              :type="getStatusTag(row.status)"
               size="small"
             >
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        
+
+        <el-table-column label="连通性" width="80">
+          <template #default="{ row }">
+            <div class="connectivity-status">
+              <el-icon
+                :class="getConnectivityClass(row.id)"
+                :title="getConnectivityTitle(row.id)"
+                size="16"
+              >
+                <CirclePlusFilled />
+              </el-icon>
+            </div>
+          </template>
+        </el-table-column>
+
         <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <div class="action-buttons">
@@ -773,7 +787,7 @@ import { ref, reactive, onMounted, computed, watch, onActivated, onUnmounted } f
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled,
-  VideoPlay, VideoPause, Delete, Edit, Search
+  VideoPlay, VideoPause, Delete, Edit, Search, CirclePlusFilled
 } from '@element-plus/icons-vue'
 import { deviceApi } from '../api/device'
 import { useUserStore } from '@/stores/user'
@@ -788,6 +802,10 @@ const useLoading = reactive({})
 const releaseLoading = reactive({})
 const userInfoLoaded = ref(false)
 const deleteLoading = ref(false)
+
+// 连通性相关数据
+const connectivityStatus = ref({}) // 存储设备连通性状态
+const connectivityTimer = ref(null) // 连通性检测定时器
 
 // 搜索表单
 const searchForm = reactive({
@@ -835,6 +853,9 @@ onMounted(async () => {
   userInfoLoaded.value = true
   await loadDevices()
 
+  // 启动连通性检测定时器
+  startConnectivityTimer()
+
   // 监听设备清理完成事件
   const handleCleanupCompleted = () => {
     loadDevices()
@@ -844,6 +865,8 @@ onMounted(async () => {
   // 组件卸载时移除事件监听
   onUnmounted(() => {
     window.removeEventListener('device-cleanup-completed', handleCleanupCompleted)
+    // 停止连通性检测定时器
+    stopConnectivityTimer()
   })
 })
 
@@ -1034,6 +1057,56 @@ const loadDevices = async () => {
     ElMessage.error('加载设备列表失败')
   } finally {
     loading.value = false
+  }
+
+  // 加载设备后检查连通性
+  await checkDevicesConnectivity()
+}
+
+// 连通性检测相关方法
+const checkDevicesConnectivity = async () => {
+  if (!devices.value || devices.value.length === 0) return
+
+  try {
+    const deviceIds = devices.value.map(device => device.id)
+    const response = await deviceApi.getDevicesConnectivityStatus(deviceIds)
+    connectivityStatus.value = response.data
+  } catch (error) {
+    console.error('获取连通性状态失败:', error)
+  }
+}
+
+const getConnectivityClass = (deviceId) => {
+  const status = connectivityStatus.value[deviceId]
+  if (!status) return 'connectivity-unknown'
+  return status.status ? 'connectivity-online' : 'connectivity-offline'
+}
+
+const getConnectivityTitle = (deviceId) => {
+  const status = connectivityStatus.value[deviceId]
+  if (!status) return '连通性未知'
+
+  const statusText = status.status ? '连通正常' : '连通失败'
+  const lastCheck = status.last_check ? new Date(status.last_check).toLocaleString() : '未检测'
+  return `${statusText}\n最后检测: ${lastCheck}`
+}
+
+const startConnectivityTimer = () => {
+  // 清除现有定时器
+  if (connectivityTimer.value) {
+    clearInterval(connectivityTimer.value)
+  }
+
+  // 每10秒检测一次连通性
+  connectivityTimer.value = setInterval(async () => {
+    await checkDevicesConnectivity()
+  }, 10000)
+}
+
+const stopConnectivityTimer = () => {
+  if (connectivityTimer.value) {
+    clearInterval(connectivityTimer.value)
+    connectivityTimer.value = null
   }
 }
 
@@ -1996,4 +2069,23 @@ const handleCurrentChange = (val: number) => {
     padding: 15px;
   }
 }
-</style> 
+
+/* 连通性状态样式 */
+.connectivity-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.connectivity-online {
+  color: #67c23a; /* 绿色 */
+}
+
+.connectivity-offline {
+  color: #f56c6c; /* 红色 */
+}
+
+.connectivity-unknown {
+  color: #909399; /* 灰色 */
+}
+</style>

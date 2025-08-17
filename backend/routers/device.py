@@ -16,6 +16,7 @@ from schemas import (
 )
 from schemas import BaseResponse
 from auth import AuthManager
+from connectivity_manager import connectivity_manager
 
 router = APIRouter(prefix="/api/devices", tags=["设备管理"])
 
@@ -163,6 +164,85 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(Au
     )
 
 
+@router.get("/connectivity-status", response_model=BaseResponse, summary="获取设备连通性状态")
+async def get_devices_connectivity_status(
+    device_ids: str = Query(..., description="设备ID列表，用逗号分隔"),
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """
+    批量获取设备连通性状态
+    - device_ids: 设备ID列表，用逗号分隔，如 "1,2,3"
+    """
+    try:
+        # 解析设备ID列表
+        device_id_list = [int(id.strip()) for id in device_ids.split(',') if id.strip()]
+
+        if not device_id_list:
+            raise HTTPException(status_code=400, detail="设备ID列表不能为空")
+
+        # 验证设备是否存在
+        existing_devices = await Device.filter(id__in=device_id_list)
+        existing_device_ids = {device.id for device in existing_devices}
+
+        # 获取连通性状态
+        connectivity_results = await connectivity_manager.get_multiple_connectivity_status(device_id_list)
+
+        # 格式化返回结果
+        results = {}
+        for device_id in device_id_list:
+            if device_id in existing_device_ids:
+                if device_id in connectivity_results:
+                    connectivity_data = connectivity_results[device_id]
+                    results[device_id] = {
+                        "status": connectivity_data["status"],
+                        "last_check": connectivity_data["last_check"].isoformat() if connectivity_data.get("last_check") else None,
+                        "last_ping": connectivity_data["last_ping"].isoformat() if connectivity_data.get("last_ping") else None
+                    }
+                else:
+                    results[device_id] = {
+                        "status": False,
+                        "last_check": None,
+                        "last_ping": None
+                    }
+            else:
+                results[device_id] = {
+                    "status": False,
+                    "last_check": None,
+                    "last_ping": None,
+                    "error": "设备不存在"
+                }
+
+        return BaseResponse(
+            code=200,
+            message="连通性状态获取成功",
+            data=results
+        )
+
+    except ValueError:
+        raise HTTPException(status_code=400, detail="设备ID格式错误")
+    except Exception as e:
+        print(f"获取连通性状态失败: {e}")
+        raise HTTPException(status_code=500, detail="获取连通性状态失败")
+
+
+@router.get("/connectivity-cache-info", response_model=BaseResponse, summary="获取连通性缓存信息")
+async def get_connectivity_cache_info(current_user: User = Depends(AuthManager.get_current_user)):
+    """获取连通性缓存信息（调试用）"""
+    # 检查管理员权限
+    is_admin = (current_user.is_superuser or
+                await current_user.has_role("管理员"))
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="权限不足，只有管理员可以查看缓存信息")
+
+    cache_info = connectivity_manager.get_cache_info()
+
+    return BaseResponse(
+        code=200,
+        message="缓存信息获取成功",
+        data=cache_info
+    )
+
+
 @router.get("/{device_id}", response_model=BaseResponse, summary="获取设备详情")
 async def get_device(device_id: int):
     """根据ID获取设备详情"""
@@ -190,6 +270,51 @@ async def get_device(device_id: int):
         message="设备详情获取成功",
         data=device_data
     )
+
+
+@router.get("/{device_id}/connectivity", response_model=BaseResponse, summary="获取单个设备连通性状态")
+async def get_device_connectivity_status(
+    device_id: int,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """获取单个设备的连通性状态"""
+    try:
+        # 验证设备是否存在
+        device = await Device.filter(id=device_id).first()
+        if not device:
+            raise HTTPException(status_code=404, detail="设备不存在")
+
+        # 获取连通性状态
+        connectivity_data = await connectivity_manager.get_connectivity_status(device_id)
+
+        if connectivity_data:
+            result = {
+                "device_id": device_id,
+                "device_name": device.name,
+                "device_ip": device.ip,
+                "status": connectivity_data["status"],
+                "last_check": connectivity_data["last_check"].isoformat() if connectivity_data.get("last_check") else None,
+                "last_ping": connectivity_data["last_ping"].isoformat() if connectivity_data.get("last_ping") else None
+            }
+        else:
+            result = {
+                "device_id": device_id,
+                "device_name": device.name,
+                "device_ip": device.ip,
+                "status": False,
+                "last_check": None,
+                "last_ping": None
+            }
+
+        return BaseResponse(
+            code=200,
+            message="连通性状态获取成功",
+            data=result
+        )
+
+    except Exception as e:
+        print(f"获取设备连通性状态失败: {e}")
+        raise HTTPException(status_code=500, detail="获取设备连通性状态失败")
 
 
 @router.put("/{device_id}", response_model=BaseResponse, summary="更新设备信息")
@@ -1067,3 +1192,5 @@ async def admin_force_cleanup_all_devices(current_user: User = Depends(AuthManag
     except Exception as e:
         print(f"管理员强制清理失败: {e}")
         raise HTTPException(status_code=500, detail="强制清理失败")
+
+

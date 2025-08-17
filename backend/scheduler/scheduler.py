@@ -39,6 +39,11 @@ class DeviceScheduler:
         self.scheduler.start()
         logger.info(f"定时任务调度器已启动，清理时间: {cleanup_time}")
 
+        # 启动连通性检测管理器
+        from connectivity_manager import connectivity_manager
+        await connectivity_manager.start()
+        logger.info("连通性检测管理器已启动")
+
     async def _get_cleanup_time(self):
         """获取清理时间设置"""
         try:
@@ -80,6 +85,11 @@ class DeviceScheduler:
         
     async def stop(self):
         """停止定时任务调度器"""
+        # 停止连通性检测管理器
+        from connectivity_manager import connectivity_manager
+        await connectivity_manager.stop()
+        logger.info("连通性检测管理器已停止")
+
         self.scheduler.shutdown()
         logger.info("定时任务调度器已停止")
         

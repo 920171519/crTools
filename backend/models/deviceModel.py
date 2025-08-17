@@ -33,7 +33,7 @@ class PortStatusEnum(str, Enum):
 
 class Device(Model):
     """设备基本信息模型"""
-    
+
     id = fields.IntField(pk=True, description="设备ID")
     name = fields.CharField(max_length=100, description="设备名称")
     ip = fields.CharField(max_length=45, unique=True, description="设备IP地址")
@@ -46,6 +46,10 @@ class Device(Model):
     remarks = fields.TextField(null=True, description="设备备注信息")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
     updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
+    # 连通性相关字段
+    connectivity_status = fields.BooleanField(default=False, description="连通性状态")
+    last_ping_time = fields.DatetimeField(null=True, description="最后一次ping检测时间")
+    last_connectivity_check = fields.DatetimeField(null=True, description="最后一次连通性检查时间")
     
     # 关联关系
     usage_info: fields.ReverseRelation["DeviceUsage"]
