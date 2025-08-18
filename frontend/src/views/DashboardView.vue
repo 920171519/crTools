@@ -202,7 +202,9 @@ const loadDeviceStats = async () => {
     let occupiedCount = 0
     let queueCount = 0
 
-    devices.forEach(device => {
+    // 确保devices是数组
+    if (Array.isArray(devices)) {
+      devices.forEach(device => {
       // 统计当前用户占用的设备
       if (device.current_user === userStore.userInfo?.employee_id) {
         occupiedCount++
@@ -212,6 +214,7 @@ const loadDeviceStats = async () => {
         queueCount++
       }
     })
+    }
 
     deviceStats.value = {
       occupiedCount,

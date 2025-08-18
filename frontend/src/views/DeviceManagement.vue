@@ -157,7 +157,8 @@
                 :title="getConnectivityTitle(row.id)"
                 size="16"
               >
-                <CirclePlusFilled />
+                <SuccessFilled v-if="getConnectivityStatus(row.id)" />
+                <WarningFilled v-else />
               </el-icon>
             </div>
           </template>
@@ -787,7 +788,7 @@ import { ref, reactive, onMounted, computed, watch, onActivated, onUnmounted } f
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled,
-  VideoPlay, VideoPause, Delete, Edit, Search, CirclePlusFilled
+  VideoPlay, VideoPause, Delete, Edit, Search, SuccessFilled, WarningFilled
 } from '@element-plus/icons-vue'
 import { deviceApi } from '../api/device'
 import { useUserStore } from '@/stores/user'
@@ -855,19 +856,21 @@ onMounted(async () => {
 
   // 启动连通性检测定时器
   startConnectivityTimer()
+})
 
-  // 监听设备清理完成事件
-  const handleCleanupCompleted = () => {
-    loadDevices()
-  }
-  window.addEventListener('device-cleanup-completed', handleCleanupCompleted)
+// 监听设备清理完成事件
+const handleCleanupCompleted = () => {
+  loadDevices()
+}
+window.addEventListener('device-cleanup-completed', handleCleanupCompleted)
 
-  // 组件卸载时移除事件监听
-  onUnmounted(() => {
-    window.removeEventListener('device-cleanup-completed', handleCleanupCompleted)
-    // 停止连通性检测定时器
-    stopConnectivityTimer()
-  })
+// 组件卸载时移除事件监听
+onUnmounted(() => {
+  // 停止连通性检测定时器
+  stopConnectivityTimer()
+
+  // 移除事件监听
+  window.removeEventListener('device-cleanup-completed', handleCleanupCompleted)
 })
 
 // 调试时使用的按钮: 手动刷新用户信息
@@ -1074,6 +1077,11 @@ const checkDevicesConnectivity = async () => {
   } catch (error) {
     console.error('获取连通性状态失败:', error)
   }
+}
+
+const getConnectivityStatus = (deviceId) => {
+  const status = connectivityStatus.value[deviceId]
+  return status ? status.status : false
 }
 
 const getConnectivityClass = (deviceId) => {
