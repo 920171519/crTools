@@ -332,6 +332,8 @@ async def get_device(device_id: int):
         "need_vpn_login": device.need_vpn_login,
         "support_queue": device.support_queue,
         "owner": device.owner,
+        "admin_username": device.admin_username,
+        "admin_password": device.admin_password,
         "device_type": device.device_type,
         "remarks": device.remarks,
         "created_at": device.created_at,

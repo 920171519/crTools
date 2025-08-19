@@ -256,6 +256,8 @@ class DeviceBase(BaseModel):
     need_vpn_login: bool = Field(False, description="登录是否需要VPN")
     support_queue: bool = Field(True, description="是否支持排队占用")
     owner: str = Field(..., description="设备归属人")
+    admin_username: str = Field(..., description="管理员账号")
+    admin_password: str = Field(..., description="管理员密码")
     device_type: str = Field("test", description="设备归属类")
     remarks: Optional[str] = Field(None, description="设备备注信息")
 
@@ -272,6 +274,8 @@ class DeviceUpdate(BaseModel):
     need_vpn_login: Optional[bool] = None
     support_queue: Optional[bool] = None
     owner: Optional[str] = None
+    admin_username: Optional[str] = None
+    admin_password: Optional[str] = None
     device_type: Optional[str] = None
     remarks: Optional[str] = None
 
@@ -289,6 +293,8 @@ class DeviceResponse(BaseModel):
     need_vpn_login: bool
     support_queue: bool
     owner: str
+    admin_username: str
+    admin_password: str
     device_type: str
     remarks: Optional[str] = None
     created_at: datetime

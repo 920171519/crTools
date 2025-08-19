@@ -372,7 +372,15 @@
         <el-form-item label="归属人" prop="owner">
           <el-input v-model="addForm.owner" placeholder="请输入归属人" />
         </el-form-item>
-        
+
+        <el-form-item label="管理员账号" prop="admin_username">
+          <el-input v-model="addForm.admin_username" placeholder="请输入管理员账号" />
+        </el-form-item>
+
+        <el-form-item label="管理员密码" prop="admin_password">
+          <el-input v-model="addForm.admin_password" placeholder="请输入管理员密码" />
+        </el-form-item>
+
         <el-form-item label="设备类型" prop="device_type">
           <el-select v-model="addForm.device_type" placeholder="请选择设备类型">
             <el-option label="测试设备" value="test" />
@@ -466,7 +474,15 @@
         <el-form-item label="归属人" prop="owner">
           <el-input v-model="editForm.owner" placeholder="请输入归属人" />
         </el-form-item>
-        
+
+        <el-form-item label="管理员账号" prop="admin_username">
+          <el-input v-model="editForm.admin_username" placeholder="请输入管理员账号" />
+        </el-form-item>
+
+        <el-form-item label="管理员密码" prop="admin_password">
+          <el-input v-model="editForm.admin_password" placeholder="请输入管理员密码" />
+        </el-form-item>
+
         <el-form-item label="设备类型" prop="device_type">
           <el-select v-model="editForm.device_type" placeholder="请选择设备类型">
             <el-option label="测试设备" value="test" />
@@ -613,6 +629,15 @@
               <div class="info-item">
                 <label>归属人：</label>
                 <span>{{ deviceDetail.owner }}</span>
+              </div>
+              <!-- 管理员账号密码 - 只有归属人和管理员可见 -->
+              <div v-if="canEditDevice" class="info-item">
+                <label>管理员账号：</label>
+                <span>{{ deviceDetail.admin_username }}</span>
+              </div>
+              <div v-if="canEditDevice" class="info-item">
+                <label>管理员密码：</label>
+                <span>{{ deviceDetail.admin_password }}</span>
               </div>
               <div class="info-item">
                 <label>登录需VPN：</label>
@@ -999,21 +1024,29 @@ const isAdminOrSuper = computed(() => {
 
 // 判断是否可以编辑设备（环境归属人或管理员）
 const canEditDevice = computed(() => {
-  if (!deviceDetail.value || !userStore.userInfo) return false
+  if (!deviceDetail.value || !userStore.userInfo) {
+    console.log('canEditDevice: 缺少必要信息', { deviceDetail: !!deviceDetail.value, userInfo: !!userStore.userInfo })
+    return false
+  }
 
   // 管理员或超级管理员可以编辑任何设备
   const isAdminOrSuperUser = userStore.userInfo.is_superuser || userStore.userInfo.role === '管理员'
   if (isAdminOrSuperUser) {
+    console.log('canEditDevice: 管理员权限', { is_superuser: userStore.userInfo.is_superuser, role: userStore.userInfo.role })
     return true
   }
 
   // 环境归属人可以编辑自己的设备
-  const isOwner = deviceDetail.value.owner === userStore.userInfo.employee_id
+  // 使用 employee_id 或 username 进行比较
+  const currentUserId = userStore.userInfo.employee_id || userStore.userInfo.username
+  const isOwner = deviceDetail.value.owner === currentUserId
 
   console.log('canEditDevice check:', {
     device: deviceDetail.value.name,
     owner: deviceDetail.value.owner,
-    currentUser: userStore.userInfo.employee_id,
+    currentUserId: currentUserId,
+    employee_id: userStore.userInfo.employee_id,
+    username: userStore.userInfo.username,
     isOwner,
     isAdminOrSuperUser,
     canEdit: isOwner || isAdminOrSuperUser
@@ -1055,6 +1088,8 @@ const addForm = reactive({
   vpn_region: '',
   vpn_config_id: null,
   owner: '',
+  admin_username: 'root123',
+  admin_password: 'Root@123',
   device_type: 'test',
   need_vpn_login: false,
   support_queue: true,
@@ -1070,7 +1105,9 @@ const addFormRules = {
   vpn_region: [{ required: true, message: '请选择VPN域段', trigger: 'change' }],
   vpn_config_id: [{ required: true, message: '请选择VPN网段', trigger: 'change' }],
   creator: [{ required: true, message: '请输入添加人', trigger: 'blur' }],
-  owner: [{ required: true, message: '请输入归属人', trigger: 'blur' }]
+  owner: [{ required: true, message: '请输入归属人', trigger: 'blur' }],
+  admin_username: [{ required: true, message: '请输入管理员账号', trigger: 'blur' }],
+  admin_password: [{ required: true, message: '请输入管理员密码', trigger: 'blur' }]
 }
 
 // 长时间占用设备相关
@@ -1106,6 +1143,8 @@ const editForm = reactive({
   vpn_region: '',
   vpn_config_id: null,
   owner: '',
+  admin_username: '',
+  admin_password: '',
   device_type: '',
   need_vpn_login: false,
   support_queue: true,
@@ -1573,6 +1612,8 @@ const handleAddDevice = async () => {
       ip: addForm.ip,
       vpn_config_id: addForm.vpn_config_id,
       owner: addForm.owner.toLowerCase(),
+      admin_username: addForm.admin_username,
+      admin_password: addForm.admin_password,
       device_type: addForm.device_type,
       need_vpn_login: addForm.need_vpn_login,
       support_queue: addForm.support_queue,
@@ -1610,6 +1651,19 @@ const openAddDialog = () => {
 
   // 设置默认值
   addForm.owner = userStore.userInfo?.employee_id?.toLowerCase() || userStore.userInfo?.username || ''
+  addForm.admin_username = 'root123'
+  addForm.admin_password = 'Root@123'
+
+  // 设置默认VPN配置（第一条）
+  if (vpnConfigs.value.length > 0) {
+    const firstVpnConfig = vpnConfigs.value[0]
+    addForm.vpn_region = firstVpnConfig.region
+    addForm.vpn_config_id = firstVpnConfig.id
+    // 更新网段选项
+    filteredNetworksForAdd.value = vpnConfigs.value.filter(
+      config => config.region === firstVpnConfig.region
+    )
+  }
 
   showAddDialog.value = true
 }
@@ -1629,6 +1683,8 @@ const openEditDialog = () => {
   editForm.vpn_region = deviceDetail.value.vpn_region || ''
   editForm.vpn_config_id = deviceDetail.value.vpn_config_id || null
   editForm.owner = deviceDetail.value.owner
+  editForm.admin_username = deviceDetail.value.admin_username
+  editForm.admin_password = deviceDetail.value.admin_password
   editForm.device_type = deviceDetail.value.device_type
   editForm.need_vpn_login = deviceDetail.value.need_vpn_login
   editForm.support_queue = deviceDetail.value.support_queue
@@ -1658,6 +1714,8 @@ const handleEditDevice = async () => {
       name: editForm.name,
       vpn_config_id: editForm.vpn_config_id,
       owner: editForm.owner.toLowerCase(),
+      admin_username: editForm.admin_username,
+      admin_password: editForm.admin_password,
       device_type: editForm.device_type,
       need_vpn_login: editForm.need_vpn_login,
       support_queue: editForm.support_queue,

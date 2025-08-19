@@ -51,6 +51,8 @@ class Device(Model):
     need_vpn_login = fields.BooleanField(default=False, description="登录是否需要VPN")
     support_queue = fields.BooleanField(default=True, description="是否支持排队占用")
     owner = fields.CharField(max_length=50, description="设备归属人")
+    admin_username = fields.CharField(max_length=50, description="管理员账号")
+    admin_password = fields.CharField(max_length=255, description="管理员密码")
     device_type = fields.CharEnumField(DeviceTypeEnum, default=DeviceTypeEnum.TEST, description="设备归属类")
     remarks = fields.TextField(null=True, description="设备备注信息")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
