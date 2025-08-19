@@ -8,7 +8,10 @@ export interface Device {
   id: number
   name: string
   ip: string
-  required_vpn: string
+  vpn_config_id?: number
+  vpn_region?: string
+  vpn_network?: string
+  vpn_display_name?: string
   creator: string
   need_vpn_login: boolean
   support_queue: boolean
@@ -24,6 +27,9 @@ export interface DeviceListItem {
   name: string
   ip: string
   device_type: string
+  vpn_region?: string
+  vpn_network?: string
+  vpn_display_name?: string
   current_user?: string
   queue_count: number
   status: string
@@ -37,7 +43,7 @@ export interface DeviceListItem {
 export interface DeviceCreateRequest {
   name: string
   ip: string
-  required_vpn: string
+  vpn_config_id?: number
   creator: string
   need_vpn_login: boolean
   support_queue: boolean

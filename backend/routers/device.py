@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageHistory, DeviceStatusEnum
 from models.admin import User, OperationLog
+from models.vpnModel import VPNConfig
 from schemas import (
     DeviceBase, DeviceUpdate, DeviceResponse, DeviceListItem,
     DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceLongTermUseRequest, DeviceReleaseRequest,
@@ -41,7 +42,7 @@ async def get_devices(
     - 支持按环境名称、IP、状态搜索
     """
     # 构建查询条件
-    query = Device.all().prefetch_related("usage_info")
+    query = Device.all().prefetch_related("usage_info", "vpn_config")
 
     if name:
         query = query.filter(name__icontains=name)
@@ -98,11 +99,25 @@ async def get_devices(
         if usage_info.queue_users and current_user.employee_id in usage_info.queue_users:
             is_current_user_in_queue = True
 
+        # 获取VPN配置信息
+        vpn_region = None
+        vpn_network = None
+        vpn_display_name = None
+        if hasattr(device, 'vpn_config') and device.vpn_config:
+            vpn_region = device.vpn_config.region
+            vpn_network = device.vpn_config.network
+            vpn_display_name = f"{vpn_region} - {vpn_network}"
+        elif device.required_vpn_display:
+            vpn_display_name = device.required_vpn_display
+
         result.append(DeviceListItem(
             id=device.id,
             name=device.name,
             ip=device.ip,
             device_type=device.device_type,
+            vpn_region=vpn_region,
+            vpn_network=vpn_network,
+            vpn_display_name=vpn_display_name,
             current_user=usage_info.current_user,
             queue_count=len(usage_info.queue_users) if usage_info.queue_users else 0,
             status=usage_info.status,
@@ -126,27 +141,68 @@ async def get_devices(
 @router.post("/", response_model=BaseResponse, summary="创建设备")
 async def create_device(device_data: DeviceBase, current_user: User = Depends(AuthManager.get_current_user)):
     """创建新设备"""
-    # 检查IP是否已存在
-    existing_device = await Device.filter(ip=device_data.ip).first()
-    if existing_device:
-        raise HTTPException(status_code=400, detail="该IP地址已存在")
-    
-    # 创建设备
-    device = await Device.create(**device_data.dict())
-    
+    try:
+        print(f"收到设备创建请求: {device_data}")
+    except Exception as e:
+        print(f"打印设备数据时出错: {e}")
+    try:
+        # 检查IP是否已存在
+        print(f"检查IP是否已存在: {device_data.ip}")
+        existing_device = await Device.filter(ip=device_data.ip).first()
+        if existing_device:
+            print(f"IP地址已存在: {device_data.ip}")
+            raise HTTPException(status_code=400, detail="该IP地址已存在")
+
+        # 验证VPN配置是否存在
+        vpn_config = None
+        vpn_display_name = None
+        if device_data.vpn_config_id:
+            print(f"查找VPN配置: {device_data.vpn_config_id}")
+            vpn_config = await VPNConfig.filter(id=device_data.vpn_config_id).first()
+            if not vpn_config:
+                print(f"VPN配置不存在: {device_data.vpn_config_id}")
+                raise HTTPException(status_code=400, detail="指定的VPN配置不存在")
+            vpn_display_name = f"{vpn_config.region} - {vpn_config.network}"
+            print(f"找到VPN配置: {vpn_display_name}")
+
+        # 准备设备数据
+        print("准备设备数据...")
+        device_dict = device_data.model_dump()
+        device_dict.pop('vpn_config_id', None)  # 移除vpn_config_id，因为我们要设置vpn_config对象
+        print(f"设备数据: {device_dict}")
+
+        # 创建设备
+        print("开始创建设备...")
+        device = await Device.create(
+            vpn_config=vpn_config,
+            required_vpn_display=vpn_display_name,
+            **device_dict
+        )
+        print(f"设备创建成功: {device.id}")
+    except Exception as e:
+        print(f"创建设备时出错: {e}")
+        print(f"错误类型: {type(e)}")
+        import traceback
+        print(f"错误堆栈: {traceback.format_exc()}")
+        raise
+
     # 创建设备使用情况记录
     await DeviceUsage.create(device=device)
-    
+
     # 创建设备内部信息记录
     internal_info = await DeviceInternal.create(device=device)
     internal_info.init_ports()
     await internal_info.save()
-    
+
+    # 构建响应数据
     device_response = {
         "id": device.id,
         "name": device.name,
         "ip": device.ip,
-        "required_vpn": device.required_vpn,
+        "vpn_config_id": device.vpn_config.id if device.vpn_config else None,
+        "vpn_region": device.vpn_config.region if device.vpn_config else None,
+        "vpn_network": device.vpn_config.network if device.vpn_config else None,
+        "vpn_display_name": vpn_display_name,
         "creator": device.creator,
         "need_vpn_login": device.need_vpn_login,
         "support_queue": device.support_queue,
@@ -156,7 +212,7 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(Au
         "created_at": device.created_at,
         "updated_at": device.updated_at
     }
-    
+
     return BaseResponse(
         code=200,
         message="设备创建成功",
@@ -246,15 +302,32 @@ async def get_connectivity_cache_info(current_user: User = Depends(AuthManager.g
 @router.get("/{device_id}", response_model=BaseResponse, summary="获取设备详情")
 async def get_device(device_id: int):
     """根据ID获取设备详情"""
-    device = await Device.filter(id=device_id).first()
+    device = await Device.filter(id=device_id).prefetch_related("vpn_config").first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
+
+    # 获取VPN配置信息
+    vpn_config_id = None
+    vpn_region = None
+    vpn_network = None
+    vpn_display_name = None
+
+    if device.vpn_config:
+        vpn_config_id = device.vpn_config.id
+        vpn_region = device.vpn_config.region
+        vpn_network = device.vpn_config.network
+        vpn_display_name = f"{vpn_region} - {vpn_network}"
+    elif device.required_vpn_display:
+        vpn_display_name = device.required_vpn_display
+
     device_data = {
         "id": device.id,
         "name": device.name,
         "ip": device.ip,
-        "required_vpn": device.required_vpn,
+        "vpn_config_id": vpn_config_id,
+        "vpn_region": vpn_region,
+        "vpn_network": vpn_network,
+        "vpn_display_name": vpn_display_name,
         "creator": device.creator,
         "need_vpn_login": device.need_vpn_login,
         "support_queue": device.support_queue,
@@ -264,7 +337,7 @@ async def get_device(device_id: int):
         "created_at": device.created_at,
         "updated_at": device.updated_at
     }
-    
+
     return BaseResponse(
         code=200,
         message="设备详情获取成功",
@@ -320,20 +393,49 @@ async def get_device_connectivity_status(
 @router.put("/{device_id}", response_model=BaseResponse, summary="更新设备信息")
 async def update_device(device_id: int, device_data: DeviceUpdate, current_user: User = Depends(AuthManager.get_current_user)):
     """更新设备信息"""
-    device = await Device.filter(id=device_id).first()
+    device = await Device.filter(id=device_id).prefetch_related("vpn_config").first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
-    # 更新设备信息
+
+    # 处理VPN配置更新
     update_data = device_data.dict(exclude_unset=True)
-    await device.update_from_dict(update_data)
+    vpn_config_id = update_data.pop('vpn_config_id', None)
+
+    if vpn_config_id is not None:
+        if vpn_config_id:
+            # 验证VPN配置是否存在
+            vpn_config = await VPNConfig.filter(id=vpn_config_id).first()
+            if not vpn_config:
+                raise HTTPException(status_code=400, detail="指定的VPN配置不存在")
+            device.vpn_config = vpn_config
+            device.required_vpn_display = f"{vpn_config.region} - {vpn_config.network}"
+        else:
+            # 清空VPN配置
+            device.vpn_config = None
+            device.required_vpn_display = None
+
+    # 更新其他字段
+    if update_data:
+        await device.update_from_dict(update_data)
     await device.save()
-    
-    device_data = {
+
+    # 重新获取设备信息以包含最新的VPN配置
+    device = await Device.filter(id=device_id).prefetch_related("vpn_config").first()
+
+    # 构建响应数据
+    vpn_config_id = device.vpn_config.id if device.vpn_config else None
+    vpn_region = device.vpn_config.region if device.vpn_config else None
+    vpn_network = device.vpn_config.network if device.vpn_config else None
+    vpn_display_name = f"{vpn_region} - {vpn_network}" if device.vpn_config else device.required_vpn_display
+
+    device_response = {
         "id": device.id,
         "name": device.name,
         "ip": device.ip,
-        "required_vpn": device.required_vpn,
+        "vpn_config_id": vpn_config_id,
+        "vpn_region": vpn_region,
+        "vpn_network": vpn_network,
+        "vpn_display_name": vpn_display_name,
         "creator": device.creator,
         "need_vpn_login": device.need_vpn_login,
         "support_queue": device.support_queue,
@@ -343,11 +445,11 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
         "created_at": device.created_at,
         "updated_at": device.updated_at
     }
-    
+
     return BaseResponse(
         code=200,
         message="设备更新成功",
-        data=device_data
+        data=device_response
     )
 
 

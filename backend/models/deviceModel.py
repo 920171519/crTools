@@ -37,7 +37,16 @@ class Device(Model):
     id = fields.IntField(pk=True, description="设备ID")
     name = fields.CharField(max_length=100, description="设备名称")
     ip = fields.CharField(max_length=45, unique=True, description="设备IP地址")
-    required_vpn = fields.CharField(max_length=100, description="设备所需VPN")
+    # VPN配置外键关联
+    vpn_config = fields.ForeignKeyField(
+        "models.VPNConfig",
+        related_name="devices",
+        null=True,
+        on_delete=fields.SET_NULL,
+        description="所需VPN配置"
+    )
+    # 保留原字段作为显示备用，当VPN配置被删除时使用
+    required_vpn_display = fields.CharField(max_length=100, null=True, description="VPN显示名称")
     creator = fields.CharField(max_length=50, description="设备添加人")
     need_vpn_login = fields.BooleanField(default=False, description="登录是否需要VPN")
     support_queue = fields.BooleanField(default=True, description="是否支持排队占用")
@@ -61,6 +70,13 @@ class Device(Model):
     
     def __str__(self):
         return f"{self.name}({self.ip})"
+
+    @property
+    def vpn_display_name(self):
+        """获取VPN显示名称"""
+        if self.vpn_config:
+            return f"{self.vpn_config.region} - {self.vpn_config.network}"
+        return self.required_vpn_display or "未配置VPN"
 
 
 class DeviceUsage(Model):

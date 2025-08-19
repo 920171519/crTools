@@ -78,6 +78,11 @@ export const vpnApi = {
     return api.put(`/vpn/user-configs/${vpnConfigId}`, data)
   },
 
+  // 获取所有VPN配置（供设备管理使用）
+  getAllVPNConfigs: () => {
+    return api.get<VPNConfig[]>('/vpn/configs/all')
+  },
+
   // IP搜索功能
   searchUserByIP: (ipAddress: string) => {
     return api.get<IPSearchResult[]>('/vpn/search-ip', {

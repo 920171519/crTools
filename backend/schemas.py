@@ -251,7 +251,7 @@ class DeviceBase(BaseModel):
     """设备基本信息基础模型"""
     name: str = Field(..., description="设备名称")
     ip: str = Field(..., description="设备IP地址")
-    required_vpn: str = Field(..., description="设备所需VPN")
+    vpn_config_id: Optional[int] = Field(None, description="VPN配置ID")
     creator: str = Field(..., description="设备添加人")
     need_vpn_login: bool = Field(False, description="登录是否需要VPN")
     support_queue: bool = Field(True, description="是否支持排队占用")
@@ -268,7 +268,7 @@ class DeviceCreate(DeviceBase):
 class DeviceUpdate(BaseModel):
     """更新设备模型"""
     name: Optional[str] = None
-    required_vpn: Optional[str] = None
+    vpn_config_id: Optional[int] = None
     need_vpn_login: Optional[bool] = None
     support_queue: Optional[bool] = None
     owner: Optional[str] = None
@@ -276,12 +276,24 @@ class DeviceUpdate(BaseModel):
     remarks: Optional[str] = None
 
 
-class DeviceResponse(DeviceBase):
+class DeviceResponse(BaseModel):
     """设备响应模型"""
     id: int
+    name: str
+    ip: str
+    vpn_config_id: Optional[int] = None
+    vpn_region: Optional[str] = None
+    vpn_network: Optional[str] = None
+    vpn_display_name: Optional[str] = None
+    creator: str
+    need_vpn_login: bool
+    support_queue: bool
+    owner: str
+    device_type: str
+    remarks: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -324,6 +336,9 @@ class DeviceListItem(BaseModel):
     name: str
     ip: str
     device_type: str
+    vpn_region: Optional[str] = None
+    vpn_network: Optional[str] = None
+    vpn_display_name: Optional[str] = None
     current_user: Optional[str] = None
     queue_count: int = 0
     status: str

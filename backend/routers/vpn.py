@@ -301,6 +301,39 @@ async def update_user_vpn_config(
         )
 
 
+# ===== 获取所有VPN配置（供设备管理使用） =====
+
+@router.get("/configs/all", response_model=BaseResponse, summary="获取所有VPN配置")
+async def get_all_vpn_configs(
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """获取所有VPN配置（供设备管理页面使用）"""
+    try:
+        configs = await VPNConfig.all().order_by('region', 'network')
+
+        # 转换为响应格式
+        items = []
+        for config in configs:
+            items.append({
+                "id": config.id,
+                "region": config.region,
+                "network": config.network
+            })
+
+        return BaseResponse(
+            code=200,
+            message="获取所有VPN配置成功",
+            data=items
+        )
+    except Exception as e:
+        print(f"获取所有VPN配置失败: {e}")
+        return BaseResponse(
+            code=500,
+            message="获取所有VPN配置失败",
+            data=None
+        )
+
+
 # ===== IP搜索功能 =====
 
 @router.get("/search-ip", response_model=BaseResponse, summary="根据IP地址搜索用户VPN配置")

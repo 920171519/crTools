@@ -337,8 +337,36 @@
           <el-input v-model="addForm.ip" placeholder="请输入设备IP地址" />
         </el-form-item>
         
-        <el-form-item label="所需VPN" prop="required_vpn">
-          <el-input v-model="addForm.required_vpn" placeholder="请输入所需VPN" />
+        <el-form-item label="VPN域段" prop="vpn_region">
+          <el-select
+            v-model="addForm.vpn_region"
+            placeholder="请选择域段"
+            @change="onAddFormRegionChange"
+            clearable
+          >
+            <el-option
+              v-for="region in availableRegions"
+              :key="region"
+              :label="region"
+              :value="region"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="* VPN网段" prop="vpn_config_id">
+          <el-select
+            v-model="addForm.vpn_config_id"
+            placeholder="请选择网段"
+            :disabled="!addForm.vpn_region"
+            clearable
+          >
+            <el-option
+              v-for="config in filteredNetworksForAdd"
+              :key="config.id"
+              :label="config.network"
+              :value="config.id"
+            />
+          </el-select>
         </el-form-item>
         
         <el-form-item label="归属人" prop="owner">
@@ -402,8 +430,37 @@
           <el-input :value="deviceDetail?.ip" disabled placeholder="IP地址不可修改" />
         </el-form-item>
         
-        <el-form-item label="所需VPN" prop="required_vpn">
-          <el-input v-model="editForm.required_vpn" placeholder="请输入所需VPN" />
+        <el-form-item label="VPN域段" prop="vpn_region">
+          <el-select
+            v-model="editForm.vpn_region"
+            placeholder="请选择域段"
+            @change="onEditFormRegionChange"
+            clearable
+            :disabled="!canEditDevice"
+          >
+            <el-option
+              v-for="region in availableRegions"
+              :key="region"
+              :label="region"
+              :value="region"
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="* VPN网段" prop="vpn_config_id">
+          <el-select
+            v-model="editForm.vpn_config_id"
+            placeholder="请选择网段"
+            :disabled="!editForm.vpn_region || !canEditDevice"
+            clearable
+          >
+            <el-option
+              v-for="config in filteredNetworksForEdit"
+              :key="config.id"
+              :label="config.network"
+              :value="config.id"
+            />
+          </el-select>
         </el-form-item>
         
         <el-form-item label="归属人" prop="owner">
@@ -546,7 +603,8 @@
               </div>
               <div class="info-item">
                 <label>所需VPN：</label>
-                <span>{{ deviceDetail.required_vpn }}</span>
+                <span v-if="deviceDetail.vpn_display_name">{{ deviceDetail.vpn_display_name }}</span>
+                <span v-else class="no-vpn">未配置VPN</span>
               </div>
               <div class="info-item">
                 <label>添加人：</label>
@@ -791,6 +849,7 @@ import {
   VideoPlay, VideoPause, Delete, Edit, Search, SuccessFilled, WarningFilled
 } from '@element-plus/icons-vue'
 import { deviceApi } from '../api/device'
+import { vpnApi } from '../api/vpn'
 import { useUserStore } from '@/stores/user'
 
 // 获取用户store
@@ -807,6 +866,12 @@ const deleteLoading = ref(false)
 // 连通性相关数据
 const connectivityStatus = ref({}) // 存储设备连通性状态
 const connectivityTimer = ref(null) // 连通性检测定时器
+
+// VPN相关数据
+const vpnConfigs = ref([]) // 所有VPN配置
+const availableRegions = ref([]) // 可用的域段列表
+const filteredNetworksForAdd = ref([]) // 添加表单中过滤后的网段
+const filteredNetworksForEdit = ref([]) // 编辑表单中过滤后的网段
 
 // 搜索表单
 const searchForm = reactive({
@@ -853,6 +918,7 @@ onMounted(async () => {
 
   userInfoLoaded.value = true
   await loadDevices()
+  await loadVPNConfigs()
 
   // 启动连通性检测定时器
   startConnectivityTimer()
@@ -986,7 +1052,8 @@ const addFormRef = ref()
 const addForm = reactive({
   name: '',
   ip: '',
-  required_vpn: '',
+  vpn_region: '',
+  vpn_config_id: null,
   owner: '',
   device_type: 'test',
   need_vpn_login: false,
@@ -1000,7 +1067,8 @@ const addFormRules = {
     { required: true, message: '请输入设备IP', trigger: 'blur' },
     { pattern: /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/, message: '请输入正确的IP地址格式', trigger: 'blur' }
   ],
-  required_vpn: [{ required: true, message: '请输入所需VPN', trigger: 'blur' }],
+  vpn_region: [{ required: true, message: '请选择VPN域段', trigger: 'change' }],
+  vpn_config_id: [{ required: true, message: '请选择VPN网段', trigger: 'change' }],
   creator: [{ required: true, message: '请输入添加人', trigger: 'blur' }],
   owner: [{ required: true, message: '请输入归属人', trigger: 'blur' }]
 }
@@ -1035,7 +1103,8 @@ const editFormRef = ref()
 const editForm = reactive({
   name: '',
   ip: '',
-  required_vpn: '',
+  vpn_region: '',
+  vpn_config_id: null,
   owner: '',
   device_type: '',
   need_vpn_login: false,
@@ -1064,6 +1133,48 @@ const loadDevices = async () => {
 
   // 加载设备后检查连通性
   await checkDevicesConnectivity()
+}
+
+// VPN相关方法
+const loadVPNConfigs = async () => {
+  try {
+    const response = await vpnApi.getAllVPNConfigs()
+    vpnConfigs.value = response.data || []
+
+    // 提取所有唯一的域段
+    const regions = Array.from(new Set(vpnConfigs.value.map(config => config.region)))
+    availableRegions.value = regions
+
+    console.log('成功加载VPN配置，数量:', vpnConfigs.value.length)
+    console.log('VPN配置数据:', vpnConfigs.value)
+  } catch (error) {
+    console.error('加载VPN配置失败:', error)
+    ElMessage.error('加载VPN配置失败')
+  }
+}
+
+// 添加表单域段变化处理
+const onAddFormRegionChange = (selectedRegion) => {
+  addForm.vpn_config_id = null // 清空网段选择
+  if (selectedRegion) {
+    filteredNetworksForAdd.value = vpnConfigs.value.filter(
+      config => config.region === selectedRegion
+    )
+  } else {
+    filteredNetworksForAdd.value = []
+  }
+}
+
+// 编辑表单域段变化处理
+const onEditFormRegionChange = (selectedRegion) => {
+  editForm.vpn_config_id = null // 清空网段选择
+  if (selectedRegion) {
+    filteredNetworksForEdit.value = vpnConfigs.value.filter(
+      config => config.region === selectedRegion
+    )
+  } else {
+    filteredNetworksForEdit.value = []
+  }
 }
 
 // 连通性检测相关方法
@@ -1458,8 +1569,14 @@ const handleAddDevice = async () => {
     
     // 创建设备数据，添加creator字段，确保工号为小写
     const deviceData = {
-      ...addForm,
+      name: addForm.name,
+      ip: addForm.ip,
+      vpn_config_id: addForm.vpn_config_id,
       owner: addForm.owner.toLowerCase(),
+      device_type: addForm.device_type,
+      need_vpn_login: addForm.need_vpn_login,
+      support_queue: addForm.support_queue,
+      remarks: addForm.remarks,
       creator: userStore.userInfo?.employee_id?.toLowerCase() || userStore.userInfo?.username || ''
     }
     
@@ -1485,10 +1602,15 @@ const openAddDialog = () => {
   if (addFormRef.value) {
     addFormRef.value.resetFields()
   }
-  
+
+  // 重置VPN相关字段
+  addForm.vpn_region = ''
+  addForm.vpn_config_id = null
+  filteredNetworksForAdd.value = []
+
   // 设置默认值
   addForm.owner = userStore.userInfo?.employee_id?.toLowerCase() || userStore.userInfo?.username || ''
-  
+
   showAddDialog.value = true
 }
 
@@ -1500,17 +1622,27 @@ const handleAddDialogClose = () => {
 // 编辑设备相关方法
 const openEditDialog = () => {
   if (!deviceDetail.value) return
-  
+
   // 填充编辑表单
   editForm.name = deviceDetail.value.name
   editForm.ip = deviceDetail.value.ip
-  editForm.required_vpn = deviceDetail.value.required_vpn
+  editForm.vpn_region = deviceDetail.value.vpn_region || ''
+  editForm.vpn_config_id = deviceDetail.value.vpn_config_id || null
   editForm.owner = deviceDetail.value.owner
   editForm.device_type = deviceDetail.value.device_type
   editForm.need_vpn_login = deviceDetail.value.need_vpn_login
   editForm.support_queue = deviceDetail.value.support_queue
   editForm.remarks = deviceDetail.value.remarks || ''
-  
+
+  // 根据当前选择的域段过滤网段
+  if (editForm.vpn_region) {
+    filteredNetworksForEdit.value = vpnConfigs.value.filter(
+      config => config.region === editForm.vpn_region
+    )
+  } else {
+    filteredNetworksForEdit.value = []
+  }
+
   showEditDialog.value = true
 }
 
@@ -1521,10 +1653,15 @@ const handleEditDevice = async () => {
     await editFormRef.value.validate()
     editLoading.value = true
     
-    // 确保owner字段为小写
+    // 确保owner字段为小写，移除vpn_region字段
     const updateData = {
-      ...editForm,
-      owner: editForm.owner.toLowerCase()
+      name: editForm.name,
+      vpn_config_id: editForm.vpn_config_id,
+      owner: editForm.owner.toLowerCase(),
+      device_type: editForm.device_type,
+      need_vpn_login: editForm.need_vpn_login,
+      support_queue: editForm.support_queue,
+      remarks: editForm.remarks
     }
     
     await deviceApi.updateDevice(deviceDetail.value.id, updateData)
