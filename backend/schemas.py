@@ -395,3 +395,31 @@ class DeviceUnifiedQueueRequest(BaseModel):
     user: str
     expected_duration: int = Field(60, description="预计使用时间(分钟)")
     purpose: Optional[str] = None
+
+
+# ===== 设备配置相关模式 =====
+class DeviceConfigBase(BaseModel):
+    """设备配置基础模式"""
+    config_type: str = Field(..., description="配置类型", pattern="^[ABC]$")
+    config_value: str = Field(..., description="配置值", pattern="^(你|我|他)$")
+
+
+class DeviceConfigCreate(DeviceConfigBase):
+    """创建设备配置请求模式"""
+    pass
+
+
+class DeviceConfigUpdate(DeviceConfigBase):
+    """更新设备配置请求模式"""
+    pass
+
+
+class DeviceConfigResponse(DeviceConfigBase):
+    """设备配置响应模式"""
+    id: int = Field(..., description="配置ID")
+    device_id: int = Field(..., description="设备ID")
+    created_at: datetime = Field(..., description="创建时间")
+    updated_at: datetime = Field(..., description="更新时间")
+    
+    class Config:
+        from_attributes = True

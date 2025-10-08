@@ -105,6 +105,26 @@ export interface ConnectivityResponse {
   [deviceId: string]: ConnectivityStatus
 }
 
+// 设备配置相关接口类型定义
+export interface DeviceConfig {
+  id: number
+  device_id: number
+  config_type: string
+  config_value: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DeviceConfigCreateRequest {
+  config_type: string
+  config_value: string
+}
+
+export interface DeviceConfigUpdateRequest {
+  config_type: string
+  config_value: string
+}
+
 export interface BaseResponse<T = any> {
   code: number
   message: string
@@ -219,5 +239,26 @@ export const deviceApi = {
   // 获取连通性缓存信息（调试用）
   getConnectivityCacheInfo: () => {
     return api.get('/devices/connectivity-cache-info')
+  },
+
+  // 设备配置管理接口
+  // 获取设备配置列表
+  getDeviceConfigs: (deviceId: number) => {
+    return api.get<DeviceConfig[]>(`/devices/${deviceId}/configs`)
+  },
+
+  // 创建设备配置
+  createDeviceConfig: (deviceId: number, data: DeviceConfigCreateRequest) => {
+    return api.post(`/devices/${deviceId}/configs`, data)
+  },
+
+  // 更新设备配置
+  updateDeviceConfig: (deviceId: number, configId: number, data: DeviceConfigUpdateRequest) => {
+    return api.put(`/devices/${deviceId}/configs/${configId}`, data)
+  },
+
+  // 删除设备配置
+  deleteDeviceConfig: (deviceId: number, configId: number) => {
+    return api.delete(`/devices/${deviceId}/configs/${configId}`)
   }
 }

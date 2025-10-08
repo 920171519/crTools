@@ -581,8 +581,11 @@
     >
       <div v-loading="detailLoading" class="device-detail">
         <template v-if="deviceDetail">
-          <!-- 基本信息 -->
-          <div class="detail-section">
+          <!-- Tab页面结构 -->
+          <el-tabs v-model="activeDetailTab" class="device-detail-tabs">
+            <!-- 基本信息Tab -->
+            <el-tab-pane label="基本信息" name="basic">
+              <div class="detail-section">
             <h3 class="section-title">
               <el-icon><InfoFilled /></el-icon>
               基本信息
@@ -860,9 +863,135 @@
               删除设备
             </el-button>
           </div>
+            </el-tab-pane>
+
+            <!-- 配置管理Tab -->
+            <el-tab-pane label="配置管理" name="config">
+              <div class="config-section">
+                <div class="config-header">
+                  <h3>设备配置</h3>
+                  <el-button
+                    v-if="canEditDevice"
+                    type="primary"
+                    size="small"
+                    @click="openConfigDialog"
+                    icon="Plus"
+                  >
+                    添加配置
+                  </el-button>
+                </div>
+                
+                <el-table 
+                  :data="deviceConfigs" 
+                  stripe 
+                  style="width: 100%" 
+                  v-loading="configLoading"
+                  empty-text="暂无配置数据"
+                >
+                  <el-table-column prop="config_type" label="配置类型" width="120">
+                    <template #default="{ row }">
+                      <el-tag size="small">{{ row.config_type }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  
+                  <el-table-column prop="config_value" label="配置值" width="120">
+                    <template #default="{ row }">
+                      <el-tag type="success" size="small">{{ row.config_value }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  
+                  <el-table-column prop="created_at" label="创建时间" width="160">
+                    <template #default="{ row }">
+                      {{ formatDateTime(row.created_at) }}
+                    </template>
+                  </el-table-column>
+                  
+                  <el-table-column 
+                    v-if="canEditDevice" 
+                    label="操作" 
+                    width="150"
+                    fixed="right"
+                  >
+                    <template #default="{ row }">
+                      <el-button
+                        type="primary"
+                        size="small"
+                        text
+                        @click="editConfig(row)"
+                        icon="Edit"
+                      >
+                        编辑
+                      </el-button>
+                      <el-button
+                        type="danger"
+                        size="small"
+                        text
+                        @click="deleteConfig(row)"
+                        icon="Delete"
+                      >
+                        删除
+                      </el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
         </template>
       </div>
     </el-drawer>
+
+    <!-- 配置管理对话框 -->
+    <el-dialog
+      v-model="configDialogVisible"
+      :title="isEditingConfig ? '编辑配置' : '添加配置'"
+      width="400px"
+      :before-close="handleConfigDialogClose"
+    >
+      <el-form
+        ref="configFormRef"
+        :model="configForm"
+        :rules="configRules"
+        label-width="80px"
+      >
+        <el-form-item label="配置类型" prop="config_type">
+          <el-select
+            v-model="configForm.config_type"
+            placeholder="请选择配置类型"
+            style="width: 100%"
+          >
+            <el-option label="A" value="A" />
+            <el-option label="B" value="B" />
+            <el-option label="C" value="C" />
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item label="配置值" prop="config_value">
+          <el-select
+            v-model="configForm.config_value"
+            placeholder="请选择配置值"
+            style="width: 100%"
+          >
+            <el-option label="你" value="你" />
+            <el-option label="我" value="我" />
+            <el-option label="他" value="他" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="handleConfigDialogClose">取消</el-button>
+          <el-button
+            type="primary"
+            @click="saveConfig"
+            :loading="configSaveLoading"
+          >
+            {{ isEditingConfig ? '更新' : '添加' }}
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -873,7 +1002,7 @@ import {
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled,
   VideoPlay, VideoPause, Delete, Edit, Search, SuccessFilled, WarningFilled
 } from '@element-plus/icons-vue'
-import { deviceApi } from '../api/device'
+import { deviceApi, type DeviceConfig } from '../api/device'
 import { vpnApi } from '../api/vpn'
 import { useUserStore } from '@/stores/user'
 
@@ -887,6 +1016,34 @@ const useLoading = reactive({})
 const releaseLoading = reactive({})
 const userInfoLoaded = ref(false)
 const deleteLoading = ref(false)
+
+// 详情页Tab状态
+const activeDetailTab = ref('basic')
+
+// 配置管理相关数据
+const deviceConfigs = ref<DeviceConfig[]>([])
+const configLoading = ref(false)
+const configDialogVisible = ref(false)
+const isEditingConfig = ref(false)
+const currentConfigId = ref<number | null>(null)
+const configSaveLoading = ref(false)
+const configFormRef = ref()
+
+// 配置表单
+const configForm = reactive({
+  config_type: '',
+  config_value: ''
+})
+
+// 配置表单验证规则
+const configRules = {
+  config_type: [
+    { required: true, message: '请选择配置类型', trigger: 'change' }
+  ],
+  config_value: [
+    { required: true, message: '请选择配置值', trigger: 'change' }
+  ]
+}
 
 // 连通性相关数据
 const connectivityStatus = ref({}) // 存储设备连通性状态
@@ -1038,7 +1195,7 @@ const canEditDevice = computed(() => {
 
   // 环境归属人可以编辑自己的设备
   // 使用 employee_id 或 username 进行比较
-  const currentUserId = userStore.userInfo.employee_id || userStore.userInfo.username
+  const currentUserId = userStore.userInfo.employee_id // || userStore.userInfo.username 这里不应该用name比较, 只考虑id即可
   const isOwner = deviceDetail.value.owner === currentUserId
 
   console.log('canEditDevice check:', {
@@ -1456,7 +1613,7 @@ const preemptDevice = async (device) => {
       purpose: '抢占使用'
     })
     
-    ElMessage.success(response.message)
+    ElMessage.success(response.data?.message || '操作成功')
     await loadDevices()
     
     // 如果详情抽屉打开，刷新详情数据
@@ -1487,7 +1644,7 @@ const priorityQueue = async (device) => {
       purpose: '优先排队'
     })
     
-    ElMessage.success(response.message)
+    ElMessage.success(response.data?.message || '操作成功')
     await loadDevices()
     
     // 如果详情抽屉打开，刷新详情数据
@@ -1524,7 +1681,7 @@ const releaseDevice = async (device) => {
     })
     
     // 显示后端返回的消息
-    ElMessage.success(response.message)
+    ElMessage.success(response.data?.message || '操作成功')
     await loadDevices()
   } catch (error) {
     if (error !== 'cancel') {
@@ -1558,7 +1715,7 @@ const adminReleaseDevice = async (device) => {
       user: device.current_user // 使用当前占用者的用户名
     })
 
-    ElMessage.success(response.message)
+    ElMessage.success(response.data?.message || '操作成功')
     await loadDevices()
 
     // 如果详情抽屉打开，刷新详情数据
@@ -1932,7 +2089,7 @@ const releaseAllMyDevices = async () => {
 
     try {
       const response = await deviceApi.batchReleaseMyDevices()
-      ElMessage.success(response.message)
+      ElMessage.success(response.data?.message || '操作成功')
       await loadDevices()
     } catch (apiError) {
       console.error('批量释放API调用失败:', apiError)
@@ -1965,7 +2122,7 @@ const cancelAllMyQueues = async () => {
 
     try {
       const response = await deviceApi.batchCancelMyQueues()
-      ElMessage.success(response.message)
+      ElMessage.success(response.data?.message || '操作成功')
       await loadDevices()
     } catch (apiError) {
       console.error('批量取消排队API调用失败:', apiError)
@@ -2011,6 +2168,153 @@ const handleCurrentChange = (val: number) => {
   pagination.page = val
   loadDevices()
 }
+
+// ===== 配置管理相关函数 =====
+
+// 加载设备配置列表
+const loadDeviceConfigs = async (deviceId: number) => {
+  if (!deviceId) return
+  
+  try {
+    configLoading.value = true
+    const response = await deviceApi.getDeviceConfigs(deviceId)
+    if (response.data) {
+      deviceConfigs.value = response.data || []
+    } else {
+      deviceConfigs.value = []
+    }
+  } catch (error) {
+    console.error('加载设备配置失败:', error)
+    deviceConfigs.value = []
+    ElMessage.error('加载设备配置失败')
+  } finally {
+    configLoading.value = false
+  }
+}
+
+// 打开配置对话框
+const openConfigDialog = () => {
+  isEditingConfig.value = false
+  currentConfigId.value = null
+  configForm.config_type = ''
+  configForm.config_value = ''
+  configDialogVisible.value = true
+}
+
+// 编辑配置
+const editConfig = (config: DeviceConfig) => {
+  isEditingConfig.value = true
+  currentConfigId.value = config.id
+  configForm.config_type = config.config_type
+  configForm.config_value = config.config_value
+  configDialogVisible.value = true
+}
+
+// 删除配置
+const deleteConfig = async (config: DeviceConfig) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除配置 "${config.config_type} -> ${config.config_value}" 吗？`,
+      '确认删除',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    )
+    
+    const response = await deviceApi.deleteDeviceConfig(config.device_id, config.id) as any
+    if (response.code === 200) {
+      ElMessage.success('配置删除成功')
+      await loadDeviceConfigs(config.device_id)
+    } else {
+      ElMessage.error(response.message || '删除失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除配置失败:', error)
+      ElMessage.error('删除配置失败')
+    }
+  }
+}
+
+// 保存配置
+const saveConfig = async () => {
+  if (!configFormRef.value) return
+  
+  try {
+    await configFormRef.value.validate()
+    
+    if (!deviceDetail.value) {
+      ElMessage.error('设备信息不存在')
+      return
+    }
+    
+    configSaveLoading.value = true
+    
+    if (isEditingConfig.value && currentConfigId.value) {
+      // 编辑现有配置
+      const response = await deviceApi.updateDeviceConfig(
+        deviceDetail.value.id,
+        currentConfigId.value,
+        {
+          config_type: configForm.config_type,
+          config_value: configForm.config_value
+        }
+      ) as any
+      
+      if (response.code === 200) {
+        ElMessage.success('配置更新成功')
+        handleConfigDialogClose()
+        await loadDeviceConfigs(deviceDetail.value.id)
+      } else {
+        ElMessage.error(response.message || '更新失败')
+      }
+    } else {
+      // 添加新配置
+      const response = await deviceApi.createDeviceConfig(
+        deviceDetail.value.id,
+        {
+          config_type: configForm.config_type,
+          config_value: configForm.config_value
+        }
+      ) as any
+      
+      if (response.code === 200) {
+        ElMessage.success('配置添加成功')
+        handleConfigDialogClose()
+        await loadDeviceConfigs(deviceDetail.value.id)
+      } else {
+        ElMessage.error(response.message || '添加失败')
+      }
+    }
+  } catch (error) {
+    console.error('保存配置失败:', error)
+    ElMessage.error('保存配置失败')
+  } finally {
+    configSaveLoading.value = false
+  }
+}
+
+// 关闭配置对话框
+const handleConfigDialogClose = () => {
+  configDialogVisible.value = false
+  isEditingConfig.value = false
+  currentConfigId.value = null
+  configForm.config_type = ''
+  configForm.config_value = ''
+  if (configFormRef.value) {
+    configFormRef.value.clearValidate()
+  }
+}
+
+
+// 监听设备详情变化，当切换到配置管理Tab时加载配置数据
+watch(activeDetailTab, (newTab) => {
+  if (newTab === 'config' && deviceDetail.value) {
+    loadDeviceConfigs(deviceDetail.value.id)
+  }
+})
 
 // 生命周期已在上面的onMounted中处理
 </script>
@@ -2271,6 +2575,34 @@ const handleCurrentChange = (val: number) => {
   .detail-section {
     padding: 15px;
   }
+}
+
+/* 设备详情Tab样式 */
+.device-detail-tabs {
+  margin-top: -10px;
+}
+
+.device-detail-tabs .el-tabs__content {
+  padding: 0;
+}
+
+/* 配置管理样式 */
+.config-section {
+  padding: 20px 0;
+}
+
+.config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.config-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
 }
 
 /* 连通性状态样式 */

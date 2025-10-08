@@ -7,13 +7,14 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel
 
-from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageHistory, DeviceStatusEnum
+from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageHistory, DeviceConfig, DeviceStatusEnum
 from models.admin import User, OperationLog
 from models.vpnModel import VPNConfig
 from schemas import (
     DeviceBase, DeviceUpdate, DeviceResponse, DeviceListItem,
     DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceLongTermUseRequest, DeviceReleaseRequest,
-    DevicePreemptRequest, DevicePriorityQueueRequest, DeviceUnifiedQueueRequest
+    DevicePreemptRequest, DevicePriorityQueueRequest, DeviceUnifiedQueueRequest,
+    DeviceConfigCreate, DeviceConfigUpdate, DeviceConfigResponse
 )
 from schemas import BaseResponse
 from auth import AuthManager
@@ -1296,5 +1297,214 @@ async def admin_force_cleanup_all_devices(current_user: User = Depends(AuthManag
     except Exception as e:
         print(f"管理员强制清理失败: {e}")
         raise HTTPException(status_code=500, detail="强制清理失败")
+
+
+# ===== 设备配置管理接口 =====
+
+@router.get("/{device_id}/configs", response_model=BaseResponse, summary="获取设备配置列表")
+async def get_device_configs(
+    device_id: int,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """
+    获取设备配置列表
+    - 所有用户都可以查看
+    """
+    # 检查设备是否存在
+    device = await Device.get_or_none(id=device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    
+    # 获取配置列表
+    configs = await DeviceConfig.filter(device=device).order_by('config_type')
+    
+    result = []
+    for config in configs:
+        result.append({
+            "id": config.id,
+            "device_id": config.device_id,
+            "config_type": config.config_type,
+            "config_value": config.config_value,
+            "created_at": config.created_at,
+            "updated_at": config.updated_at
+        })
+    
+    return BaseResponse(data=result)
+
+
+@router.post("/{device_id}/configs", response_model=BaseResponse, summary="添加设备配置")
+async def add_device_config(
+    device_id: int,
+    config_data: DeviceConfigCreate,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """
+    添加设备配置
+    - 只有设备归属人或管理员可以添加
+    - 同一设备的配置类型不可重复
+    """
+    # 检查设备是否存在
+    device = await Device.get_or_none(id=device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    
+    # 权限检查：只有设备归属人或管理员可以修改
+    current_user_id = current_user.employee_id or current_user.username
+    is_admin = current_user.is_superuser or current_user.role == '管理员'
+    is_owner = device.owner == current_user_id
+    
+    if not (is_admin or is_owner):
+        raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
+    
+    # 检查配置类型是否已存在
+    existing_config = await DeviceConfig.get_or_none(device=device, config_type=config_data.config_type)
+    if existing_config:
+        raise HTTPException(status_code=400, detail=f"配置类型 {config_data.config_type} 已存在")
+    
+    # 创建配置
+    try:
+        config = await DeviceConfig.create(
+            device=device,
+            config_type=config_data.config_type,
+            config_value=config_data.config_value
+        )
+        
+        # 记录操作日志
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="add_device_config",
+            operation_result="success",
+            device_name=device.name,
+            description=f"添加配置: {config_data.config_type} -> {config_data.config_value}"
+        )
+        
+        result = {
+            "id": config.id,
+            "device_id": config.device_id,
+            "config_type": config.config_type,
+            "config_value": config.config_value,
+            "created_at": config.created_at,
+            "updated_at": config.updated_at
+        }
+        
+        return BaseResponse(data=result, message="配置添加成功")
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"添加配置失败: {str(e)}")
+
+
+@router.put("/{device_id}/configs/{config_id}", response_model=BaseResponse, summary="更新设备配置")
+async def update_device_config(
+    device_id: int,
+    config_id: int,
+    config_data: DeviceConfigUpdate,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """
+    更新设备配置
+    - 只有设备归属人或管理员可以更新
+    """
+    # 检查设备是否存在
+    device = await Device.get_or_none(id=device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    
+    # 检查配置是否存在
+    config = await DeviceConfig.get_or_none(id=config_id, device=device)
+    if not config:
+        raise HTTPException(status_code=404, detail="配置不存在")
+    
+    # 权限检查：只有设备归属人或管理员可以修改
+    current_user_id = current_user.employee_id or current_user.username
+    is_admin = current_user.is_superuser or current_user.role == '管理员'
+    is_owner = device.owner == current_user_id
+    
+    if not (is_admin or is_owner):
+        raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
+    
+    # 如果更改了配置类型，检查是否会产生重复
+    if config_data.config_type != config.config_type:
+        existing_config = await DeviceConfig.get_or_none(device=device, config_type=config_data.config_type)
+        if existing_config:
+            raise HTTPException(status_code=400, detail=f"配置类型 {config_data.config_type} 已存在")
+    
+    # 更新配置
+    try:
+        old_config = f"{config.config_type} -> {config.config_value}"
+        
+        config.config_type = config_data.config_type
+        config.config_value = config_data.config_value
+        await config.save()
+        
+        # 记录操作日志
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="update_device_config",
+            operation_result="success",
+            device_name=device.name,
+            description=f"更新配置: {old_config} => {config.config_type} -> {config.config_value}"
+        )
+        
+        result = {
+            "id": config.id,
+            "device_id": config.device_id,
+            "config_type": config.config_type,
+            "config_value": config.config_value,
+            "created_at": config.created_at,
+            "updated_at": config.updated_at
+        }
+        
+        return BaseResponse(data=result, message="配置更新成功")
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"更新配置失败: {str(e)}")
+
+
+@router.delete("/{device_id}/configs/{config_id}", response_model=BaseResponse, summary="删除设备配置")
+async def delete_device_config(
+    device_id: int,
+    config_id: int,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """
+    删除设备配置
+    - 只有设备归属人或管理员可以删除
+    """
+    # 检查设备是否存在
+    device = await Device.get_or_none(id=device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    
+    # 检查配置是否存在
+    config = await DeviceConfig.get_or_none(id=config_id, device=device)
+    if not config:
+        raise HTTPException(status_code=404, detail="配置不存在")
+    
+    # 权限检查：只有设备归属人或管理员可以修改
+    current_user_id = current_user.employee_id or current_user.username
+    is_admin = current_user.is_superuser or current_user.role == '管理员'
+    is_owner = device.owner == current_user_id
+    
+    if not (is_admin or is_owner):
+        raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
+    
+    # 删除配置
+    try:
+        config_info = f"{config.config_type} -> {config.config_value}"
+        await config.delete()
+        
+        # 记录操作日志
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="delete_device_config",
+            operation_result="success",
+            device_name=device.name,
+            description=f"删除配置: {config_info}"
+        )
+        
+        return BaseResponse(message="配置删除成功")
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"删除配置失败: {str(e)}")
 
 

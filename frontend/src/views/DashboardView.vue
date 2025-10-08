@@ -101,6 +101,12 @@
                 <el-tag size="small" type="info">{{ deviceStats.queueCount }}台</el-tag>
               </span>
             </div>
+            <div class="info-item">
+              <span class="info-label">总设备数：</span>
+              <span class="info-value">
+                <el-tag size="small" type="success">{{ deviceStats.totalCount }}台</el-tag>
+              </span>
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -146,7 +152,8 @@ const userStore = useUserStore()
 // 设备统计数据
 const deviceStats = ref({
   occupiedCount: 0,
-  queueCount: 0
+  queueCount: 0,
+  totalCount: 0
 })
 
 // 当前时间
@@ -197,10 +204,11 @@ const formatTime = (timeStr?: string) => {
 const loadDeviceStats = async () => {
   try {
     const response = await deviceApi.getDevices()
-    const devices = response.data
+    const devices = response.data.items || []
 
     let occupiedCount = 0
     let queueCount = 0
+    let totalCount = devices.length
 
     // 确保devices是数组
     if (Array.isArray(devices)) {
@@ -218,13 +226,15 @@ const loadDeviceStats = async () => {
 
     deviceStats.value = {
       occupiedCount,
-      queueCount
+      queueCount,
+      totalCount
     }
   } catch (error) {
     console.error('加载设备统计失败:', error)
     deviceStats.value = {
       occupiedCount: 0,
-      queueCount: 0
+      queueCount: 0,
+      totalCount: 0
     }
   }
 }
