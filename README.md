@@ -40,7 +40,8 @@
 ### 环境要求
 - Python 3.8+
 - Node.js 16+
-- pnpm (推荐) 或 npm
+- pnpm (推荐)
+- 后端使用uv进行环境管理
 
 ### 后端安装运行
 
@@ -51,16 +52,13 @@ cd backend
 
 2. 安装依赖
 ```bash
-pip install -r requirements.txt
+uv sync
 ```
 
 3. 启动服务
 ```bash
 # 使用启动脚本
 python run.py
-
-# 或直接运行
-python main.py
 ```
 
 **注意**: 系统使用SQLite数据库，首次启动会自动创建数据库文件 `db.sqlite3` 并初始化基础数据。
@@ -77,8 +75,6 @@ cd frontend
 2. 安装依赖
 ```bash
 pnpm install
-# 或
-npm install
 ```
 
 3. 启动开发服务器
