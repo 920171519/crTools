@@ -445,3 +445,45 @@ class DeviceConfigResponse(DeviceConfigBase):
     
     class Config:
         from_attributes = True
+
+
+# ===== 命令行集相关模式 =====
+class CommandBase(BaseModel):
+    """命令行基础模式"""
+    command_text: str = Field(..., min_length=1, max_length=1000, description="命令内容")
+    link: Optional[str] = Field(None, max_length=1000, description="介绍网页链接")
+    remarks: Optional[str] = Field(None, max_length=5000, description="备注内容")
+
+
+class CommandCreate(CommandBase):
+    """创建命令行请求模式"""
+    pass
+
+
+class CommandUpdate(BaseModel):
+    """更新命令行请求模式"""
+    command_text: Optional[str] = Field(None, min_length=1, max_length=1000, description="命令内容")
+    link: Optional[str] = Field(None, max_length=1000, description="介绍网页链接")
+    remarks: Optional[str] = Field(None, max_length=5000, description="备注内容")
+
+
+class CommandResponse(CommandBase):
+    """命令行响应模式"""
+    id: int = Field(..., description="命令ID")
+    creator: str = Field(..., description="创建人工号")
+    last_editor: Optional[str] = Field(None, description="最后编辑人工号")
+    created_at: datetime = Field(..., description="创建时间")
+    updated_at: datetime = Field(..., description="更新时间")
+    
+    class Config:
+        from_attributes = True
+
+
+class CommandListItem(BaseModel):
+    """命令行列表项模式"""
+    id: int
+    command_text: str
+    link: Optional[str]
+    remarks: Optional[str]
+    last_editor: Optional[str]
+    updated_at: datetime

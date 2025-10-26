@@ -66,6 +66,15 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'commands',
+        name: 'CommandCollection',
+        component: () => import('@/views/CommandCollection.vue'),
+        meta: {
+          requiresAuth: true,
+          title: '命令行集'
+        }
+      },
+      {
         path: 'system/users',
         name: 'UserManagement',
         component: () => import('@/views/system/UserManagement.vue'),

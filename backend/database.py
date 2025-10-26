@@ -14,7 +14,7 @@ TORTOISE_ORM = {
     },
     "apps": {
         "models": {
-            "models": ["models.admin", "models.deviceModel", "models.systemModel", "models.vpnModel", "aerich.models"],
+            "models": ["models.admin", "models.deviceModel", "models.systemModel", "models.vpnModel", "models.commandModel", "aerich.models"],
             "default_connection": "default",
         },
     },
@@ -103,6 +103,16 @@ async def init_database():
             "sort_order": 50,
             "is_visible": True,
             "permission_code": "device:read"
+        },
+        {
+            "name": "命令行集",
+            "path": "/commands",
+            "component": "CommandCollection",
+            "icon": "DocumentChecked",
+            "parent_id": None,
+            "sort_order": 51,
+            "is_visible": True,
+            "permission_code": None
         },
         # 直接显示子菜单，不要父菜单
         {
