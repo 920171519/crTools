@@ -116,6 +116,7 @@ async def get_devices(
             name=device.name,
             ip=device.ip,
             device_type=device.device_type,
+            form_type=device.form_type,
             vpn_region=vpn_region,
             vpn_network=vpn_network,
             vpn_display_name=vpn_display_name,
@@ -209,6 +210,7 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(Au
         "support_queue": device.support_queue,
         "owner": device.owner,
         "device_type": device.device_type,
+        "form_type": device.form_type,
         "remarks": device.remarks,
         "created_at": device.created_at,
         "updated_at": device.updated_at
@@ -336,6 +338,7 @@ async def get_device(device_id: int):
         "admin_username": device.admin_username,
         "admin_password": device.admin_password,
         "device_type": device.device_type,
+        "form_type": device.form_type,
         "remarks": device.remarks,
         "created_at": device.created_at,
         "updated_at": device.updated_at
@@ -444,6 +447,7 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
         "support_queue": device.support_queue,
         "owner": device.owner,
         "device_type": device.device_type,
+        "form_type": device.form_type,
         "remarks": device.remarks,
         "created_at": device.created_at,
         "updated_at": device.updated_at
@@ -1316,14 +1320,15 @@ async def get_device_configs(
         raise HTTPException(status_code=404, detail="设备不存在")
     
     # 获取配置列表
-    configs = await DeviceConfig.filter(device=device).order_by('config_type')
+    configs = await DeviceConfig.filter(device=device).order_by('config_param1', 'config_param2')
     
     result = []
     for config in configs:
         result.append({
             "id": config.id,
             "device_id": config.device_id,
-            "config_type": config.config_type,
+            "config_param1": config.config_param1,
+            "config_param2": config.config_param2,
             "config_value": config.config_value,
             "created_at": config.created_at,
             "updated_at": config.updated_at
@@ -1356,16 +1361,21 @@ async def add_device_config(
     if not (is_admin or is_owner):
         raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
     
-    # 检查配置类型是否已存在
-    existing_config = await DeviceConfig.get_or_none(device=device, config_type=config_data.config_type)
+    # 检查参数组合是否已存在
+    existing_config = await DeviceConfig.get_or_none(
+        device=device, 
+        config_param1=config_data.config_param1, 
+        config_param2=config_data.config_param2
+    )
     if existing_config:
-        raise HTTPException(status_code=400, detail=f"配置类型 {config_data.config_type} 已存在")
+        raise HTTPException(status_code=400, detail=f"配置参数组合 ({config_data.config_param1}, {config_data.config_param2}) 已存在")
     
     # 创建配置
     try:
         config = await DeviceConfig.create(
             device=device,
-            config_type=config_data.config_type,
+            config_param1=config_data.config_param1,
+            config_param2=config_data.config_param2,
             config_value=config_data.config_value
         )
         
@@ -1375,13 +1385,14 @@ async def add_device_config(
             operation_type="add_device_config",
             operation_result="success",
             device_name=device.name,
-            description=f"添加配置: {config_data.config_type} -> {config_data.config_value}"
+            description=f"添加配置: 参数1={config_data.config_param1}, 参数2={config_data.config_param2}, 值={config_data.config_value}"
         )
         
         result = {
             "id": config.id,
             "device_id": config.device_id,
-            "config_type": config.config_type,
+            "config_param1": config.config_param1,
+            "config_param2": config.config_param2,
             "config_value": config.config_value,
             "created_at": config.created_at,
             "updated_at": config.updated_at
@@ -1422,17 +1433,22 @@ async def update_device_config(
     if not (is_admin or is_owner):
         raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
     
-    # 如果更改了配置类型，检查是否会产生重复
-    if config_data.config_type != config.config_type:
-        existing_config = await DeviceConfig.get_or_none(device=device, config_type=config_data.config_type)
+    # 如果更改了参数组合，检查是否会产生重复
+    if config_data.config_param1 != config.config_param1 or config_data.config_param2 != config.config_param2:
+        existing_config = await DeviceConfig.get_or_none(
+            device=device, 
+            config_param1=config_data.config_param1,
+            config_param2=config_data.config_param2
+        )
         if existing_config:
-            raise HTTPException(status_code=400, detail=f"配置类型 {config_data.config_type} 已存在")
+            raise HTTPException(status_code=400, detail=f"配置参数组合 ({config_data.config_param1}, {config_data.config_param2}) 已存在")
     
     # 更新配置
     try:
-        old_config = f"{config.config_type} -> {config.config_value}"
+        old_config = f"参数1={config.config_param1}, 参数2={config.config_param2}, 值={config.config_value}"
         
-        config.config_type = config_data.config_type
+        config.config_param1 = config_data.config_param1
+        config.config_param2 = config_data.config_param2
         config.config_value = config_data.config_value
         await config.save()
         
@@ -1442,13 +1458,14 @@ async def update_device_config(
             operation_type="update_device_config",
             operation_result="success",
             device_name=device.name,
-            description=f"更新配置: {old_config} => {config.config_type} -> {config.config_value}"
+            description=f"更新配置: {old_config} => 参数1={config.config_param1}, 参数2={config.config_param2}, 值={config.config_value}"
         )
         
         result = {
             "id": config.id,
             "device_id": config.device_id,
-            "config_type": config.config_type,
+            "config_param1": config.config_param1,
+            "config_param2": config.config_param2,
             "config_value": config.config_value,
             "created_at": config.created_at,
             "updated_at": config.updated_at
@@ -1490,7 +1507,7 @@ async def delete_device_config(
     
     # 删除配置
     try:
-        config_info = f"{config.config_type} -> {config.config_value}"
+        config_info = f"参数1={config.config_param1}, 参数2={config.config_param2}, 值={config.config_value}"
         await config.delete()
         
         # 记录操作日志

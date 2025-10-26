@@ -54,6 +54,7 @@ class Device(Model):
     admin_username = fields.CharField(max_length=50, description="管理员账号")
     admin_password = fields.CharField(max_length=255, description="管理员密码")
     device_type = fields.CharEnumField(DeviceTypeEnum, default=DeviceTypeEnum.TEST, description="设备归属类")
+    form_type = fields.CharField(max_length=10, description="设备形态", default="未知")
     remarks = fields.TextField(null=True, description="设备备注信息")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
     updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
@@ -170,15 +171,16 @@ class DeviceConfig(Model):
     
     id = fields.IntField(pk=True, description="配置ID")
     device = fields.ForeignKeyField("models.Device", related_name="config_items", description="关联设备")
-    config_type = fields.CharField(max_length=10, description="槽位")
-    config_value = fields.CharField(max_length=10, description="配置值")
+    config_param1 = fields.IntField(description="配置参数1 (1-8)")
+    config_param2 = fields.IntField(description="配置参数2 (1-40)")
+    config_value = fields.TextField(description="配置值")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
     updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
     
     class Meta:
         table = "device_configs"
         table_description = "设备配置信息表"
-        unique_together = ("device", "config_type")  # 确保同一设备的配置类型不重复
+        unique_together = ("device", "config_param1", "config_param2")  # 确保同一设备的参数组合不重复
     
     def __str__(self):
-        return f"{self.device.name} - {self.config_type}: {self.config_value}" 
+        return f"{self.device.name} - 参数1:{self.config_param1}, 参数2:{self.config_param2} = {self.config_value}" 

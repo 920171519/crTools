@@ -17,6 +17,7 @@ export interface Device {
   support_queue: boolean
   owner: string
   device_type: string
+  form_type: string
   remarks?: string
   created_at: string
   updated_at: string
@@ -27,6 +28,7 @@ export interface DeviceListItem {
   name: string
   ip: string
   device_type: string
+  form_type: string
   vpn_region?: string
   vpn_network?: string
   vpn_display_name?: string
@@ -49,6 +51,7 @@ export interface DeviceCreateRequest {
   support_queue: boolean
   owner: string
   device_type: string
+  form_type: string
   remarks?: string
 }
 
@@ -109,19 +112,22 @@ export interface ConnectivityResponse {
 export interface DeviceConfig {
   id: number
   device_id: number
-  config_type: string
+  config_param1: number
+  config_param2: number
   config_value: string
   created_at: string
   updated_at: string
 }
 
 export interface DeviceConfigCreateRequest {
-  config_type: string
+  config_param1: number
+  config_param2: number
   config_value: string
 }
 
 export interface DeviceConfigUpdateRequest {
-  config_type: string
+  config_param1: number
+  config_param2: number
   config_value: string
 }
 

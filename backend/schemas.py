@@ -259,7 +259,16 @@ class DeviceBase(BaseModel):
     admin_username: str = Field(..., description="管理员账号")
     admin_password: str = Field(..., description="管理员密码")
     device_type: str = Field("test", description="设备归属类")
+    form_type: str = Field(..., description="设备形态")
     remarks: Optional[str] = Field(None, description="设备备注信息")
+    
+    @validator('form_type')
+    def validate_form_type(cls, v):
+        """验证设备形态"""
+        allowed_values = ["单", "双", "未知"]
+        if v not in allowed_values:
+            raise ValueError(f'设备形态必须是以下值之一: {", ".join(allowed_values)}')
+        return v
 
 
 class DeviceCreate(DeviceBase):
@@ -277,7 +286,17 @@ class DeviceUpdate(BaseModel):
     admin_username: Optional[str] = None
     admin_password: Optional[str] = None
     device_type: Optional[str] = None
+    form_type: Optional[str] = None
     remarks: Optional[str] = None
+    
+    @validator('form_type')
+    def validate_form_type(cls, v):
+        """验证设备形态"""
+        if v is not None:
+            allowed_values = ["单", "双", "未知"]
+            if v not in allowed_values:
+                raise ValueError(f'设备形态必须是以下值之一: {", ".join(allowed_values)}')
+        return v
 
 
 class DeviceResponse(BaseModel):
@@ -296,6 +315,7 @@ class DeviceResponse(BaseModel):
     admin_username: str
     admin_password: str
     device_type: str
+    form_type: str
     remarks: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -342,6 +362,7 @@ class DeviceListItem(BaseModel):
     name: str
     ip: str
     device_type: str
+    form_type: str
     vpn_region: Optional[str] = None
     vpn_network: Optional[str] = None
     vpn_display_name: Optional[str] = None
@@ -400,8 +421,9 @@ class DeviceUnifiedQueueRequest(BaseModel):
 # ===== 设备配置相关模式 =====
 class DeviceConfigBase(BaseModel):
     """设备配置基础模式"""
-    config_type: str = Field(..., description="配置类型", pattern="^[ABC]$")
-    config_value: str = Field(..., description="配置值", pattern="^(你|我|他)$")
+    config_param1: int = Field(..., description="配置参数1 (1-8)", ge=1, le=8)
+    config_param2: int = Field(..., description="配置参数2 (1-40)", ge=1, le=40)
+    config_value: str = Field(..., description="配置值")
 
 
 class DeviceConfigCreate(DeviceConfigBase):

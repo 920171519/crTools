@@ -388,6 +388,14 @@
             <el-option label="CI设备" value="ci" />
           </el-select>
         </el-form-item>
+
+        <el-form-item label="设备形态" prop="form_type">
+          <el-select v-model="addForm.form_type" placeholder="请选择设备形态">
+            <el-option label="单" value="单" />
+            <el-option label="双" value="双" />
+            <el-option label="未知" value="未知" />
+          </el-select>
+        </el-form-item>
         
         <el-form-item label="FTP连接需VPN">
           <el-switch v-model="addForm.need_vpn_login" />
@@ -488,6 +496,14 @@
             <el-option label="测试设备" value="test" />
             <el-option label="开发设备" value="develop" />
             <el-option label="CI设备" value="ci" />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="设备形态" prop="form_type">
+          <el-select v-model="editForm.form_type" placeholder="请选择设备形态">
+            <el-option label="单" value="单" />
+            <el-option label="双" value="双" />
+            <el-option label="未知" value="未知" />
           </el-select>
         </el-form-item>
         
@@ -619,6 +635,10 @@
                 >
                   {{ getDeviceTypeText(deviceDetail.device_type) }}
                 </el-tag>
+              </div>
+              <div class="info-item">
+                <label>设备形态：</label>
+                <el-tag size="small">{{ deviceDetail.form_type }}</el-tag>
               </div>
               <div class="info-item">
                 <label>所需VPN：</label>
@@ -888,15 +908,21 @@
                   v-loading="configLoading"
                   empty-text="暂无配置数据"
                 >
-                  <el-table-column prop="config_type" label="配置类型" width="120">
+                  <el-table-column prop="config_param1" label="配置参数1" width="100">
                     <template #default="{ row }">
-                      <el-tag size="small">{{ row.config_type }}</el-tag>
+                      <el-tag size="small">{{ row.config_param1 }}</el-tag>
                     </template>
                   </el-table-column>
                   
-                  <el-table-column prop="config_value" label="配置值" width="120">
+                  <el-table-column prop="config_param2" label="配置参数2" width="100">
                     <template #default="{ row }">
-                      <el-tag type="success" size="small">{{ row.config_value }}</el-tag>
+                      <el-tag size="small">{{ row.config_param2 }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  
+                  <el-table-column prop="config_value" label="配置值">
+                    <template #default="{ row }">
+                      <span>{{ row.config_value }}</span>
                     </template>
                   </el-table-column>
                   
@@ -945,37 +971,44 @@
     <el-dialog
       v-model="configDialogVisible"
       :title="isEditingConfig ? '编辑配置' : '添加配置'"
-      width="400px"
+      width="450px"
       :before-close="handleConfigDialogClose"
     >
       <el-form
         ref="configFormRef"
         :model="configForm"
         :rules="configRules"
-        label-width="80px"
+        label-width="100px"
       >
-        <el-form-item label="配置类型" prop="config_type">
-          <el-select
-            v-model="configForm.config_type"
-            placeholder="请选择配置类型"
+        <el-form-item label="配置参数1" prop="config_param1">
+          <el-input-number
+            v-model="configForm.config_param1"
+            :min="1"
+            :max="deviceDetail?.form_type === '单' ? 1 : 8"
+            :disabled="deviceDetail?.form_type === '单'"
             style="width: 100%"
-          >
-            <el-option label="A" value="A" />
-            <el-option label="B" value="B" />
-            <el-option label="C" value="C" />
-          </el-select>
+          />
+          <div v-if="deviceDetail?.form_type === '单'" style="color: #909399; font-size: 12px; margin-top: 4px;">
+            形态为"单"时，参数1固定为1
+          </div>
+        </el-form-item>
+        
+        <el-form-item label="配置参数2" prop="config_param2">
+          <el-input-number
+            v-model="configForm.config_param2"
+            :min="1"
+            :max="40"
+            style="width: 100%"
+          />
         </el-form-item>
         
         <el-form-item label="配置值" prop="config_value">
-          <el-select
+          <el-input
             v-model="configForm.config_value"
-            placeholder="请选择配置值"
-            style="width: 100%"
-          >
-            <el-option label="你" value="你" />
-            <el-option label="我" value="我" />
-            <el-option label="他" value="他" />
-          </el-select>
+            type="textarea"
+            :rows="3"
+            placeholder="请输入配置值"
+          />
         </el-form-item>
       </el-form>
       
@@ -1031,17 +1064,21 @@ const configFormRef = ref()
 
 // 配置表单
 const configForm = reactive({
-  config_type: '',
+  config_param1: 1,
+  config_param2: 1,
   config_value: ''
 })
 
 // 配置表单验证规则
 const configRules = {
-  config_type: [
-    { required: true, message: '请选择配置类型', trigger: 'change' }
+  config_param1: [
+    { required: true, message: '请选择配置参数1', trigger: 'change' }
+  ],
+  config_param2: [
+    { required: true, message: '请选择配置参数2', trigger: 'change' }
   ],
   config_value: [
-    { required: true, message: '请选择配置值', trigger: 'change' }
+    { required: true, message: '请输入配置值', trigger: 'blur' }
   ]
 }
 
@@ -1248,6 +1285,7 @@ const addForm = reactive({
   admin_username: 'root123',
   admin_password: 'Root@123',
   device_type: 'test',
+  form_type: '',
   need_vpn_login: false,
   support_queue: true,
   remarks: ''
@@ -1264,7 +1302,8 @@ const addFormRules = {
   creator: [{ required: true, message: '请输入添加人', trigger: 'blur' }],
   owner: [{ required: true, message: '请输入归属人', trigger: 'blur' }],
   admin_username: [{ required: true, message: '请输入管理员账号', trigger: 'blur' }],
-  admin_password: [{ required: true, message: '请输入管理员密码', trigger: 'blur' }]
+  admin_password: [{ required: true, message: '请输入管理员密码', trigger: 'blur' }],
+  form_type: [{ required: true, message: '请选择设备形态', trigger: 'change' }]
 }
 
 // 长时间占用设备相关
@@ -1303,6 +1342,7 @@ const editForm = reactive({
   admin_username: '',
   admin_password: '',
   device_type: '',
+  form_type: '',
   need_vpn_login: false,
   support_queue: true,
   remarks: ''
@@ -1772,6 +1812,7 @@ const handleAddDevice = async () => {
       admin_username: addForm.admin_username,
       admin_password: addForm.admin_password,
       device_type: addForm.device_type,
+      form_type: addForm.form_type,
       need_vpn_login: addForm.need_vpn_login,
       support_queue: addForm.support_queue,
       remarks: addForm.remarks,
@@ -1843,6 +1884,7 @@ const openEditDialog = () => {
   editForm.admin_username = deviceDetail.value.admin_username
   editForm.admin_password = deviceDetail.value.admin_password
   editForm.device_type = deviceDetail.value.device_type
+  editForm.form_type = deviceDetail.value.form_type
   editForm.need_vpn_login = deviceDetail.value.need_vpn_login
   editForm.support_queue = deviceDetail.value.support_queue
   editForm.remarks = deviceDetail.value.remarks || ''
@@ -1874,6 +1916,7 @@ const handleEditDevice = async () => {
       admin_username: editForm.admin_username,
       admin_password: editForm.admin_password,
       device_type: editForm.device_type,
+      form_type: editForm.form_type,
       need_vpn_login: editForm.need_vpn_login,
       support_queue: editForm.support_queue,
       remarks: editForm.remarks
@@ -2196,7 +2239,8 @@ const loadDeviceConfigs = async (deviceId: number) => {
 const openConfigDialog = () => {
   isEditingConfig.value = false
   currentConfigId.value = null
-  configForm.config_type = ''
+  configForm.config_param1 = deviceDetail.value?.form_type === '单' ? 1 : 1
+  configForm.config_param2 = 1
   configForm.config_value = ''
   configDialogVisible.value = true
 }
@@ -2205,7 +2249,8 @@ const openConfigDialog = () => {
 const editConfig = (config: DeviceConfig) => {
   isEditingConfig.value = true
   currentConfigId.value = config.id
-  configForm.config_type = config.config_type
+  configForm.config_param1 = config.config_param1
+  configForm.config_param2 = config.config_param2
   configForm.config_value = config.config_value
   configDialogVisible.value = true
 }
@@ -2214,7 +2259,7 @@ const editConfig = (config: DeviceConfig) => {
 const deleteConfig = async (config: DeviceConfig) => {
   try {
     await ElMessageBox.confirm(
-      `确定删除配置 "${config.config_type} -> ${config.config_value}" 吗？`,
+      `确定删除配置 "参数1=${config.config_param1}, 参数2=${config.config_param2}" 吗？`,
       '确认删除',
       {
         confirmButtonText: '确定',
@@ -2258,7 +2303,8 @@ const saveConfig = async () => {
         deviceDetail.value.id,
         currentConfigId.value,
         {
-          config_type: configForm.config_type,
+          config_param1: configForm.config_param1,
+          config_param2: configForm.config_param2,
           config_value: configForm.config_value
         }
       ) as any
@@ -2275,7 +2321,8 @@ const saveConfig = async () => {
       const response = await deviceApi.createDeviceConfig(
         deviceDetail.value.id,
         {
-          config_type: configForm.config_type,
+          config_param1: configForm.config_param1,
+          config_param2: configForm.config_param2,
           config_value: configForm.config_value
         }
       ) as any
@@ -2301,7 +2348,8 @@ const handleConfigDialogClose = () => {
   configDialogVisible.value = false
   isEditingConfig.value = false
   currentConfigId.value = null
-  configForm.config_type = ''
+  configForm.config_param1 = 1
+  configForm.config_param2 = 1
   configForm.config_value = ''
   if (configFormRef.value) {
     configFormRef.value.clearValidate()
