@@ -12,13 +12,16 @@
     "@element-plus/icons-vue": "^2.3.1",
     "@playwright/test": "^1.54.1",
     "axios": "^1.7.9",
+    "dompurify": "^3.3.0",
     "element-plus": "^2.9.1",
+    "marked": "^16.4.1",
     "nprogress": "^0.2.0",
     "pinia": "^2.3.0",
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.2.0",
     "@types/node": "^22.15.29",
     "@types/nprogress": "^0.2.3",
     "@vitejs/plugin-vue": "^5.2.3",

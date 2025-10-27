@@ -125,7 +125,10 @@ async def get_devices(
             status=usage_info.status,
             start_time=usage_info.start_time,
             occupied_duration=occupied_duration,
-            is_current_user_in_queue=is_current_user_in_queue
+            is_current_user_in_queue=is_current_user_in_queue,
+            connectivity_status=device.connectivity_status,
+            admin_username=device.admin_username,
+            project_name=device.owner  # 使用owner作为project_name
         ))
 
     return BaseResponse(

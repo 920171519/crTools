@@ -372,6 +372,9 @@ class DeviceListItem(BaseModel):
     start_time: Optional[datetime] = None
     occupied_duration: int = 0
     is_current_user_in_queue: bool = False
+    connectivity_status: Optional[bool] = None
+    admin_username: Optional[str] = None
+    project_name: Optional[str] = None
 
 
 class DeviceUseRequest(BaseModel):
@@ -487,3 +490,42 @@ class CommandListItem(BaseModel):
     remarks: Optional[str]
     last_editor: Optional[str]
     updated_at: datetime
+
+
+# ===== AI 工具相关模式 =====
+class AIDiagnosisCreate(BaseModel):
+    """AI 诊断创建请求模式"""
+    device_id: int = Field(..., description="设备ID")
+    problem_description: str = Field(..., min_length=1, max_length=5000, description="问题描述")
+
+
+class AIDiagnosisResponse(BaseModel):
+    """AI 诊断响应模式"""
+    id: int
+    device_id: int
+    device_ip: str
+    user_id: int
+    employee_id: str
+    username: str
+    problem_description: str
+    diagnosis_result: Optional[str]
+    status: str
+    connectivity_status: Optional[bool]
+    error_message: Optional[str]
+    created_at: datetime
+    completed_at: Optional[datetime]
+    
+    class Config:
+        from_attributes = True
+
+
+class AIDiagnosisListItem(BaseModel):
+    """AI 诊断列表项模式"""
+    id: int
+    device_ip: str
+    username: str
+    problem_description: str
+    status: str
+    connectivity_status: Optional[bool]
+    created_at: datetime
+    completed_at: Optional[datetime]

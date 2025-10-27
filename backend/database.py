@@ -14,7 +14,7 @@ TORTOISE_ORM = {
     },
     "apps": {
         "models": {
-            "models": ["models.admin", "models.deviceModel", "models.systemModel", "models.vpnModel", "models.commandModel", "aerich.models"],
+            "models": ["models.admin", "models.deviceModel", "models.systemModel", "models.vpnModel", "models.commandModel", "models.aiToolModel", "aerich.models"],
             "default_connection": "default",
         },
     },
@@ -111,6 +111,16 @@ async def init_database():
             "icon": "DocumentChecked",
             "parent_id": None,
             "sort_order": 51,
+            "is_visible": True,
+            "permission_code": None
+        },
+        {
+            "name": "AI 工具",
+            "path": "/ai-tool",
+            "component": "AITool",
+            "icon": "Cpu",
+            "parent_id": None,
+            "sort_order": 52,
             "is_visible": True,
             "permission_code": None
         },

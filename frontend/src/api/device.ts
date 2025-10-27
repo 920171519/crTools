@@ -21,6 +21,12 @@ export interface Device {
   remarks?: string
   created_at: string
   updated_at: string
+  username?: string
+  password?: string
+  admin_username?: string
+  admin_password?: string
+  connectivity_status?: boolean
+  project_name?: string
 }
 
 export interface DeviceListItem {

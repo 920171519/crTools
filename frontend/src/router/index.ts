@@ -75,6 +75,15 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'ai-tool',
+        name: 'AITool',
+        component: () => import('@/views/AITool.vue'),
+        meta: {
+          requiresAuth: true,
+          title: 'AI 工具'
+        }
+      },
+      {
         path: 'system/users',
         name: 'UserManagement',
         component: () => import('@/views/system/UserManagement.vue'),

@@ -5,7 +5,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from models.admin import RolePermission, Permission
 from models.admin import User, LoginLog
@@ -90,6 +90,23 @@ class AuthManager:
         )
         
         token_data = AuthManager.verify_token(credentials.credentials)
+        if token_data is None:
+            raise credentials_exception
+        user = await User.filter(employee_id=token_data.employee_id).first()
+        if user is None:
+            raise credentials_exception
+        
+        return user
+    
+    @staticmethod
+    async def get_current_user_from_query(token: str = Query(..., description="认证令牌")) -> User:
+        """从查询参数获取当前用户（用于SSE等不支持自定义header的场景）"""
+        credentials_exception = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
+        
+        token_data = AuthManager.verify_token(token)
         if token_data is None:
             raise credentials_exception
         user = await User.filter(employee_id=token_data.employee_id).first()
