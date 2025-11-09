@@ -178,6 +178,7 @@
                   使用
                 </el-button>
                 <el-button
+                  v-if="showLongTermUseButton"
                   type="warning"
                   size="small"
                   @click="openLongTermUseDialog(row)"
@@ -1305,6 +1306,9 @@ const addFormRules = {
   admin_password: [{ required: true, message: '请输入管理员密码', trigger: 'blur' }],
   form_type: [{ required: true, message: '请选择设备形态', trigger: 'change' }]
 }
+
+// 控制“申请长时间占用”按钮（未来可通过配置/权限启用）
+const showLongTermUseButton = false
 
 // 长时间占用设备相关
 const showLongTermUseDialog = ref(false)

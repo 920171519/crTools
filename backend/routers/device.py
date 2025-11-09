@@ -31,7 +31,7 @@ def get_current_time():
 @router.get("/", response_model=BaseResponse, summary="获取设备列表")
 async def get_devices(
     page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
+    page_size: int = Query(10, ge=1, le=1000, description="每页数量"),
     name: Optional[str] = Query(None, description="环境名称搜索"),
     ip: Optional[str] = Query(None, description="环境IP搜索"),
     status: Optional[str] = Query(None, description="环境状态搜索"),
@@ -1526,5 +1526,4 @@ async def delete_device_config(
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"删除配置失败: {str(e)}")
-
 

@@ -58,11 +58,14 @@ export const aiToolApi = {
    * 返回用于连接 SSE 的 URL
    */
   getDiagnosisStreamUrl(data: AIDiagnosisCreate): string {
-    const token = localStorage.getItem('token')
     const params = new URLSearchParams({
       device_id: data.device_id.toString(),
       problem_description: data.problem_description
     })
+    const token = localStorage.getItem('crtools_token')
+    if (token) {
+      params.append('token', token)
+    }
     return `/api/ai-tool/diagnose-stream?${params.toString()}`
   },
 
@@ -96,4 +99,3 @@ export const aiToolApi = {
     return api.delete(`/ai-tool/history/${id}`)
   }
 }
-

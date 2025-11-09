@@ -334,10 +334,13 @@ import {
 } from '@element-plus/icons-vue'
 import { aiToolApi, type AIDiagnosisListItem, type AIDiagnosisResponse } from '../api/aiTool'
 import { deviceApi, type Device } from '../api/device'
+import { useUserStore } from '@/stores/user'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
 // 数据定义
+const userStore = useUserStore()
+
 const activeTab = ref('diagnosis')
 const devices = ref<Device[]>([])
 const diagnosing = ref(false)
@@ -430,7 +433,7 @@ const handleStartDiagnosis = async () => {
     currentDiagnosisId.value = null
 
     // 获取 token
-    const token = localStorage.getItem('token')
+    const token = userStore.token || localStorage.getItem('crtools_token')
     if (!token) {
       ElMessage.error('请先登录')
       return
@@ -1005,4 +1008,3 @@ onMounted(async () => {
   }
 }
 </style>
-
