@@ -61,6 +61,7 @@ class UserResponse(BaseModel):
     username: str
     is_superuser: bool
     role: Optional[str] = None
+    groups: List["GroupSummary"] = []
 
     class Config:
         from_attributes = True
@@ -75,6 +76,47 @@ class PasswordChange(BaseModel):
     """密码修改请求模式"""
     old_password: str = Field(..., description="原密码")
     new_password: str = Field(..., min_length=6, max_length=20, description="新密码")
+
+
+# ===== 分组相关模式 =====
+class GroupSummary(BaseModel):
+    """分组概要信息"""
+    id: int
+    name: str
+    description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class GroupDetail(GroupSummary):
+    """包含成员数量的分组详情"""
+    member_count: int = 0
+
+
+class GroupCreate(BaseModel):
+    """创建分组请求"""
+    name: str = Field(..., min_length=1, max_length=100, description="分组名称")
+    description: Optional[str] = Field(None, max_length=255, description="分组描述")
+    sort_order: int = Field(0, description="排序")
+
+
+class GroupUpdate(GroupCreate):
+    """更新分组请求"""
+    pass
+
+
+class UserGroupUpdateRequest(BaseModel):
+    """更新用户分组请求"""
+    group_ids: List[int] = Field(default_factory=list, description="分组ID列表")
+
+
+class GroupMembersResponse(BaseModel):
+    """分组及成员信息"""
+    id: int
+    name: str
+    description: Optional[str]
+    members: List[UserResponse] = []
 
 
 # ===== 认证相关模式 =====
@@ -261,6 +303,7 @@ class DeviceBase(BaseModel):
     device_type: str = Field("test", description="设备归属类")
     form_type: str = Field(..., description="设备形态")
     remarks: Optional[str] = Field(None, description="设备备注信息")
+    group_ids: Optional[List[int]] = Field(default=None, description="设备所属分组ID列表")
     
     @validator('form_type')
     def validate_form_type(cls, v):
@@ -288,6 +331,7 @@ class DeviceUpdate(BaseModel):
     device_type: Optional[str] = None
     form_type: Optional[str] = None
     remarks: Optional[str] = None
+    group_ids: Optional[List[int]] = None
     
     @validator('form_type')
     def validate_form_type(cls, v):
@@ -317,6 +361,7 @@ class DeviceResponse(BaseModel):
     device_type: str
     form_type: str
     remarks: Optional[str] = None
+    groups: List[GroupSummary] = []
     created_at: datetime
     updated_at: datetime
 
@@ -375,6 +420,8 @@ class DeviceListItem(BaseModel):
     connectivity_status: Optional[bool] = None
     admin_username: Optional[str] = None
     project_name: Optional[str] = None
+    support_queue: bool = True
+    groups: List[GroupSummary] = []
 
 
 class DeviceUseRequest(BaseModel):

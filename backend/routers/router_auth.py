@@ -9,7 +9,7 @@ from tortoise import models
 from models.admin import User, Role
 from models.admin import Permission, RolePermission
 from models.admin import Menu, Permission
-from tortoise.expressions import Q
+from models.groupModel import Group, GroupMember
 from schemas import (
     UserRegister, UserLogin, UserResponse, Token, 
     BaseResponse, PasswordChange
@@ -18,6 +18,20 @@ from auth import AuthManager, LoginManager, require_active_user
 from config import settings
 
 router = APIRouter(prefix="/auth", tags=["认证"])
+
+
+def serialize_user_groups(user: User) -> list:
+    """序列化用户所属分组"""
+    groups = []
+    memberships = getattr(user, "group_memberships", []) or []
+    for membership in memberships:
+        if membership.group:
+            groups.append({
+                "id": membership.group.id,
+                "name": membership.group.name,
+                "description": membership.group.description
+            })
+    return groups
 
 
 @router.post("/register", response_model=BaseResponse, summary="用户注册")
@@ -58,6 +72,11 @@ async def register(user_data: UserRegister):
     if default_role:
         user.role = default_role
         await user.save()
+
+    # 将新用户加入默认分组
+    default_group = await Group.filter(name="公共组").first()
+    if default_group:
+        await GroupMember.get_or_create(group=default_group, user=user)
     
     return BaseResponse(
         code=200,
@@ -111,8 +130,10 @@ async def login(request: Request, login_data: UserLogin):
         success=True
     )
     
-    # 获取用户角色
+    # 获取用户角色与分组
+    await user.fetch_related('group_memberships__group', 'role')
     role_name = await user.get_role_name()
+    group_data = serialize_user_groups(user)
     
     return BaseResponse(
         code=200,
@@ -126,7 +147,8 @@ async def login(request: Request, login_data: UserLogin):
                 "employee_id": user.employee_id,
                 "username": user.username,
                 "is_superuser": user.is_superuser,
-                "role": role_name
+                "role": role_name,
+                "groups": group_data
             }
         }
     )
@@ -160,6 +182,7 @@ async def get_current_user_info(current_user: User = require_active_user):
     """
     获取当前登录用户的详细信息
     """
+    await current_user.fetch_related('group_memberships__group', 'role')
     # 获取用户角色
     role_name = await current_user.get_role_name()
     
@@ -172,6 +195,7 @@ async def get_current_user_info(current_user: User = require_active_user):
             "username": current_user.username,
             "is_superuser": current_user.is_superuser,
             "role": role_name,
+            "groups": serialize_user_groups(current_user)
         }
     )
 

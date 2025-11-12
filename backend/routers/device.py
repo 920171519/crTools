@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageHistory, DeviceConfig, DeviceStatusEnum
 from models.admin import User, OperationLog
 from models.vpnModel import VPNConfig
+from models.groupModel import Group, GroupMember, DeviceGroup
 from schemas import (
     DeviceBase, DeviceUpdate, DeviceResponse, DeviceListItem,
     DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceLongTermUseRequest, DeviceReleaseRequest,
@@ -28,6 +29,76 @@ def get_current_time():
     return datetime.now()
 
 
+async def get_user_group_ids(user: User) -> Optional[set]:
+    """获取用户所属分组ID集合"""
+    if user.is_superuser:
+        return None
+    group_ids = await GroupMember.filter(user_id=user.id).values_list('group_id', flat=True)
+    return set(group_ids)
+
+
+async def user_has_device_access(device: Device, user: User, user_group_ids: Optional[set] = None) -> bool:
+    """判断用户是否可以访问设备"""
+    if user.is_superuser:
+        return True
+    device_group_ids = await DeviceGroup.filter(device=device).values_list('group_id', flat=True)
+    if not device_group_ids:
+        return True  # 未绑定分组的设备对所有人可见
+    if user_group_ids is None:
+        user_group_ids = await get_user_group_ids(user) or set()
+    return bool(user_group_ids and set(device_group_ids) & user_group_ids)
+
+
+async def ensure_device_access(device: Device, user: User, user_group_ids: Optional[set] = None):
+    """确保用户有权限访问设备"""
+    has_access = await user_has_device_access(device, user, user_group_ids)
+    if not has_access:
+        raise HTTPException(status_code=403, detail="您无权访问该设备")
+
+
+def serialize_group_links(device) -> List[dict]:
+    """将设备的分组信息序列化"""
+    groups = []
+    if hasattr(device, "group_links"):
+        group_links = device.group_links
+    else:
+        group_links = []
+    for link in group_links or []:
+        if link.group:
+            groups.append({
+                "id": link.group.id,
+                "name": link.group.name,
+                "description": link.group.description
+            })
+    return groups
+
+
+async def sync_device_groups(device: Device, group_ids: Optional[List[int]]):
+    """同步设备的分组关联"""
+    if group_ids is None:
+        return
+    group_ids = list(set(group_ids))
+    if not group_ids:
+        await DeviceGroup.filter(device=device).delete()
+        return
+
+    valid_groups = await Group.filter(id__in=group_ids)
+    valid_ids = {group.id for group in valid_groups}
+    if not valid_ids:
+        await DeviceGroup.filter(device=device).delete()
+        return
+
+    # 删除不在列表中的关联
+    await DeviceGroup.filter(device=device).exclude(group_id__in=valid_ids).delete()
+
+    # 新增缺失的关联
+    existing_ids = set(await DeviceGroup.filter(device=device).values_list('group_id', flat=True))
+    for group_id in valid_ids - existing_ids:
+        group = next((g for g in valid_groups if g.id == group_id), None)
+        if group:
+            await DeviceGroup.create(device=device, group=group)
+
+
 @router.get("/", response_model=BaseResponse, summary="获取设备列表")
 async def get_devices(
     page: int = Query(1, ge=1, description="页码"),
@@ -42,47 +113,50 @@ async def get_devices(
     - 支持分页
     - 支持按环境名称、IP、状态搜索
     """
-    # 构建查询条件
-    query = Device.all().prefetch_related("usage_info", "vpn_config")
+    # 构建查询条件，预取分组信息
+    query = Device.all().prefetch_related("usage_info", "vpn_config", "group_links__group")
 
     if name:
         query = query.filter(name__icontains=name)
     if ip:
         query = query.filter(ip__icontains=ip)
 
-    # 如果有状态搜索，需要先获取所有设备然后过滤
-    if status:
-        # 获取所有符合名称和IP条件的设备
-        all_devices = await query
-        filtered_devices = []
+    # 获取所有设备用于过滤
+    all_devices = await query
 
-        for device in all_devices:
-            usage_info = await device.usage_info
-            if not usage_info:
-                usage_info = await DeviceUsage.create(device=device)
+    user_group_ids = await get_user_group_ids(current_user)
+    filtered_devices = []
 
-            if usage_info.status == status:
-                filtered_devices.append(device)
-
-        # 计算总数和分页
-        total = len(filtered_devices)
-        offset = (page - 1) * page_size
-        devices = filtered_devices[offset:offset + page_size]
-    else:
-        # 没有状态搜索时，正常分页查询
-        total = await query.count()
-        offset = (page - 1) * page_size
-        devices = await query.offset(offset).limit(page_size)
-
-    result = []
-    for device in devices:
+    for device in all_devices:
         if hasattr(device, 'usage_info') and device.usage_info:
             usage_info = device.usage_info
         else:
             usage_info = await device.usage_info
             if not usage_info:
-                # 创建默认使用情况
                 usage_info = await DeviceUsage.create(device=device)
+
+        # 状态过滤
+        if status and usage_info.status != status:
+            continue
+
+        # 分组权限过滤：未绑定分组默认可见
+        device_group_ids = set()
+        for link in getattr(device, "group_links", []) or []:
+            if link.group_id:
+                device_group_ids.add(link.group_id)
+
+        if device_group_ids and user_group_ids is not None and not (device_group_ids & user_group_ids):
+            continue
+
+        filtered_devices.append((device, usage_info))
+
+    # 分页
+    total = len(filtered_devices)
+    offset = (page - 1) * page_size
+    paged_devices = filtered_devices[offset:offset + page_size]
+
+    result = []
+    for device, usage_info in paged_devices:
         
         # 计算占用时长（精确到秒，但以分钟为单位显示）
         occupied_duration = 0
@@ -128,7 +202,9 @@ async def get_devices(
             is_current_user_in_queue=is_current_user_in_queue,
             connectivity_status=device.connectivity_status,
             admin_username=device.admin_username,
-            project_name=device.owner  # 使用owner作为project_name
+            project_name=device.owner,  # 使用owner作为project_name
+            support_queue=device.support_queue,
+            groups=serialize_group_links(device)
         ))
 
     return BaseResponse(
@@ -173,6 +249,7 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(Au
         # 准备设备数据
         print("准备设备数据...")
         device_dict = device_data.model_dump()
+        group_ids = device_dict.pop('group_ids', None)
         device_dict.pop('vpn_config_id', None)  # 移除vpn_config_id，因为我们要设置vpn_config对象
         print(f"设备数据: {device_dict}")
 
@@ -184,6 +261,10 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(Au
             **device_dict
         )
         print(f"设备创建成功: {device.id}")
+
+        # 同步分组
+        await sync_device_groups(device, group_ids)
+        await device.fetch_related("group_links__group")
     except Exception as e:
         print(f"创建设备时出错: {e}")
         print(f"错误类型: {type(e)}")
@@ -215,6 +296,7 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(Au
         "device_type": device.device_type,
         "form_type": device.form_type,
         "remarks": device.remarks,
+        "groups": serialize_group_links(device),
         "created_at": device.created_at,
         "updated_at": device.updated_at
     }
@@ -243,8 +325,15 @@ async def get_devices_connectivity_status(
             raise HTTPException(status_code=400, detail="设备ID列表不能为空")
 
         # 验证设备是否存在
-        existing_devices = await Device.filter(id__in=device_id_list)
+        existing_devices = await Device.filter(id__in=device_id_list).prefetch_related("group_links__group")
         existing_device_ids = {device.id for device in existing_devices}
+        accessible_device_ids = set()
+        user_group_ids = await get_user_group_ids(current_user)
+        for device in existing_devices:
+            device_group_ids = {link.group_id for link in getattr(device, "group_links", []) or [] if link.group_id}
+            if device_group_ids and user_group_ids is not None and not (device_group_ids & user_group_ids):
+                continue
+            accessible_device_ids.add(device.id)
 
         # 获取连通性状态
         connectivity_results = await connectivity_manager.get_multiple_connectivity_status(device_id_list)
@@ -252,26 +341,32 @@ async def get_devices_connectivity_status(
         # 格式化返回结果
         results = {}
         for device_id in device_id_list:
-            if device_id in existing_device_ids:
-                if device_id in connectivity_results:
-                    connectivity_data = connectivity_results[device_id]
-                    results[device_id] = {
-                        "status": connectivity_data["status"],
-                        "last_check": connectivity_data["last_check"].isoformat() if connectivity_data.get("last_check") else None,
-                        "last_ping": connectivity_data["last_ping"].isoformat() if connectivity_data.get("last_ping") else None
-                    }
-                else:
-                    results[device_id] = {
-                        "status": False,
-                        "last_check": None,
-                        "last_ping": None
-                    }
-            else:
+            if device_id not in existing_device_ids:
                 results[device_id] = {
                     "status": False,
                     "last_check": None,
                     "last_ping": None,
                     "error": "设备不存在"
+                }
+            elif device_id not in accessible_device_ids:
+                results[device_id] = {
+                    "status": False,
+                    "last_check": None,
+                    "last_ping": None,
+                    "error": "无权访问该设备"
+                }
+            elif device_id in connectivity_results:
+                connectivity_data = connectivity_results[device_id]
+                results[device_id] = {
+                    "status": connectivity_data["status"],
+                    "last_check": connectivity_data["last_check"].isoformat() if connectivity_data.get("last_check") else None,
+                    "last_ping": connectivity_data["last_ping"].isoformat() if connectivity_data.get("last_ping") else None
+                }
+            else:
+                results[device_id] = {
+                    "status": False,
+                    "last_check": None,
+                    "last_ping": None
                 }
 
         return BaseResponse(
@@ -306,11 +401,13 @@ async def get_connectivity_cache_info(current_user: User = Depends(AuthManager.g
 
 
 @router.get("/{device_id}", response_model=BaseResponse, summary="获取设备详情")
-async def get_device(device_id: int):
+async def get_device(device_id: int, current_user: User = Depends(AuthManager.get_current_user)):
     """根据ID获取设备详情"""
-    device = await Device.filter(id=device_id).prefetch_related("vpn_config").first()
+    device = await Device.filter(id=device_id).prefetch_related("vpn_config", "group_links__group").first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
+
+    await ensure_device_access(device, current_user)
 
     # 获取VPN配置信息
     vpn_config_id = None
@@ -343,6 +440,7 @@ async def get_device(device_id: int):
         "device_type": device.device_type,
         "form_type": device.form_type,
         "remarks": device.remarks,
+        "groups": serialize_group_links(device),
         "created_at": device.created_at,
         "updated_at": device.updated_at
     }
@@ -365,6 +463,7 @@ async def get_device_connectivity_status(
         device = await Device.filter(id=device_id).first()
         if not device:
             raise HTTPException(status_code=404, detail="设备不存在")
+        await ensure_device_access(device, current_user)
 
         # 获取连通性状态
         connectivity_data = await connectivity_manager.get_connectivity_status(device_id)
@@ -409,6 +508,7 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
     # 处理VPN配置更新
     update_data = device_data.dict(exclude_unset=True)
     vpn_config_id = update_data.pop('vpn_config_id', None)
+    group_ids = update_data.pop('group_ids', None)
 
     if vpn_config_id is not None:
         if vpn_config_id:
@@ -428,8 +528,11 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
         await device.update_from_dict(update_data)
     await device.save()
 
+    # 更新设备分组
+    await sync_device_groups(device, group_ids)
+
     # 重新获取设备信息以包含最新的VPN配置
-    device = await Device.filter(id=device_id).prefetch_related("vpn_config").first()
+    device = await Device.filter(id=device_id).prefetch_related("vpn_config", "group_links__group").first()
 
     # 构建响应数据
     vpn_config_id = device.vpn_config.id if device.vpn_config else None
@@ -452,6 +555,7 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
         "device_type": device.device_type,
         "form_type": device.form_type,
         "remarks": device.remarks,
+        "groups": serialize_group_links(device),
         "created_at": device.created_at,
         "updated_at": device.updated_at
     }
@@ -513,6 +617,16 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
+    await ensure_device_access(device, current_user)
+    if not device.support_queue:
+        raise HTTPException(status_code=400, detail="该设备未开放使用")
+    await ensure_device_access(device, current_user)
+    if not device.support_queue:
+        raise HTTPException(status_code=400, detail="该设备未开放使用")
+    await ensure_device_access(device, current_user)
+
+    if not device.support_queue:
+        raise HTTPException(status_code=400, detail="该设备未开放使用")
 
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
@@ -564,6 +678,9 @@ async def long_term_use_device(request: DeviceLongTermUseRequest, current_user: 
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
+    await ensure_device_access(device, current_user)
+    if not device.support_queue:
+        raise HTTPException(status_code=400, detail="该设备未开放使用")
 
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
@@ -620,7 +737,8 @@ async def queue_device(request: DeviceUseRequest, current_user: User = Depends(A
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-
+    await ensure_device_access(device, current_user)
+    
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
@@ -810,11 +928,12 @@ async def cancel_queue(request: DeviceCancelQueueRequest, current_user: User = D
 
 
 @router.get("/{device_id}/usage", response_model=BaseResponse, summary="获取设备使用情况")
-async def get_device_usage(device_id: int):
+async def get_device_usage(device_id: int, current_user: User = Depends(AuthManager.get_current_user)):
     """获取设备使用情况详情"""
     device = await Device.filter(id=device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
+    await ensure_device_access(device, current_user)
     
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
@@ -1057,6 +1176,7 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
+    await ensure_device_access(device, current_user)
     
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
@@ -1526,4 +1646,3 @@ async def delete_device_config(
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"删除配置失败: {str(e)}")
-

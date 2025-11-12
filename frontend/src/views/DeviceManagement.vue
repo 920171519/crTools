@@ -164,6 +164,23 @@
           </template>
         </el-table-column>
 
+        <el-table-column label="所属分组" min-width="160">
+          <template #default="{ row }">
+            <div v-if="row.groups?.length" class="group-tags">
+              <el-tag
+                v-for="group in row.groups"
+                :key="group.id"
+                size="small"
+                type="info"
+                class="group-tag"
+              >
+                {{ group.name }}
+              </el-tag>
+            </div>
+            <span v-else class="no-data">-</span>
+          </template>
+        </el-table-column>
+
         <el-table-column label="操作" width="300" fixed="right">
           <template #default="{ row }">
             <div class="action-buttons">
@@ -174,6 +191,8 @@
                   size="small"
                   @click="useDevice(row)"
                   :loading="useLoading[row.id]"
+                  :disabled="!row.support_queue || !!useLoading[row.id]"
+                  :title="!row.support_queue ? '该设备未开放使用' : ''"
                 >
                   使用
                 </el-button>
@@ -183,6 +202,8 @@
                   size="small"
                   @click="openLongTermUseDialog(row)"
                   :loading="useLoading[row.id]"
+                  :disabled="!row.support_queue || !!useLoading[row.id]"
+                  :title="!row.support_queue ? '该设备未开放使用' : ''"
                 >
                   申请长时间占用
                 </el-button>
@@ -224,8 +245,26 @@
 
                       <!-- 根据排队状态显示不同按钮 -->
                       <template v-if="!row.is_current_user_in_queue">
-                        <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]">优先排队</el-button>
-                        <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]">普通排队</el-button>
+                        <el-button
+                          type="success"
+                          size="small"
+                          @click="priorityQueue(row)"
+                          :loading="useLoading[row.id]"
+                          :disabled="!row.support_queue || !!useLoading[row.id]"
+                          :title="!row.support_queue ? '该设备未开放排队' : ''"
+                        >
+                          优先排队
+                        </el-button>
+                        <el-button
+                          type="warning"
+                          size="small"
+                          @click="joinQueue(row)"
+                          :loading="useLoading[row.id]"
+                          :disabled="!row.support_queue || !!useLoading[row.id]"
+                          :title="!row.support_queue ? '该设备未开放排队' : ''"
+                        >
+                          普通排队
+                        </el-button>
                       </template>
                       <template v-else>
                         <el-button type="info" size="small" @click="cancelQueue(row)" :loading="useLoading[row.id]">取消排队</el-button>
@@ -240,8 +279,26 @@
 
                       <!-- 根据排队状态显示不同按钮 -->
                       <template v-if="!row.is_current_user_in_queue">
-                        <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]">优先排队</el-button>
-                        <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]">普通排队</el-button>
+                        <el-button
+                          type="success"
+                          size="small"
+                          @click="priorityQueue(row)"
+                          :loading="useLoading[row.id]"
+                          :disabled="!row.support_queue || !!useLoading[row.id]"
+                          :title="!row.support_queue ? '该设备未开放排队' : ''"
+                        >
+                          优先排队
+                        </el-button>
+                        <el-button
+                          type="warning"
+                          size="small"
+                          @click="joinQueue(row)"
+                          :loading="useLoading[row.id]"
+                          :disabled="!row.support_queue || !!useLoading[row.id]"
+                          :title="!row.support_queue ? '该设备未开放排队' : ''"
+                        >
+                          普通排队
+                        </el-button>
                       </template>
                       <template v-else>
                         <el-button type="info" size="small" @click="cancelQueue(row)" :loading="useLoading[row.id]">取消排队</el-button>
@@ -251,7 +308,16 @@
                     <template v-else>
                       <!-- 普通用户按钮：根据排队状态显示排队或取消排队 -->
                       <template v-if="!row.is_current_user_in_queue">
-                        <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]">排队</el-button>
+                        <el-button
+                          type="warning"
+                          size="small"
+                          @click="joinQueue(row)"
+                          :loading="useLoading[row.id]"
+                          :disabled="!row.support_queue || !!useLoading[row.id]"
+                          :title="!row.support_queue ? '该设备未开放排队' : ''"
+                        >
+                          排队
+                        </el-button>
                       </template>
                       <template v-else>
                         <el-button type="info" size="small" @click="cancelQueue(row)" :loading="useLoading[row.id]">取消排队</el-button>
@@ -405,6 +471,23 @@
         <el-form-item label="支持排队">
           <el-switch v-model="addForm.support_queue" />
         </el-form-item>
+
+        <el-form-item label="所属分组">
+          <el-select
+            v-model="addForm.group_ids"
+            multiple
+            filterable
+            placeholder="请选择分组"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="group in groupOptions"
+              :key="group.id"
+              :label="group.name"
+              :value="group.id"
+            />
+          </el-select>
+        </el-form-item>
         
         <el-form-item label="备注信息">
           <el-input 
@@ -514,6 +597,23 @@
         
         <el-form-item label="支持排队">
           <el-switch v-model="editForm.support_queue" />
+        </el-form-item>
+
+        <el-form-item label="所属分组">
+          <el-select
+            v-model="editForm.group_ids"
+            multiple
+            filterable
+            placeholder="请选择分组"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="group in groupOptions"
+              :key="group.id"
+              :label="group.name"
+              :value="group.id"
+            />
+          </el-select>
         </el-form-item>
         
         <el-form-item label="备注信息">
@@ -653,6 +753,21 @@
               <div class="info-item">
                 <label>归属人：</label>
                 <span>{{ deviceDetail.owner }}</span>
+              </div>
+              <div class="info-item">
+                <label>所属分组：</label>
+                <div v-if="deviceDetail.groups?.length" class="group-tags">
+                  <el-tag
+                    v-for="group in deviceDetail.groups"
+                    :key="group.id"
+                    size="small"
+                    type="info"
+                    class="group-tag"
+                  >
+                    {{ group.name }}
+                  </el-tag>
+                </div>
+                <span v-else>-</span>
               </div>
               <!-- 管理员账号密码 - 只有归属人和管理员可见 -->
               <div v-if="canEditDevice" class="info-item">
@@ -1039,6 +1154,7 @@ import {
 import { deviceApi, type DeviceConfig } from '../api/device'
 import { vpnApi } from '../api/vpn'
 import { useUserStore } from '@/stores/user'
+import { getGroupList } from '@/api/user'
 
 // 获取用户store
 const userStore = useUserStore()
@@ -1050,6 +1166,14 @@ const useLoading = reactive({})
 const releaseLoading = reactive({})
 const userInfoLoaded = ref(false)
 const deleteLoading = ref(false)
+const groupOptions = ref<{ id: number; name: string }[]>([])
+const ensureDeviceOperational = (device, action: '使用' | '排队' = '使用') => {
+  if (!device?.support_queue) {
+    ElMessage.warning(`该设备未开放${action}`)
+    return false
+  }
+  return true
+}
 
 // 详情页Tab状态
 const activeDetailTab = ref('basic')
@@ -1092,6 +1216,17 @@ const vpnConfigs = ref([]) // 所有VPN配置
 const availableRegions = ref([]) // 可用的域段列表
 const filteredNetworksForAdd = ref([]) // 添加表单中过滤后的网段
 const filteredNetworksForEdit = ref([]) // 编辑表单中过滤后的网段
+const loadGroupOptions = async () => {
+  try {
+    const response = await getGroupList()
+    groupOptions.value = (response.data || []).map((group: any) => ({
+      id: group.id,
+      name: group.name
+    }))
+  } catch (error) {
+    console.error('获取分组列表失败:', error)
+  }
+}
 
 // 搜索表单
 const searchForm = reactive({
@@ -1139,6 +1274,7 @@ onMounted(async () => {
   userInfoLoaded.value = true
   await loadDevices()
   await loadVPNConfigs()
+  await loadGroupOptions()
 
   // 启动连通性检测定时器
   startConnectivityTimer()
@@ -1289,7 +1425,8 @@ const addForm = reactive({
   form_type: '',
   need_vpn_login: false,
   support_queue: true,
-  remarks: ''
+  remarks: '',
+  group_ids: [] as number[]
 })
 
 const addFormRules = {
@@ -1349,7 +1486,8 @@ const editForm = reactive({
   form_type: '',
   need_vpn_login: false,
   support_queue: true,
-  remarks: ''
+  remarks: '',
+  group_ids: [] as number[]
 })
 
 // 方法定义
@@ -1470,6 +1608,7 @@ const stopConnectivityTimer = () => {
 }
 
 const useDevice = async (device) => {
+  if (!ensureDeviceOperational(device, '使用')) return
   // 直接使用设备，不弹出对话框
   try {
     useLoading[device.id] = true
@@ -1493,6 +1632,7 @@ const useDevice = async (device) => {
 
 // 打开长时间占用对话框
 const openLongTermUseDialog = (device) => {
+  if (!ensureDeviceOperational(device, '使用')) return
   selectedDevice.value = device
   longTermUseForm.user = currentUserEmployeeId.value
   longTermUseForm.end_date = ''
@@ -1533,6 +1673,7 @@ const disabledDate = (time) => {
 }
 
 const joinQueue = async (device) => {
+  if (!ensureDeviceOperational(device, '排队')) return
   try {
     useLoading[device.id] = true
     const response = await deviceApi.unifiedQueue({
@@ -1604,6 +1745,7 @@ const cancelQueue = async (device) => {
 
 // 统一排队操作
 const unifiedQueueAction = async (device) => {
+  if (!ensureDeviceOperational(device, '排队')) return
   try {
     useLoading[device.id] = true
     const response = await deviceApi.unifiedQueue({
@@ -1638,6 +1780,7 @@ const unifiedQueueAction = async (device) => {
 
 // 抢占设备
 const preemptDevice = async (device) => {
+  if (!ensureDeviceOperational(device, '使用')) return
   try {
     await ElMessageBox.confirm(
       '确定要抢占此设备吗？原使用者将被加入排队列表首位。',
@@ -1679,6 +1822,7 @@ const preemptDevice = async (device) => {
 
 // 优先排队
 const priorityQueue = async (device) => {
+  if (!ensureDeviceOperational(device, '排队')) return
   try {
     useLoading[device.id] = true
     const response = await deviceApi.priorityQueue({
@@ -1820,6 +1964,7 @@ const handleAddDevice = async () => {
       need_vpn_login: addForm.need_vpn_login,
       support_queue: addForm.support_queue,
       remarks: addForm.remarks,
+      group_ids: addForm.group_ids,
       creator: userStore.userInfo?.employee_id?.toLowerCase() || userStore.userInfo?.username || ''
     }
     
@@ -1849,6 +1994,7 @@ const openAddDialog = () => {
   // 重置VPN相关字段
   addForm.vpn_region = ''
   addForm.vpn_config_id = null
+  addForm.group_ids = []
   filteredNetworksForAdd.value = []
 
   // 设置默认值
@@ -1872,6 +2018,7 @@ const openAddDialog = () => {
 
 const handleAddDialogClose = () => {
   addFormRef.value?.resetFields()
+  addForm.group_ids = []
   showAddDialog.value = false
 }
 
@@ -1892,6 +2039,7 @@ const openEditDialog = () => {
   editForm.need_vpn_login = deviceDetail.value.need_vpn_login
   editForm.support_queue = deviceDetail.value.support_queue
   editForm.remarks = deviceDetail.value.remarks || ''
+  editForm.group_ids = (deviceDetail.value.groups || []).map((group: any) => group.id)
 
   // 根据当前选择的域段过滤网段
   if (editForm.vpn_region) {
@@ -1923,7 +2071,8 @@ const handleEditDevice = async () => {
       form_type: editForm.form_type,
       need_vpn_login: editForm.need_vpn_login,
       support_queue: editForm.support_queue,
-      remarks: editForm.remarks
+      remarks: editForm.remarks,
+      group_ids: editForm.group_ids
     }
     
     await deviceApi.updateDevice(deviceDetail.value.id, updateData)
@@ -1946,6 +2095,7 @@ const handleEditDevice = async () => {
 
 const handleEditDialogClose = () => {
   editFormRef.value?.resetFields()
+  editForm.group_ids = []
   showEditDialog.value = false
 }
 
@@ -2674,5 +2824,20 @@ watch(activeDetailTab, (newTab) => {
 
 .connectivity-unknown {
   color: #909399; /* 灰色 */
+}
+
+.group-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.group-tag {
+  margin-bottom: 4px;
+}
+
+.no-data {
+  color: #909399;
+  font-size: 12px;
 }
 </style>

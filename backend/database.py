@@ -14,7 +14,7 @@ TORTOISE_ORM = {
     },
     "apps": {
         "models": {
-            "models": ["models.admin", "models.deviceModel", "models.systemModel", "models.vpnModel", "models.commandModel", "models.aiToolModel", "aerich.models"],
+            "models": ["models.admin", "models.deviceModel", "models.systemModel", "models.vpnModel", "models.commandModel", "models.aiToolModel", "models.groupModel", "aerich.models"],
             "default_connection": "default",
         },
     },
@@ -24,6 +24,7 @@ TORTOISE_ORM = {
 async def init_database():
     """初始化数据库"""
     from models.admin import User, Role, Permission, RolePermission, Menu
+    from models.groupModel import Group, GroupMember
     # 创建超级管理员用户（如果不存在）
     admin_user = await User.filter(employee_id="a12345678").first()
     if not admin_user:
@@ -194,6 +195,21 @@ async def init_database():
         admin_user.role = super_admin_role
         await admin_user.save()
         print("✅ 为超级管理员分配角色")
+
+    # 创建默认分组并将超级管理员加入
+    default_group, created = await Group.get_or_create(
+        name="公共组",
+        defaults={
+            "description": "默认可访问的设备组",
+            "sort_order": 1
+        }
+    )
+    if created:
+        print("✅ 创建默认分组: 公共组")
+    if admin_user:
+        _, member_created = await GroupMember.get_or_create(group=default_group, user=admin_user)
+        if member_created:
+            print("✅ 将超级管理员加入默认分组")
     
     # 为各角色分配权限
     

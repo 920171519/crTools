@@ -4,9 +4,16 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
-from tortoise.expressions import Q
 from models.admin import User, Role
-from schemas import BaseResponse, PaginationResponse, UserResponse
+from models.groupModel import Group, GroupMember
+from schemas import (
+    BaseResponse,
+    PaginationResponse,
+    UserResponse,
+    GroupCreate,
+    GroupUpdate,
+    UserGroupUpdateRequest
+)
 from auth import AuthManager, require_active_user, PermissionChecker, Permissions
 
 router = APIRouter(prefix="/api/users", tags=["用户管理"])
@@ -15,6 +22,20 @@ router = APIRouter(prefix="/api/users", tags=["用户管理"])
 require_user_read = Depends(PermissionChecker(Permissions.USER_READ))
 require_user_update = Depends(PermissionChecker(Permissions.USER_UPDATE))
 require_user_delete = Depends(PermissionChecker(Permissions.USER_DELETE))
+
+
+def serialize_user_groups(user: User) -> list:
+    """序列化用户所属分组"""
+    groups = []
+    memberships = getattr(user, "group_memberships", []) or []
+    for membership in memberships:
+        if membership.group:
+            groups.append({
+                "id": membership.group.id,
+                "name": membership.group.name,
+                "description": membership.group.description
+            })
+    return groups
 
 
 @router.get("/", response_model=BaseResponse, summary="获取用户列表")
@@ -34,7 +55,7 @@ async def get_users(
     - 需要user:read权限
     """
     # 构建查询条件
-    query = User.all().prefetch_related('role')
+    query = User.all().prefetch_related('role', 'group_memberships__group')
     
     if employee_id:
         query = query.filter(employee_id__icontains=employee_id)
@@ -62,6 +83,7 @@ async def get_users(
             "username": user.username,
             "role": role_name,
             "is_superuser": user.is_superuser,
+            "groups": serialize_user_groups(user)
         }
         user_list.append(user_data)
     return BaseResponse(
@@ -74,6 +96,134 @@ async def get_users(
             "page_size": page_size
         }
     )
+
+
+@router.get("/roles/list", response_model=BaseResponse, summary="获取可用角色列表")
+async def get_available_roles(
+    current_user: User = require_active_user,
+    _: bool = require_user_read
+):
+    """
+    获取可用角色列表
+    """
+    roles = await Role.filter(name__in=["普通用户", "高级用户", "管理员"]).order_by('-priority')
+    
+    role_list = []
+    for role in roles:
+        role_list.append({
+            "id": role.id,
+            "name": role.name,
+            "description": role.description,
+            "priority": role.priority
+        })
+    
+    return BaseResponse(
+        code=200,
+        message="获取角色列表成功",
+        data={"roles": role_list}
+    )
+
+
+@router.get("/groups", response_model=BaseResponse, summary="获取所有用户分组")
+async def list_groups(
+    current_user: User = require_active_user,
+    _: bool = require_user_read
+):
+    """获取分组及其成员列表"""
+    groups = await Group.all().order_by("sort_order", "id").prefetch_related("members__user", "members__user__role")
+    group_list = []
+    for group in groups:
+        members_data = []
+        for member in group.members or []:
+            if member.user:
+                role_name = await member.user.get_role_name()
+                members_data.append({
+                    "id": member.user.id,
+                    "employee_id": member.user.employee_id,
+                    "username": member.user.username,
+                    "is_superuser": member.user.is_superuser,
+                    "role": role_name
+                })
+        group_list.append({
+            "id": group.id,
+            "name": group.name,
+            "description": group.description,
+            "sort_order": group.sort_order,
+            "member_count": len(members_data),
+            "members": members_data
+        })
+
+    return BaseResponse(
+        code=200,
+        message="获取分组列表成功",
+        data=group_list
+    )
+
+
+@router.post("/groups", response_model=BaseResponse, summary="创建分组")
+async def create_group(
+    group_data: GroupCreate,
+    current_user: User = require_active_user,
+    _: bool = require_user_update
+):
+    """创建新的分组"""
+    exists = await Group.filter(name=group_data.name).exists()
+    if exists:
+        raise HTTPException(status_code=400, detail="分组名称已存在")
+
+    group = await Group.create(**group_data.model_dump())
+    return BaseResponse(
+        code=200,
+        message="分组创建成功",
+        data={"id": group.id, "name": group.name}
+    )
+
+
+@router.put("/groups/{group_id}", response_model=BaseResponse, summary="更新分组")
+async def update_group(
+    group_id: int,
+    group_data: GroupUpdate,
+    current_user: User = require_active_user,
+    _: bool = require_user_update
+):
+    """更新分组信息"""
+    group = await Group.filter(id=group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="分组不存在")
+
+    if group_data.name and group_data.name != group.name:
+        exists = await Group.filter(name=group_data.name).exclude(id=group_id).exists()
+        if exists:
+            raise HTTPException(status_code=400, detail="分组名称已存在")
+
+    await group.update_from_dict(group_data.model_dump(exclude_unset=True))
+    await group.save()
+    return BaseResponse(
+        code=200,
+        message="分组更新成功",
+        data={"id": group.id}
+    )
+
+
+@router.delete("/groups/{group_id}", response_model=BaseResponse, summary="删除分组")
+async def delete_group(
+    group_id: int,
+    current_user: User = require_active_user,
+    _: bool = require_user_update
+):
+    """删除分组"""
+    group = await Group.filter(id=group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="分组不存在")
+
+    await GroupMember.filter(group_id=group.id).delete()
+    await group.delete()
+    return BaseResponse(
+        code=200,
+        message="分组删除成功",
+        data=None
+    )
+
 
 
 @router.put("/{user_id}/role", response_model=BaseResponse, summary="更新用户主要角色")
@@ -168,7 +318,7 @@ async def get_user_detail(
     """
     获取用户详细信息
     """
-    user = await User.filter(id=user_id).first()
+    user = await User.filter(id=user_id).prefetch_related('role', 'group_memberships__group').first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -187,7 +337,8 @@ async def get_user_detail(
             "employee_id": user.employee_id,
             "username": user.username,
             "role": role_name,
-            "is_superuser": user.is_superuser
+            "is_superuser": user.is_superuser,
+            "groups": serialize_user_groups(user)
         }
     )
 
@@ -234,28 +385,44 @@ async def delete_user(
         data={"deleted_user_id": user_id}
     )
 
-
-@router.get("/roles/list", response_model=BaseResponse, summary="获取可用角色列表")
-async def get_available_roles(
+@router.put("/{user_id}/groups", response_model=BaseResponse, summary="更新用户分组")
+async def update_user_groups(
+    user_id: int,
+    group_request: UserGroupUpdateRequest,
     current_user: User = require_active_user,
-    _: bool = require_user_read
+    _: bool = require_user_update
 ):
-    """
-    获取可用角色列表
-    """
-    roles = await Role.filter(name__in=["普通用户", "高级用户", "管理员"]).order_by('-priority')
-    
-    role_list = []
-    for role in roles:
-        role_list.append({
-            "id": role.id,
-            "name": role.name,
-            "description": role.description,
-            "priority": role.priority
-        })
-    
+    """更新指定用户的分组"""
+    user = await User.filter(id=user_id).prefetch_related('group_memberships__group', 'role').first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    target_ids = set(group_request.group_ids or [])
+    if target_ids:
+        groups = await Group.filter(id__in=target_ids)
+        found_ids = {group.id for group in groups}
+        missing = target_ids - found_ids
+        if missing:
+            raise HTTPException(status_code=404, detail=f"以下分组不存在: {', '.join(map(str, missing))}")
+    else:
+        groups = []
+
+    # 删除多余关联
+    if target_ids:
+        await GroupMember.filter(user_id=user.id).exclude(group_id__in=target_ids).delete()
+        existing_ids = set(await GroupMember.filter(user_id=user.id).values_list('group_id', flat=True))
+        for group in groups:
+            if group.id not in existing_ids:
+                await GroupMember.create(user=user, group=group)
+    else:
+        await GroupMember.filter(user_id=user.id).delete()
+
+    await user.fetch_related('group_memberships__group', 'role')
     return BaseResponse(
         code=200,
-        message="获取角色列表成功",
-        data={"roles": role_list}
-    ) 
+        message="用户分组更新成功",
+        data={
+            "user_id": user.id,
+            "groups": serialize_user_groups(user)
+        }
+    )

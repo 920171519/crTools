@@ -3,6 +3,29 @@
  */
 import api from './index'
 
+export interface UserGroupSummary {
+  id: number
+  name: string
+  description?: string
+}
+
+export interface GroupMember {
+  id: number
+  employee_id: string
+  username: string
+  is_superuser: boolean
+  role: string
+}
+
+export interface GroupItem {
+  id: number
+  name: string
+  description?: string
+  sort_order?: number
+  member_count: number
+  members: GroupMember[]
+}
+
 // 获取用户列表
 export const getUserList = (params: {
   page?: number
@@ -58,4 +81,27 @@ export const getRoleTagType = (role: string) => {
     '超级管理员': 'success'
   }
   return typeMap[role] || ''
-} 
+}
+
+// 分组相关接口
+export const getGroupList = () => {
+  return api.get('/users/groups')
+}
+
+export const createGroup = (data: { name: string; description?: string; sort_order?: number }) => {
+  return api.post('/users/groups', data)
+}
+
+export const updateGroup = (groupId: number, data: { name: string; description?: string; sort_order?: number }) => {
+  return api.put(`/users/groups/${groupId}`, data)
+}
+
+export const deleteGroup = (groupId: number) => {
+  return api.delete(`/users/groups/${groupId}`)
+}
+
+export const updateUserGroups = (userId: number, groupIds: number[]) => {
+  return api.put(`/users/${userId}/groups`, {
+    group_ids: groupIds
+  })
+}

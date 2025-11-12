@@ -27,6 +27,7 @@ export interface Device {
   admin_password?: string
   connectivity_status?: boolean
   project_name?: string
+  groups?: DeviceGroupSummary[]
 }
 
 export interface DeviceListItem {
@@ -46,6 +47,8 @@ export interface DeviceListItem {
   is_current_user_in_queue?: boolean
   connectivity_status?: boolean
   last_connectivity_check?: string
+  support_queue: boolean
+  groups?: DeviceGroupSummary[]
 }
 
 export interface DeviceCreateRequest {
@@ -59,6 +62,7 @@ export interface DeviceCreateRequest {
   device_type: string
   form_type: string
   remarks?: string
+  group_ids?: number[]
 }
 
 export interface DeviceUseRequest {
@@ -156,6 +160,12 @@ export interface DeviceListResponse {
   total: number
   page: number
   page_size: number
+}
+
+export interface DeviceGroupSummary {
+  id: number
+  name: string
+  description?: string
 }
 
 // 设备管理API

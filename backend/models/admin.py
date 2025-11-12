@@ -7,6 +7,10 @@ from tortoise import fields
 import re
 from datetime import datetime
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from models.groupModel import GroupMember
 
 
 class User(Model):
@@ -20,6 +24,7 @@ class User(Model):
     # 直接关联单个角色，简化设计
     role = fields.ForeignKeyField("models.Role", related_name="users", null=True, description="用户角色")
 
+    group_memberships: fields.ReverseRelation["GroupMember"]
     
     class Meta:
         table = "users"

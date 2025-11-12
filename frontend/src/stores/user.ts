@@ -4,6 +4,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import * as authApi from '../api/auth'
+import type { UserGroupSummary } from '@/api/user'
 
 // 用户信息类型定义
 export interface UserInfo {
@@ -12,6 +13,7 @@ export interface UserInfo {
   username: string
   is_superuser: boolean
   role: string
+  groups?: UserGroupSummary[]
 }
 
 // 菜单项类型定义

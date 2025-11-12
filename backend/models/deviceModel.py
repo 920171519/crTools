@@ -66,6 +66,7 @@ class Device(Model):
     # 关联关系
     usage_info: fields.ReverseRelation["DeviceUsage"]
     internal_info: fields.ReverseRelation["DeviceInternal"]
+    group_links: fields.ReverseRelation["DeviceGroup"]
     
     class Meta:
         table = "devices"
