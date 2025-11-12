@@ -1254,6 +1254,7 @@ const currentUserEmployeeId = computed(() => userStore.userInfo?.employee_id?.to
 const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
 const isAdvancedUser = computed(() => userStore.isAdvancedUser)
 const isAdminUser = computed(() => userStore.isAdminUser)
+const canViewGroupOptions = computed(() => userStore.hasPermission?.('user:read') || isAdmin.value)
 
 // 确保用户信息正确加载
 onMounted(async () => {
@@ -1274,7 +1275,11 @@ onMounted(async () => {
   userInfoLoaded.value = true
   await loadDevices()
   await loadVPNConfigs()
-  await loadGroupOptions()
+  if (canViewGroupOptions.value) {
+    await loadGroupOptions()
+  } else {
+    groupOptions.value = []
+  }
 
   // 启动连通性检测定时器
   startConnectivityTimer()

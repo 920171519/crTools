@@ -6,6 +6,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from tortoise import models
+from tortoise.expressions import Q
 from models.admin import User, Role
 from models.admin import Permission, RolePermission
 from models.admin import Menu, Permission
