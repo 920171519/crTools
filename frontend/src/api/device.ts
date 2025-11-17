@@ -231,6 +231,9 @@ export interface UsageSummaryItem {
   owner: string
   current_user?: string | null
   share_message?: string
+  occupied_duration?: number
+  groups?: DeviceGroupSummary[]
+  share_request_id?: number
 }
 
 export interface UsageSummaryResponse {

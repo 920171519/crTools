@@ -1634,13 +1634,25 @@ async def get_my_usage_summary(current_user: User = Depends(AuthManager.get_curr
     for usage in usage_infos:
         if not usage.device:
             continue
+        try:
+            await usage.device.fetch_related("usage_info", "group_links__group")
+        except Exception:
+            pass
+        occupied_duration = 0
+        if usage.start_time and usage.current_user:
+            current_time = get_current_time()
+            start_time = usage.start_time.replace(tzinfo=None) if usage.start_time.tzinfo else usage.start_time
+            duration = current_time - start_time
+            occupied_duration = max(1, int((duration.total_seconds() + 59) / 60))
         occupied_devices.append({
             "id": usage.device.id,
             "name": usage.device.name,
             "ip": usage.device.ip,
             "status": usage.status,
             "owner": usage.device.owner,
-            "current_user": usage.current_user
+            "current_user": usage.current_user,
+            "occupied_duration": occupied_duration,
+            "groups": serialize_group_links(usage.device)
         })
 
     shared_requests = await DeviceShareRequest.filter(
@@ -1654,10 +1666,16 @@ async def get_my_usage_summary(current_user: User = Depends(AuthManager.get_curr
         if not device:
             continue
         try:
-            await device.fetch_related("usage_info")
+            await device.fetch_related("usage_info", "group_links__group")
         except Exception:
             pass
         current_usage = getattr(device, "usage_info", None)
+        occupied_duration = 0
+        if current_usage and current_usage.start_time and current_usage.current_user:
+            current_time = get_current_time()
+            start_time = current_usage.start_time.replace(tzinfo=None) if current_usage.start_time.tzinfo else current_usage.start_time
+            duration = current_time - start_time
+            occupied_duration = max(1, int((duration.total_seconds() + 59) / 60))
         shared_devices.append({
             "id": device.id,
             "name": device.name,
@@ -1665,7 +1683,10 @@ async def get_my_usage_summary(current_user: User = Depends(AuthManager.get_curr
             "status": current_usage.status if current_usage else DeviceStatusEnum.AVAILABLE,
             "owner": device.owner,
             "current_user": current_usage.current_user if current_usage else None,
-            "share_message": share.request_message
+            "occupied_duration": occupied_duration,
+            "groups": serialize_group_links(device),
+            "share_message": share.request_message,
+            "share_request_id": share.id
         })
 
     return BaseResponse(

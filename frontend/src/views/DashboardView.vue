@@ -31,49 +31,29 @@
           </el-button>
         </div>
       </template>
-      <div class="share-request-list">
-        <div
-          class="share-request-item"
-          v-for="request in pendingShareRequests"
-          :key="request.id"
-        >
-          <div class="share-request-info">
-            <div class="device-name">{{ request.device_name }}</div>
-            <div class="request-meta">
-              申请人：{{ request.requester_username }} ({{ request.requester_employee_id }})
-            </div>
-            <div class="request-meta">
-              申请时间：{{ formatTime(request.created_at) }}
-            </div>
-            <div
-              class="request-message"
-              v-if="request.request_message"
-            >
-              备注：{{ request.request_message }}
-            </div>
-          </div>
-          <div class="share-request-actions">
-            <el-button
-              type="primary"
-              plain
-              size="small"
-              @click="handleShareDecision(request, true)"
-              :loading="shareDecisionLoading[request.id]"
-            >
-              允许共用
-            </el-button>
-            <el-button
-              type="danger"
-              plain
-              size="small"
-              @click="handleShareDecision(request, false)"
-              :loading="shareDecisionLoading[request.id]"
-            >
-              拒绝
-            </el-button>
-          </div>
-        </div>
-      </div>
+      <el-table :data="pendingShareRequests" size="small" style="width:100%">
+        <el-table-column label="申请人" min-width="200">
+          <template #default="{ row }">
+            {{ row.requester_username }} ({{ row.requester_employee_id }})
+          </template>
+        </el-table-column>
+        <el-table-column label="申请时间" width="200">
+          <template #default="{ row }">
+            {{ formatTime(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="申请备注" min-width="240">
+          <template #default="{ row }">
+            <span>{{ row.request_message || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="220">
+          <template #default="{ row }">
+            <el-button type="primary" plain size="small" @click="handleShareDecision(row, true)" :loading="shareDecisionLoading[row.id]">允许</el-button>
+            <el-button type="danger" plain size="small" @click="handleShareDecision(row, false)" :loading="shareDecisionLoading[row.id]">拒绝</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
     </el-card>
 
     <!-- 我的环境使用情况 -->
@@ -95,51 +75,99 @@
       <div class="usage-section">
         <div class="usage-title">我占用的环境</div>
         <el-empty v-if="!usageSummary.occupied.length" description="暂无占用中的环境" />
-        <div v-else class="usage-list">
-          <div v-for="env in usageSummary.occupied" :key="`occ-${env.id}`" class="device-row">
-            <div class="device-name">
-              <el-icon class="device-icon"><Monitor /></el-icon>
-              <span class="name-text">{{ env.name }}</span>
-              <el-tag type="info" size="small" class="ip-tag">{{ env.ip }}</el-tag>
-            </div>
-            <div class="device-status">
-              <el-tag :type="getStatusTag(env.status)" size="small">{{ getStatusText(env.status) }}</el-tag>
-            </div>
-            <div class="device-user" v-if="env.current_user">
-              <el-icon><User /></el-icon>
-              <span class="user-text">{{ env.current_user }}</span>
-            </div>
-          </div>
-        </div>
+        <el-table v-else :data="usageSummary.occupied" size="small" style="width:100%">
+          <el-table-column label="环境名称" min-width="180">
+            <template #default="{ row }">
+              <div class="device-name">
+                <el-icon class="device-icon"><Monitor /></el-icon>
+                <span class="name-text">{{ row.name }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="环境IP" width="160">
+            <template #default="{ row }">
+              <el-tag type="info" size="small">{{ row.ip }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="已使用时长" width="140">
+            <template #default="{ row }">
+              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration) }}</span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="所属分组" min-width="200">
+            <template #default="{ row }">
+              <template v-if="row.groups?.length">
+                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name }}</el-tag>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="160">
+            <template #default="{ row }">
+              <el-button type="danger" size="small" @click="releaseFromDashboard(row)" :loading="row.__releasing">释放</el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="详情" width="120">
+            <template #default="{ row }">
+              <el-button size="small" @click="goToDeviceDetails(row)">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
       <div class="usage-section">
         <div class="usage-title">我共用的环境</div>
         <el-empty v-if="!usageSummary.shared.length" description="暂无共用设备" />
-        <div v-else class="usage-list">
-          <div v-for="env in usageSummary.shared" :key="`shared-${env.id}`" class="device-row">
-            <div class="device-name">
-              <el-icon class="device-icon"><Monitor /></el-icon>
-              <span class="name-text">{{ env.name }}</span>
-              <el-tag type="info" size="small" class="ip-tag">{{ env.ip }}</el-tag>
-            </div>
-            <div class="device-status">
-              <el-tag :type="getStatusTag(env.status)" size="small">{{ getStatusText(env.status) }}</el-tag>
-            </div>
-            <div class="share-message" v-if="env.share_message">
-              <el-tag type="warning" size="small">共用说明</el-tag>
-              <span class="share-text">{{ env.share_message }}</span>
-            </div>
-          </div>
-        </div>
+        <el-table v-else :data="usageSummary.shared" size="small" style="width:100%">
+          <el-table-column label="环境名称" min-width="180">
+            <template #default="{ row }">
+              <div class="device-name">
+                <el-icon class="device-icon"><Monitor /></el-icon>
+                <span class="name-text">{{ row.name }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="环境IP" width="160">
+            <template #default="{ row }">
+              <el-tag type="info" size="small">{{ row.ip }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="已使用时长" width="140">
+            <template #default="{ row }">
+              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration) }}</span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="所属分组" min-width="200">
+            <template #default="{ row }">
+              <template v-if="row.groups?.length">
+                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name }}</el-tag>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="220">
+            <template #default="{ row }">
+              <el-button type="danger" size="small" plain @click="cancelShareFromDashboard(row)" :disabled="!row.share_request_id" :loading="row.__canceling">
+                取消共用
+              </el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="详情" width="120">
+            <template #default="{ row }">
+              <el-button size="small" @click="goToDeviceDetails(row)">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
     </el-card>
 
-    <!-- crTools管理系统标题 -->
+    <!-- crTools管理系统标题
     <div class="system-title">
       <h1>crTools 管理系统</h1>
       <p>基于工号认证的环境管理平台</p>
-    </div>
+    </div> -->
 
     <!-- 快捷操作模块 - 紧跟在标题下方 -->
     <el-card class="modules-card" shadow="never">
@@ -354,6 +382,15 @@ const formatTime = (timeStr?: string) => {
   })
 }
 
+// 时长格式化（分钟->可读）
+const formatDuration = (minutes?: number) => {
+  if (!minutes || minutes <= 0) return '-'
+  if (minutes < 60) return `${minutes} 分钟`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return m ? `${h} 小时 ${m} 分` : `${h} 小时`
+}
+
 const loadPendingShareRequests = async () => {
   try {
     const response = await deviceApi.getPendingShareRequests()
@@ -390,6 +427,40 @@ const handleShareDecision = async (request: any, approve: boolean) => {
   } finally {
     shareDecisionLoading[request.id] = false
   }
+}
+
+// 释放（首页）
+const releaseFromDashboard = async (row: any) => {
+  if (!row) return
+  try {
+    row.__releasing = true
+    await deviceApi.releaseDevice({ device_id: row.id, user: (userStore.userInfo?.employee_id || '').toLowerCase() })
+    ElMessage.success('设备已释放')
+    await loadMyUsageSummary()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || '释放失败')
+  } finally {
+    row.__releasing = false
+  }
+}
+
+// 取消共用（首页）
+const cancelShareFromDashboard = async (row: any) => {
+  if (!row?.share_request_id) return
+  try {
+    row.__canceling = true
+    await deviceApi.cancelShareRequest(row.share_request_id)
+    ElMessage.success('已取消共用')
+    await loadMyUsageSummary()
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || '取消失败')
+  } finally {
+    row.__canceling = false
+  }
+}
+
+const goToDeviceDetails = (row: any) => {
+  router.push('/devices')
 }
 
 // 加载设备统计数据
