@@ -5,6 +5,54 @@
       <p>管理和监控Linux设备的使用情况</p>
     </div>
 
+    <!-- 当前使用中的环境 -->
+    <el-card shadow="never" class="usage-summary-card" v-loading="usageSummaryLoading">
+      <template #header>
+        <div class="summary-header">
+          <div class="summary-title">
+            <el-icon><Monitor /></el-icon>
+            <span>当前使用的环境</span>
+          </div>
+          <el-button text size="small" @click="loadUsageSummary">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
+      </template>
+      <div class="usage-summary-content">
+        <div class="summary-column">
+          <div class="column-title">我占用的环境</div>
+          <div v-if="usageSummary.occupied.length" class="summary-tags">
+            <el-tag
+              v-for="env in usageSummary.occupied"
+              :key="`occupied-${env.id}`"
+              type="warning"
+              size="small"
+              class="summary-tag"
+            >
+              {{ env.name }} ({{ env.ip }})
+            </el-tag>
+          </div>
+          <div v-else class="empty-summary">暂无占用中的环境</div>
+        </div>
+        <div class="summary-column">
+          <div class="column-title">共用的环境</div>
+          <div v-if="usageSummary.shared.length" class="summary-tags">
+            <el-tag
+              v-for="env in usageSummary.shared"
+              :key="`shared-${env.id}`"
+              type="success"
+              size="small"
+              class="summary-tag"
+            >
+              {{ env.name }} ({{ env.ip }})
+            </el-tag>
+          </div>
+          <div v-else class="empty-summary">暂无共用设备</div>
+        </div>
+      </div>
+    </el-card>
+
     <!-- 调试信息 -->
     <!-- <el-card v-if="true" style="margin-bottom: 20px;">
       <template #header>
@@ -361,6 +409,37 @@
               >
                 详情
               </el-button>
+
+              <span v-if="showShareControls(row)" class="share-controls">
+                <template v-if="canApplyShare(row)">
+                  <el-button
+                    type="primary"
+                    size="small"
+                    plain
+                    @click="requestShare(row)"
+                    :loading="shareRequestLoading[row.id]"
+                  >
+                    申请共用
+                  </el-button>
+                </template>
+                <template v-else-if="row.share_request_id">
+                  <el-button
+                    type="danger"
+                    size="small"
+                    plain
+                    @click="cancelShare(row)"
+                    :loading="shareRequestLoading[row.id]"
+                  >
+                    {{ row.is_shared_user ? '取消共用' : '取消申请' }}
+                  </el-button>
+                </template>
+                <el-tag v-if="row.has_pending_share_request" size="small" type="warning">
+                  申请处理中
+                </el-tag>
+                <el-tag v-else-if="row.is_shared_user" size="small" type="success">
+                  已获批共用
+                </el-tag>
+              </span>
             </div>
           </template>
         </el-table-column>
@@ -778,6 +857,22 @@
                 <label>管理员密码：</label>
                 <span>{{ deviceDetail.admin_password }}</span>
               </div>
+              <div v-if="shouldShowCurrentCredentials" class="info-item">
+                <label>当前账号：</label>
+                <span>{{ deviceDetail.admin_username }}</span>
+              </div>
+              <div v-if="shouldShowCurrentCredentials" class="info-item copyable">
+                <label>当前密码：</label>
+                <span>{{ deviceDetail.admin_password }}</span>
+                <el-button
+                  text
+                  size="small"
+                  type="primary"
+                  @click="copyCredential(deviceDetail.admin_password)"
+                >
+                  复制
+                </el-button>
+              </div>
               <div class="info-item">
                 <label>登录需VPN：</label>
                 <el-tag :type="deviceDetail.need_vpn_login ? 'warning' : 'success'" size="small">
@@ -877,6 +972,56 @@
               </template>
               <div v-else class="no-queue">
                 <el-empty description="暂无排队用户" :image-size="80" />
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="detail-section"
+            v-if="usageDetail && (usageDetail.shared_users?.length || usageDetail.has_pending_share_request || isCurrentUserOccupant)"
+          >
+            <h3 class="section-title">
+              <el-icon><UserFilled /></el-icon>
+              共用信息
+            </h3>
+            <div class="shared-users-info">
+              <div v-if="usageDetail?.shared_users?.length" class="shared-users-list">
+                <div
+                  v-for="user in usageDetail.shared_users"
+                  :key="user.employee_id"
+                  class="shared-user-item"
+                >
+                  <el-tag type="success" size="small">
+                    {{ user.username }} ({{ user.employee_id }})
+                  </el-tag>
+                  <span class="shared-time" v-if="user.approved_at">
+                    于 {{ formatDateTime(user.approved_at) }} 获批
+                  </span>
+                </div>
+              </div>
+              <div v-else class="no-data">暂无共用用户</div>
+              <div v-if="usageDetail?.share_status" class="share-status">
+                当前状态：{{ getShareStatusText(usageDetail.share_status) }}
+              </div>
+              <div
+                class="pending-tip"
+                v-if="usageDetail?.has_pending_share_request && !isCurrentUserOccupant && !isSharedUser"
+              >
+                您的共用申请正在等待占用人处理
+              </div>
+              <div
+                class="shared-actions"
+                v-if="usageDetail?.share_request_id && (usageDetail?.has_pending_share_request || usageDetail?.is_shared_user)"
+              >
+                <el-button
+                  type="danger"
+                  size="small"
+                  plain
+                  @click="cancelShareFromDetail"
+                  :loading="detailShareLoading"
+                >
+                  {{ usageDetail?.is_shared_user ? '取消共用' : '取消申请' }}
+                </el-button>
               </div>
             </div>
           </div>
@@ -1167,6 +1312,13 @@ const releaseLoading = reactive({})
 const userInfoLoaded = ref(false)
 const deleteLoading = ref(false)
 const groupOptions = ref<{ id: number; name: string }[]>([])
+const shareRequestLoading = reactive<Record<number, boolean>>({})
+const detailShareLoading = ref(false)
+const usageSummaryLoading = ref(false)
+const usageSummary = reactive<{ occupied: any[]; shared: any[] }>({
+  occupied: [],
+  shared: []
+})
 const ensureDeviceOperational = (device, action: '使用' | '排队' = '使用') => {
   if (!device?.support_queue) {
     ElMessage.warning(`该设备未开放${action}`)
@@ -1255,6 +1407,33 @@ const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
 const isAdvancedUser = computed(() => userStore.isAdvancedUser)
 const isAdminUser = computed(() => userStore.isAdminUser)
 const canViewGroupOptions = computed(() => userStore.hasPermission?.('user:read') || isAdmin.value)
+
+const showShareControls = (device) => {
+  if (!device) return false
+  const occupiedStatuses = ['occupied', 'long_term_occupied']
+  return (
+    occupiedStatuses.includes(device.status) &&
+    device.current_user &&
+    device.current_user !== currentUserEmployeeId.value
+  )
+}
+
+const canApplyShare = (device) => {
+  if (!device) return false
+  return showShareControls(device) && !device.has_pending_share_request && !device.is_shared_user && !device.share_request_id
+}
+
+const getShareStatusText = (status?: string) => {
+  if (!status) return '-'
+  const map: Record<string, string> = {
+    pending: '待审批',
+    approved: '已获批',
+    rejected: '已拒绝',
+    revoked: '已取消',
+    cancelled: '已取消'
+  }
+  return map[status] || status
+}
 
 // 确保用户信息正确加载
 onMounted(async () => {
@@ -1474,6 +1653,16 @@ const showDetailDrawer = ref(false)
 const detailLoading = ref(false)
 const deviceDetail = ref(null)
 const usageDetail = ref(null)
+const isCurrentUserOccupant = computed(() => usageDetail.value?.current_user === currentUserEmployeeId.value)
+const isSharedUser = computed(() => {
+  if (usageDetail.value?.is_shared_user) return true
+  if (!usageDetail.value?.shared_users) return false
+  return usageDetail.value.shared_users.some(user => user.employee_id === currentUserEmployeeId.value)
+})
+const shouldShowCurrentCredentials = computed(() => {
+  if (canEditDevice.value) return false
+  return isCurrentUserOccupant.value || isSharedUser.value
+})
 
 // 编辑设备相关
 const showEditDialog = ref(false)
@@ -1496,6 +1685,21 @@ const editForm = reactive({
 })
 
 // 方法定义
+const loadUsageSummary = async () => {
+  try {
+    usageSummaryLoading.value = true
+    const response = await deviceApi.getMyUsageSummary()
+    usageSummary.occupied = response.data?.occupied_devices || []
+    usageSummary.shared = response.data?.shared_devices || []
+  } catch (error) {
+    console.error('加载环境使用信息失败:', error)
+    usageSummary.occupied = []
+    usageSummary.shared = []
+  } finally {
+    usageSummaryLoading.value = false
+  }
+}
+
 const loadDevices = async () => {
   loading.value = true
   try {
@@ -1515,7 +1719,17 @@ const loadDevices = async () => {
   }
 
   // 加载设备后检查连通性
-  await checkDevicesConnectivity()
+  try {
+    await checkDevicesConnectivity()
+  } catch (error) {
+    console.error('获取连通性状态失败:', error)
+  }
+
+  try {
+    await loadUsageSummary()
+  } catch (error) {
+    console.error('加载使用摘要失败:', error)
+  }
 }
 
 // VPN相关方法
@@ -1609,6 +1823,106 @@ const stopConnectivityTimer = () => {
   if (connectivityTimer.value) {
     clearInterval(connectivityTimer.value)
     connectivityTimer.value = null
+  }
+}
+
+const requestShare = async (device) => {
+  if (!device) return
+  if (!showShareControls(device)) {
+    ElMessage.warning('当前不可申请共用')
+    return
+  }
+  if (device.share_request_id) {
+    ElMessage.warning('已存在共用申请')
+    return
+  }
+  if (shareRequestLoading[device.id]) {
+    return
+  }
+  try {
+    shareRequestLoading[device.id] = true
+    await deviceApi.requestShare({
+      device_id: device.id
+    })
+    ElMessage.success('共用申请已提交')
+    await loadDevices()
+    await loadUsageSummary()
+    if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
+      await viewDetails(device)
+    }
+  } catch (error) {
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('申请共用失败')
+    }
+  } finally {
+    shareRequestLoading[device.id] = false
+  }
+}
+
+const cancelShare = async (device) => {
+  if (!device?.share_request_id) {
+    ElMessage.warning('暂无可取消的共用信息')
+    return
+  }
+  if (shareRequestLoading[device.id]) {
+    return
+  }
+  try {
+    shareRequestLoading[device.id] = true
+    await deviceApi.cancelShareRequest(device.share_request_id)
+    ElMessage.success(device.is_shared_user ? '已取消共用' : '已取消申请')
+    await loadDevices()
+    await loadUsageSummary()
+    if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
+      await viewDetails(device)
+    }
+  } catch (error) {
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('取消共用失败')
+    }
+  } finally {
+    shareRequestLoading[device.id] = false
+  }
+}
+
+const cancelShareFromDetail = async () => {
+  if (!usageDetail.value?.share_request_id || !deviceDetail.value) {
+    ElMessage.warning('暂无可取消的共用信息')
+    return
+  }
+  try {
+    detailShareLoading.value = true
+    await deviceApi.cancelShareRequest(usageDetail.value.share_request_id)
+    ElMessage.success(usageDetail.value.is_shared_user ? '已取消共用' : '已取消申请')
+    await loadDevices()
+    await loadUsageSummary()
+    await viewDetails(deviceDetail.value)
+  } catch (error) {
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('取消共用失败')
+    }
+  } finally {
+    detailShareLoading.value = false
+  }
+}
+
+const copyCredential = async (value?: string) => {
+  if (!value) {
+    ElMessage.warning('暂无可复制的密码')
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(value)
+    ElMessage.success('密码已复制')
+  } catch (error) {
+    console.error('复制密码失败:', error)
+    ElMessage.error('复制失败，请手动查看')
   }
 }
 
@@ -2654,6 +2968,104 @@ watch(activeDetailTab, (newTab) => {
   grid-column: 1 / -1;
   flex-direction: column;
   align-items: flex-start;
+}
+
+.info-item.copyable span {
+  font-family: 'Menlo', 'Courier New', monospace;
+}
+
+.usage-summary-card {
+  margin-bottom: 20px;
+}
+
+.summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.summary-header .summary-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.usage-summary-content {
+  display: flex;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+.summary-column {
+  flex: 1;
+  min-width: 220px;
+}
+
+.column-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #303133;
+}
+
+.summary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.summary-tag {
+  margin-bottom: 4px;
+}
+
+.empty-summary {
+  color: #909399;
+  font-size: 13px;
+}
+
+.share-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.shared-users-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shared-users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.shared-user-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shared-time {
+  color: #909399;
+  font-size: 12px;
+}
+
+.pending-tip {
+  color: #e6a23c;
+  font-size: 13px;
+}
+
+.shared-actions {
+  margin-top: 10px;
+}
+
+.share-status {
+  margin-top: 6px;
+  color: #606266;
+  font-size: 13px;
 }
 
 .info-item label {

@@ -47,6 +47,13 @@
       <el-table :data="vpnConfigs" stripe style="width: 100%" v-loading="loading">
         <el-table-column prop="region" label="地域" min-width="200" align="center"/>
         <el-table-column prop="network" label="网段" min-width="200" align="center"/>
+        <el-table-column label="状态" min-width="120" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getVpnStatus(row) ? 'success' : 'danger'">
+              {{ getVpnStatus(row) ? '可用' : '异常' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" min-width="200" align="center">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="openEditDialog(row)">
@@ -198,6 +205,10 @@ const form = reactive({
   region: '',
   network: ''
 })
+
+const getVpnStatus = (_config: VPNConfig) => {
+  return true
+}
 
 const rules = {
   region: [

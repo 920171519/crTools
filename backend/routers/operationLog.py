@@ -21,16 +21,10 @@ async def get_operation_logs(
 ):
     """获取操作日志列表"""
     try:
-        # 构建查询条件
-        query_conditions = {}
-        
-        if employee_id:
-            query_conditions["employee_id__icontains"] = employee_id
-        
         # 处理操作类型过滤
         if operation_type:
             # 支持逗号分隔的操作类型
-            operation_types = [t.strip() for t in operation_type.split(',')]
+            operation_types = [t.strip() for t in operation_type.split(',') if t.strip()]
             if any(t in ["login", "logout"] for t in operation_types):
                 # 查询登录日志
                 login_query = LoginLog.all()
@@ -94,17 +88,16 @@ async def get_operation_logs(
 
             else:
                 # 查询设备操作日志，添加操作类型过滤
-                query_conditions["operation_type__in"] = operation_types
+                query = OperationLog.all()
+                if employee_id:
+                    query = query.filter(employee_id__icontains=employee_id)
+                query = query.filter(operation_type__in=operation_types)
         else:
-            # 默认查询设备操作日志（排除登录退出）
-            query_conditions["operation_type__not_in"] = ["login", "logout"]
-
-        # 查询操作日志
-        query = OperationLog.all()
-        
-        # 应用过滤条件
-        if query_conditions:
-            query = query.filter(**query_conditions)
+            # 查询操作日志并排除登录相关操作
+            query = OperationLog.all()
+            if employee_id:
+                query = query.filter(employee_id__icontains=employee_id)
+            query = query.exclude(operation_type__in=["login", "logout"])
         
         # 日期范围过滤
         if start_date:

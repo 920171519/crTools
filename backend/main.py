@@ -2,7 +2,6 @@
 crTools后台管理系统 - 主应用入口
 基于FastAPI的后台管理系统API
 """
-from contextlib import asynccontextmanager
 from routers import router_auth
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
@@ -10,31 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_database, setup_database
 from routers import device, user, system, operationLog, vpn, command, ai_tool
-from scheduler import start_scheduler, stop_scheduler
 import uvicorn
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
-    # 启动时执行
-    print("🚀 crTools后台管理系统启动中...")
-
-    # 初始化数据库数据
-    await init_database()
-
-    # 启动定时任务调度器
-    await start_scheduler()
-    print("⏰ 定时任务调度器已启动")
-
-    yield
-
-    # 关闭时执行
-    print("🛑 crTools后台管理系统关闭")
-
-    # 停止定时任务调度器
-    await stop_scheduler()
-    print("⏰ 定时任务调度器已停止")
+try:
+    from scheduler import start_scheduler, stop_scheduler  # type: ignore
+    SCHEDULER_AVAILABLE = True
+except ModuleNotFoundError as exc:  # pragma: no cover - 环境缺少依赖时禁用调度器
+    start_scheduler = stop_scheduler = None
+    SCHEDULER_AVAILABLE = False
+    print(f"⚠️ APScheduler 未安装: {exc}. 将跳过定时任务调度器。")
 
 
 # 创建FastAPI应用实例
@@ -43,8 +26,7 @@ app = FastAPI(
     description="基于工号认证的CR工具集管理系统",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc",
-    lifespan=lifespan
+    redoc_url="/redoc"
 )
 
 # 设置数据库
@@ -58,6 +40,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def on_startup():
+    """应用启动时初始化资源"""
+    print("🚀 crTools后台管理系统启动中...")
+    await init_database()
+    if SCHEDULER_AVAILABLE and start_scheduler:
+        await start_scheduler()
+        print("⏰ 定时任务调度器已启动")
+    else:
+        print("⚠️ 未安装APScheduler，跳过定时任务调度器初始化")
+
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    """应用关闭时清理资源"""
+    print("🛑 crTools后台管理系统关闭")
+    if SCHEDULER_AVAILABLE and stop_scheduler:
+        await stop_scheduler()
+        print("⏰ 定时任务调度器已停止")
 
 
 # 全局异常处理器

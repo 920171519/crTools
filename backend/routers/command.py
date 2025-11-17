@@ -123,7 +123,64 @@ async def create_command(
         raise HTTPException(status_code=500, detail="创建命令行失败")
 
 
-@router.get("/{command_id}", response_model=BaseResponse, summary="获取命令行详情")
+@router.get("/operation-logs", response_model=BaseResponse, summary="获取命令行操作日志")
+async def get_command_operation_logs(
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
+    employee_id: Optional[str] = Query(None, description="工号"),
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """获取命令行操作日志列表"""
+    try:
+        query = CommandOperationLog.all()
+
+        if employee_id:
+            query = query.filter(employee_id__icontains=employee_id)
+
+        total = await query.count()
+        offset = (page - 1) * page_size
+        logs = await query.offset(offset).limit(page_size).order_by('-created_at')
+
+        items = []
+        for log in logs:
+            items.append({
+                "id": log.id,
+                "command_id": log.command_id,
+                "employee_id": log.employee_id,
+                "username": log.username,
+                "operation_type": log.operation_type,
+                "operation_result": log.operation_result,
+                "description": log.description,
+                "ip_address": log.ip_address,
+                "created_at": log.created_at.isoformat() if log.created_at else None
+            })
+
+        return BaseResponse(
+            code=200,
+            message="命令行操作日志获取成功",
+            data={
+                "items": items,
+                "total": total,
+                "page": page,
+                "page_size": page_size
+            }
+        )
+
+    except Exception as e:
+        print(f"获取命令行操作日志失败: {e}")
+        return BaseResponse(
+            code=200,
+            message="暂无命令行操作日志",
+            data={
+                "items": [],
+                "total": 0,
+                "page": page,
+                "page_size": page_size
+            }
+        )
+
+
+@router.get("/{command_id:int}", response_model=BaseResponse, summary="获取命令行详情")
 async def get_command(
     command_id: int,
     current_user: User = Depends(AuthManager.get_current_user)
@@ -151,7 +208,7 @@ async def get_command(
     )
 
 
-@router.put("/{command_id}", response_model=BaseResponse, summary="更新命令行")
+@router.put("/{command_id:int}", response_model=BaseResponse, summary="更新命令行")
 async def update_command(
     command_id: int,
     command_data: CommandUpdate,
@@ -218,7 +275,7 @@ async def update_command(
     )
 
 
-@router.delete("/{command_id}", response_model=BaseResponse, summary="删除命令行")
+@router.delete("/{command_id:int}", response_model=BaseResponse, summary="删除命令行")
 async def delete_command(
     command_id: int,
     current_user: User = Depends(AuthManager.get_current_user)
@@ -246,61 +303,3 @@ async def delete_command(
         message="命令行删除成功",
         data=None
     )
-
-
-@router.get("/operation-logs", response_model=BaseResponse, summary="获取命令行操作日志")
-async def get_command_operation_logs(
-    page: int = Query(1, ge=1, description="页码"),
-    page_size: int = Query(10, ge=1, le=100, description="每页数量"),
-    employee_id: Optional[str] = Query(None, description="工号"),
-    current_user: User = Depends(AuthManager.get_current_user)
-):
-    """获取命令行操作日志列表"""
-    try:
-        # 构建查询条件
-        query = CommandOperationLog.all()
-        
-        if employee_id:
-            query = query.filter(employee_id__icontains=employee_id)
-        
-        # 获取总数
-        total = await query.count()
-        
-        # 分页查询
-        offset = (page - 1) * page_size
-        logs = await query.offset(offset).limit(page_size).order_by('-created_at')
-        
-        # 转换为字典格式
-        items = []
-        for log in logs:
-            items.append({
-                "id": log.id,
-                "command_id": log.command_id,
-                "employee_id": log.employee_id,
-                "username": log.username,
-                "operation_type": log.operation_type,
-                "operation_result": log.operation_result,
-                "description": log.description,
-                "ip_address": log.ip_address,
-                "created_at": log.created_at.isoformat() if log.created_at else None
-            })
-        
-        return BaseResponse(
-            code=200,
-            message="命令行操作日志获取成功",
-            data={
-                "items": items,
-                "total": total,
-                "page": page,
-                "page_size": page_size
-            }
-        )
-        
-    except Exception as e:
-        print(f"获取命令行操作日志失败: {e}")
-        return BaseResponse(
-            code=500,
-            message="获取命令行操作日志失败",
-            data=None
-        )
-

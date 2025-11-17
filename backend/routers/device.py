@@ -7,15 +7,39 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from pydantic import BaseModel
 
-from models.deviceModel import Device, DeviceUsage, DeviceInternal, DeviceUsageHistory, DeviceConfig, DeviceStatusEnum
+from models.deviceModel import (
+    Device,
+    DeviceUsage,
+    DeviceInternal,
+    DeviceUsageHistory,
+    DeviceConfig,
+    DeviceStatusEnum,
+    DeviceShareRequest
+)
 from models.admin import User, OperationLog
-from models.vpnModel import VPNConfig
+from models.vpnModel import VPNConfig, UserVPNConfig
 from models.groupModel import Group, GroupMember, DeviceGroup
 from schemas import (
-    DeviceBase, DeviceUpdate, DeviceResponse, DeviceListItem,
-    DeviceUsageResponse, DeviceUsageUpdate, DeviceUseRequest, DeviceLongTermUseRequest, DeviceReleaseRequest,
-    DevicePreemptRequest, DevicePriorityQueueRequest, DeviceUnifiedQueueRequest,
-    DeviceConfigCreate, DeviceConfigUpdate, DeviceConfigResponse
+    DeviceBase,
+    DeviceUpdate,
+    DeviceResponse,
+    DeviceListItem,
+    DeviceUsageResponse,
+    DeviceUsageUpdate,
+    DeviceUseRequest,
+    DeviceLongTermUseRequest,
+    DeviceReleaseRequest,
+    DevicePreemptRequest,
+    DevicePriorityQueueRequest,
+    DeviceUnifiedQueueRequest,
+    DeviceConfigCreate,
+    DeviceConfigUpdate,
+    DeviceConfigResponse,
+    DeviceShareRequestCreate,
+    DeviceShareDecision,
+    DeviceShareRequestResponse,
+    MyUsageSummaryResponse,
+    MyUsageDeviceSummary
 )
 from schemas import BaseResponse
 from auth import AuthManager
@@ -27,6 +51,21 @@ router = APIRouter(prefix="/api/devices", tags=["设备管理"])
 def get_current_time():
     """获取当前时间，统一使用naive datetime"""
     return datetime.now()
+
+
+def normalize_employee_id(employee_id: Optional[str]) -> Optional[str]:
+    """工号统一小写处理"""
+    if isinstance(employee_id, str):
+        return employee_id.lower()
+    return employee_id
+
+
+def resolve_request_user(user_input: Optional[str], fallback_user: User) -> str:
+    """获取请求中的工号（优先使用请求参数，其次当前用户），统一小写"""
+    normalized_input = normalize_employee_id(user_input)
+    if normalized_input:
+        return normalized_input
+    return normalize_employee_id(fallback_user.employee_id) or fallback_user.employee_id
 
 
 async def get_user_group_ids(user: User) -> Optional[set]:
@@ -54,6 +93,87 @@ async def ensure_device_access(device: Device, user: User, user_group_ids: Optio
     has_access = await user_has_device_access(device, user, user_group_ids)
     if not has_access:
         raise HTTPException(status_code=403, detail="您无权访问该设备")
+
+
+async def ensure_user_vpn_ip(device: Device, user: User):
+    """确保用户已录入设备所需VPN的IP地址"""
+    if not device.vpn_config_id:
+        return
+
+    vpn_config = await device.vpn_config
+    if not vpn_config:
+        return
+
+    user_vpn = await UserVPNConfig.filter(user_id=user.id, vpn_config_id=vpn_config.id).first()
+    if not user_vpn or not user_vpn.ip_address:
+        vpn_name = f"{vpn_config.region}-{vpn_config.network}"
+        raise HTTPException(
+            status_code=400,
+            detail=f"请先前往个人中心录入 {vpn_name} 的VPN IP地址后再进行设备操作"
+        )
+
+
+async def revoke_shared_access(device: Device, actor: Optional[User] = None, reason: str = "device_state_changed"):
+    """占用人变化或释放时撤销已审批的共用"""
+    now = get_current_time()
+    actor_employee = actor.employee_id if actor else None
+    await DeviceShareRequest.filter(device=device, status="approved").update(
+        status="revoked",
+        processed_by=actor_employee,
+        processed_at=now,
+        decision_reason=reason
+    )
+
+
+async def get_device_shared_users(device: Device):
+    """获取当前已审批的共用用户"""
+    share_requests = await DeviceShareRequest.filter(device=device, status="approved").order_by("processed_at")
+    result = []
+    for share in share_requests:
+        result.append({
+            "employee_id": share.requester_employee_id,
+            "username": share.requester_username,
+            "approved_at": share.processed_at.isoformat() if share.processed_at else None
+        })
+    return result
+
+
+async def fetch_user_share_status(device_ids: List[int], employee_id: str):
+    """批量获取当前用户在各设备上的共用状态"""
+    if not device_ids:
+        return {}
+    records = await DeviceShareRequest.filter(
+        device_id__in=device_ids,
+        requester_employee_id__iexact=employee_id,
+        status__in=["pending", "approved"]
+    ).values("device_id", "status", "id")
+    status_map = {}
+    for record in records:
+        status_map[record["device_id"]] = {
+            "status": record["status"],
+            "id": record["id"]
+        }
+    return status_map
+
+
+def serialize_share_request_record(share_request: DeviceShareRequest) -> dict:
+    """序列化共用申请"""
+    device_name = ""
+    if hasattr(share_request, "device") and share_request.device:
+        device_name = share_request.device.name
+    return {
+        "id": share_request.id,
+        "device_id": share_request.device_id,
+        "device_name": device_name,
+        "requester_employee_id": share_request.requester_employee_id,
+        "requester_username": share_request.requester_username,
+        "status": share_request.status,
+        "request_message": share_request.request_message,
+        "decision_reason": share_request.decision_reason,
+        "processed_by": share_request.processed_by,
+        "processed_at": share_request.processed_at.isoformat() if share_request.processed_at else None,
+        "created_at": share_request.created_at.isoformat() if share_request.created_at else None
+    }
 
 
 def serialize_group_links(device) -> List[dict]:
@@ -128,12 +248,12 @@ async def get_devices(
     filtered_devices = []
 
     for device in all_devices:
-        if hasattr(device, 'usage_info') and device.usage_info:
-            usage_info = device.usage_info
-        else:
-            usage_info = await device.usage_info
-            if not usage_info:
-                usage_info = await DeviceUsage.create(device=device)
+        usage_info = getattr(device, 'usage_info', None)
+        if usage_info is None:
+            # 通过查询获取最新的使用信息，避免OneToOne未创建导致的异常
+            usage_info = await DeviceUsage.filter(device=device).first()
+        if usage_info is None:
+            usage_info = await DeviceUsage.create(device=device)
 
         # 状态过滤
         if status and usage_info.status != status:
@@ -155,6 +275,10 @@ async def get_devices(
     offset = (page - 1) * page_size
     paged_devices = filtered_devices[offset:offset + page_size]
 
+    device_ids = [device.id for device, _ in paged_devices]
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+    user_share_status = await fetch_user_share_status(device_ids, normalized_employee)
+
     result = []
     for device, usage_info in paged_devices:
         
@@ -171,8 +295,10 @@ async def get_devices(
         
         # 检查当前用户是否在排队中
         is_current_user_in_queue = False
-        if usage_info.queue_users and current_user.employee_id in usage_info.queue_users:
-            is_current_user_in_queue = True
+        if usage_info.queue_users:
+            normalized_queue = [normalize_employee_id(u) for u in usage_info.queue_users]
+            if normalized_employee in normalized_queue:
+                is_current_user_in_queue = True
 
         # 获取VPN配置信息
         vpn_region = None
@@ -184,6 +310,8 @@ async def get_devices(
             vpn_display_name = f"{vpn_region} - {vpn_network}"
         elif device.required_vpn_display:
             vpn_display_name = device.required_vpn_display
+
+        share_info = user_share_status.get(device.id) or {}
 
         result.append(DeviceListItem(
             id=device.id,
@@ -204,7 +332,11 @@ async def get_devices(
             admin_username=device.admin_username,
             project_name=device.owner,  # 使用owner作为project_name
             support_queue=device.support_queue,
-            groups=serialize_group_links(device)
+            groups=serialize_group_links(device),
+            is_shared_user=share_info.get("status") == "approved",
+            has_pending_share_request=share_info.get("status") == "pending",
+            share_request_id=share_info.get("id"),
+            share_status=share_info.get("status")
         ))
 
     return BaseResponse(
@@ -400,7 +532,7 @@ async def get_connectivity_cache_info(current_user: User = Depends(AuthManager.g
     )
 
 
-@router.get("/{device_id}", response_model=BaseResponse, summary="获取设备详情")
+@router.get("/{device_id:int}", response_model=BaseResponse, summary="获取设备详情")
 async def get_device(device_id: int, current_user: User = Depends(AuthManager.get_current_user)):
     """根据ID获取设备详情"""
     device = await Device.filter(id=device_id).prefetch_related("vpn_config", "group_links__group").first()
@@ -452,7 +584,7 @@ async def get_device(device_id: int, current_user: User = Depends(AuthManager.ge
     )
 
 
-@router.get("/{device_id}/connectivity", response_model=BaseResponse, summary="获取单个设备连通性状态")
+@router.get("/{device_id:int}/connectivity", response_model=BaseResponse, summary="获取单个设备连通性状态")
 async def get_device_connectivity_status(
     device_id: int,
     current_user: User = Depends(AuthManager.get_current_user)
@@ -498,7 +630,7 @@ async def get_device_connectivity_status(
         raise HTTPException(status_code=500, detail="获取设备连通性状态失败")
 
 
-@router.put("/{device_id}", response_model=BaseResponse, summary="更新设备信息")
+@router.put("/{device_id:int}", response_model=BaseResponse, summary="更新设备信息")
 async def update_device(device_id: int, device_data: DeviceUpdate, current_user: User = Depends(AuthManager.get_current_user)):
     """更新设备信息"""
     device = await Device.filter(id=device_id).prefetch_related("vpn_config").first()
@@ -567,7 +699,7 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
     )
 
 
-@router.delete("/{device_id}", summary="删除设备")
+@router.delete("/{device_id:int}", summary="删除设备")
 async def delete_device(device_id: int, current_user: User = Depends(AuthManager.get_current_user)):
     """删除设备，只有设备归属人或管理员可以删除"""
     device = await Device.filter(id=device_id).first()
@@ -618,13 +750,7 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
     await ensure_device_access(device, current_user)
-    if not device.support_queue:
-        raise HTTPException(status_code=400, detail="该设备未开放使用")
-    await ensure_device_access(device, current_user)
-    if not device.support_queue:
-        raise HTTPException(status_code=400, detail="该设备未开放使用")
-    await ensure_device_access(device, current_user)
-
+    await ensure_user_vpn_ip(device, current_user)
     if not device.support_queue:
         raise HTTPException(status_code=400, detail="该设备未开放使用")
 
@@ -636,8 +762,11 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
     if usage_info.status != DeviceStatusEnum.AVAILABLE:
         raise HTTPException(status_code=400, detail="设备当前不可用")
 
+    normalized_request_user = normalize_employee_id(request.user) or normalize_employee_id(current_user.employee_id)
+
     # 直接占用设备
-    usage_info.current_user = request.user
+    await revoke_shared_access(device, current_user, "device_used")
+    usage_info.current_user = normalized_request_user
     usage_info.start_time = get_current_time()
     usage_info.expected_duration = 60  # 默认60分钟
     usage_info.status = DeviceStatusEnum.OCCUPIED
@@ -649,7 +778,7 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
     # 创建使用历史记录
     await DeviceUsageHistory.create(
         device=device,
-        user=request.user,
+        user=normalized_request_user,
         start_time=get_current_time(),
         purpose="普通使用"
     )
@@ -660,7 +789,8 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
         operation_type="device_use",
         operation_result="success",
         device_name=device.name,
-        description=f"成功使用设备 {device.name}"
+        description=f"成功使用设备 {device.name}",
+        device_ip=device.ip
     )
 
     return BaseResponse(
@@ -679,6 +809,7 @@ async def long_term_use_device(request: DeviceLongTermUseRequest, current_user: 
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
     await ensure_device_access(device, current_user)
+    await ensure_user_vpn_ip(device, current_user)
     if not device.support_queue:
         raise HTTPException(status_code=400, detail="该设备未开放使用")
 
@@ -694,8 +825,11 @@ async def long_term_use_device(request: DeviceLongTermUseRequest, current_user: 
     if request.end_date <= get_current_time():
         raise HTTPException(status_code=400, detail="截至时间必须是未来时间")
 
+    normalized_request_user = resolve_request_user(request.user, current_user)
+
     # 长时间占用设备
-    usage_info.current_user = request.user
+    await revoke_shared_access(device, current_user, "device_long_term_use")
+    usage_info.current_user = normalized_request_user
     usage_info.start_time = get_current_time()
     usage_info.expected_duration = 0  # 长时间占用不设置预计时长
     usage_info.status = DeviceStatusEnum.LONG_TERM_OCCUPIED
@@ -707,7 +841,7 @@ async def long_term_use_device(request: DeviceLongTermUseRequest, current_user: 
     # 创建使用历史记录
     await DeviceUsageHistory.create(
         device=device,
-        user=request.user,
+        user=normalized_request_user,
         start_time=get_current_time(),
         purpose=request.purpose
     )
@@ -718,7 +852,8 @@ async def long_term_use_device(request: DeviceLongTermUseRequest, current_user: 
         operation_type="device_long_term_use",
         operation_result="success",
         device_name=device.name,
-        description=f"成功申请长时间占用设备 {device.name}，截至时间：{request.end_date}"
+        description=f"成功申请长时间占用设备 {device.name}，截至时间：{request.end_date}",
+        device_ip=device.ip
     )
 
     return BaseResponse(
@@ -738,10 +873,14 @@ async def queue_device(request: DeviceUseRequest, current_user: User = Depends(A
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
     await ensure_device_access(device, current_user)
+    await ensure_user_vpn_ip(device, current_user)
     
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
+
+    normalized_current_user = normalize_employee_id(current_user.employee_id)
+    requested_user = resolve_request_user(request.user, current_user)
 
     if usage_info.status == DeviceStatusEnum.OCCUPIED:
         # 设备被占用，检查是否支持排队
@@ -749,17 +888,18 @@ async def queue_device(request: DeviceUseRequest, current_user: User = Depends(A
             raise HTTPException(status_code=400, detail="该设备不支持排队等待")
         
         # 检查是否是当前使用者尝试排队
-        if usage_info.current_user == request.user:
+        if normalize_employee_id(usage_info.current_user) == requested_user:
             raise HTTPException(status_code=400, detail="您已经在使用此设备")
         
         # 检查用户是否已在排队
-        if request.user in (usage_info.queue_users or []):
+        existing_queue = [normalize_employee_id(u) for u in (usage_info.queue_users or [])]
+        if requested_user in existing_queue:
             raise HTTPException(status_code=400, detail="您已在排队中")
         
         # 加入排队
         if not usage_info.queue_users:
             usage_info.queue_users = []
-        usage_info.queue_users.append(request.user)
+        usage_info.queue_users.append(requested_user)
         await usage_info.save()
 
         # 记录操作日志
@@ -768,7 +908,8 @@ async def queue_device(request: DeviceUseRequest, current_user: User = Depends(A
             operation_type="device_queue",
             operation_result="success",
             device_name=device.name,
-            description=f"加入设备 {device.name} 排队，排队位置: {len(usage_info.queue_users)}"
+            description=f"加入设备 {device.name} 排队，排队位置: {len(usage_info.queue_users)}",
+            device_ip=device.ip
         )
 
         return BaseResponse(
@@ -796,8 +937,9 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
     if not usage_info:
         raise HTTPException(status_code=404, detail="设备使用信息不存在")
 
+    current_employee_id = normalize_employee_id(current_user.employee_id)
     # 检查权限：当前使用者、管理员或超级管理员才能释放设备
-    is_current_user = usage_info.current_user == current_user.employee_id
+    is_current_user = normalize_employee_id(usage_info.current_user) == current_employee_id
     is_admin_or_super = (current_user.is_superuser or
                         await current_user.has_role("管理员"))
 
@@ -807,6 +949,9 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
     # 记录释放操作的相关信息
     release_user = usage_info.current_user
     is_force_release = not is_current_user
+
+    # 占用人变化前撤销共用
+    await revoke_shared_access(device, current_user, "device_released")
 
     # 更新使用历史记录
     # if usage_info.start_time:
@@ -825,7 +970,8 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
     if usage_info.queue_users and len(usage_info.queue_users) > 0:
         # 有人排队，将设备分配给下一个用户
         next_user = usage_info.queue_users.pop(0)
-        usage_info.current_user = next_user
+        normalized_next_user = normalize_employee_id(next_user) or next_user
+        usage_info.current_user = normalized_next_user
         usage_info.start_time = get_current_time()
         usage_info.expected_duration = 60  # 默认60分钟
         await usage_info.save()
@@ -844,7 +990,8 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
             operation_type="device_release",
             operation_result="success",
             device_name=device.name,
-            description=f"{release_type}设备 {device.name}，设备已分配给下一个用户 {next_user}"
+            description=f"{release_type}设备 {device.name}，设备已分配给下一个用户 {normalized_next_user}",
+            device_ip=device.ip
         )
 
         return BaseResponse(
@@ -871,7 +1018,8 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
             operation_type="device_release",
             operation_result="success",
             device_name=device.name,
-            description=f"{release_type}设备 {device.name}，设备现在可用"
+            description=f"{release_type}设备 {device.name}，设备现在可用",
+            device_ip=device.ip
         )
 
         return BaseResponse(
@@ -900,12 +1048,23 @@ async def cancel_queue(request: DeviceCancelQueueRequest, current_user: User = D
     if not usage_info:
         raise HTTPException(status_code=404, detail="设备使用信息不存在")
     
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+    queue_users = usage_info.queue_users or []
+    normalized_queue = [normalize_employee_id(u) for u in queue_users]
+
     # 检查用户是否在排队中
-    if not usage_info.queue_users or current_user.employee_id not in usage_info.queue_users:
+    if normalized_employee not in normalized_queue:
         raise HTTPException(status_code=400, detail="您当前不在排队中")
     
-    # 从排队列表中移除用户
-    usage_info.queue_users.remove(current_user.employee_id)
+    # 从排队列表中移除用户（保持原顺序）
+    new_queue = []
+    removed = False
+    for user_id, normalized in zip(queue_users, normalized_queue):
+        if not removed and normalized == normalized_employee:
+            removed = True
+            continue
+        new_queue.append(user_id)
+    usage_info.queue_users = new_queue
     await usage_info.save()
 
     # 记录取消排队操作日志
@@ -914,7 +1073,8 @@ async def cancel_queue(request: DeviceCancelQueueRequest, current_user: User = D
         operation_type="device_cancel_queue",
         operation_result="success",
         device_name=device.name,
-        description=f"取消设备 {device.name} 排队"
+        description=f"取消设备 {device.name} 排队",
+        device_ip=device.ip
     )
 
     return BaseResponse(
@@ -927,7 +1087,7 @@ async def cancel_queue(request: DeviceCancelQueueRequest, current_user: User = D
     )
 
 
-@router.get("/{device_id}/usage", response_model=BaseResponse, summary="获取设备使用情况")
+@router.get("/{device_id:int}/usage", response_model=BaseResponse, summary="获取设备使用情况")
 async def get_device_usage(device_id: int, current_user: User = Depends(AuthManager.get_current_user)):
     """获取设备使用情况详情"""
     device = await Device.filter(id=device_id).first()
@@ -965,6 +1125,26 @@ async def get_device_usage(device_id: int, current_user: User = Depends(AuthMana
         "queue_count": len(usage_info.queue_users) if usage_info.queue_users else 0,
         "updated_at": usage_info.updated_at.isoformat() if usage_info.updated_at else None
     }
+
+    shared_users = await get_device_shared_users(device)
+    usage_data["shared_users"] = shared_users
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+    usage_data["is_shared_user"] = any(
+        user["employee_id"] == normalized_employee for user in shared_users
+    )
+    pending_share = await DeviceShareRequest.filter(
+        device=device,
+        requester_employee_id__iexact=normalized_employee,
+        status__in=["pending", "approved"]
+    ).first()
+    if pending_share:
+        usage_data["share_request_id"] = pending_share.id
+        usage_data["share_status"] = pending_share.status
+        usage_data["has_pending_share_request"] = pending_share.status == "pending"
+        if pending_share.status == "approved":
+            usage_data["is_shared_user"] = True
+    else:
+        usage_data["has_pending_share_request"] = False
     
     return BaseResponse(
         code=200,
@@ -987,15 +1167,20 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
+    await ensure_user_vpn_ip(device, current_user)
     
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
+
+    normalized_current_employee = normalize_employee_id(current_user.employee_id)
+    requested_user = resolve_request_user(request.user, current_user)
     
     # 检查设备状态
     if usage_info.status == DeviceStatusEnum.AVAILABLE:
         # 设备可用，直接占用
-        usage_info.current_user = request.user
+        await revoke_shared_access(device, current_user, "device_preempt")
+        usage_info.current_user = requested_user
         usage_info.start_time = get_current_time()
         usage_info.expected_duration = request.expected_duration
         usage_info.status = DeviceStatusEnum.OCCUPIED
@@ -1004,7 +1189,7 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
         # 创建使用历史记录
         await DeviceUsageHistory.create(
             device=device,
-            user=request.user,
+            user=requested_user,
             start_time=get_current_time(),
             purpose=request.purpose
         )
@@ -1015,7 +1200,8 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
             operation_type="device_preempt",
             operation_result="success",
             device_name=device.name,
-            description=f"抢占设备 {device.name}（设备可用，直接占用）"
+            description=f"抢占设备 {device.name}（设备可用，直接占用）",
+            device_ip=device.ip
         )
 
         return BaseResponse(
@@ -1026,7 +1212,7 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
     
     elif usage_info.status == DeviceStatusEnum.OCCUPIED:
         # 检查是否试图抢占自己正在使用的设备
-        if usage_info.current_user == request.user:
+        if normalize_employee_id(usage_info.current_user) == requested_user:
             raise HTTPException(status_code=400, detail="您已经在使用此设备")
         
         # 抢占设备，将当前用户加入排队列表首位
@@ -1035,15 +1221,21 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
         # 检查抢占者是否已在排队中，如果在则先移除
         if not usage_info.queue_users:
             usage_info.queue_users = []
-        if request.user in usage_info.queue_users:
-            usage_info.queue_users.remove(request.user)
+        normalized_queue = [normalize_employee_id(u) for u in usage_info.queue_users]
+        if requested_user in normalized_queue:
+            usage_info.queue_users = [
+                user_id for user_id, normalized in zip(usage_info.queue_users, normalized_queue)
+                if normalized != requested_user
+            ]
         
         # 将原用户加入排队列表首位（如果原用户不在排队中）
-        if previous_user not in usage_info.queue_users:
-            usage_info.queue_users.insert(0, previous_user)
+        previous_user_normalized = normalize_employee_id(previous_user)
+        if previous_user_normalized and previous_user_normalized not in [normalize_employee_id(u) for u in usage_info.queue_users]:
+            usage_info.queue_users.insert(0, previous_user_normalized)
         
         # 更新设备占用者
-        usage_info.current_user = request.user
+        await revoke_shared_access(device, current_user, "device_preempt")
+        usage_info.current_user = requested_user
         usage_info.start_time = get_current_time()
         usage_info.expected_duration = request.expected_duration
         await usage_info.save()
@@ -1051,7 +1243,7 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
         # 创建使用历史记录
         await DeviceUsageHistory.create(
             device=device,
-            user=request.user,
+            user=requested_user,
             start_time=get_current_time(),
             purpose=request.purpose
         )
@@ -1062,7 +1254,8 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
             operation_type="device_preempt",
             operation_result="success",
             device_name=device.name,
-            description=f"抢占设备 {device.name}，原用户 {previous_user} 已加入排队列表首位"
+            description=f"抢占设备 {device.name}，原用户 {previous_user} 已加入排队列表首位",
+            device_ip=device.ip
         )
 
         return BaseResponse(
@@ -1092,6 +1285,7 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
+    await ensure_user_vpn_ip(device, current_user)
     
     if not device.support_queue:
         raise HTTPException(status_code=400, detail="该设备不支持排队等待")
@@ -1101,9 +1295,12 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
         usage_info = await DeviceUsage.create(device=device)
     
     # 检查设备状态
+    normalized_request_user = resolve_request_user(request.user, current_user)
+
     if usage_info.status == DeviceStatusEnum.AVAILABLE:
         # 设备可用，直接占用
-        usage_info.current_user = request.user
+        await revoke_shared_access(device, current_user, "device_priority_queue_use")
+        usage_info.current_user = normalized_request_user
         usage_info.start_time = get_current_time()
         usage_info.expected_duration = request.expected_duration
         usage_info.status = DeviceStatusEnum.OCCUPIED
@@ -1112,7 +1309,7 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
         # 创建使用历史记录
         await DeviceUsageHistory.create(
             device=device,
-            user=request.user,
+            user=normalized_request_user,
             start_time=get_current_time(),
             purpose=request.purpose
         )
@@ -1123,7 +1320,8 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
             operation_type="device_priority_queue",
             operation_result="success",
             device_name=device.name,
-            description=f"优先排队设备 {device.name}（设备可用，直接占用）"
+            description=f"优先排队设备 {device.name}（设备可用，直接占用）",
+            device_ip=device.ip
         )
 
         return BaseResponse(
@@ -1134,17 +1332,18 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
     
     elif usage_info.status == DeviceStatusEnum.OCCUPIED:
         # 检查是否是当前使用者尝试排队
-        if usage_info.current_user == request.user:
+        if normalize_employee_id(usage_info.current_user) == normalized_request_user:
             raise HTTPException(status_code=400, detail="您已经在使用此设备")
         
         # 检查用户是否已在排队
-        if request.user in (usage_info.queue_users or []):
+        normalized_queue = [normalize_employee_id(u) for u in (usage_info.queue_users or [])]
+        if normalized_request_user in normalized_queue:
             raise HTTPException(status_code=400, detail="您已在排队中")
         
         # 优先加入排队列表首位
         if not usage_info.queue_users:
             usage_info.queue_users = []
-        usage_info.queue_users.insert(0, request.user)
+        usage_info.queue_users.insert(0, normalized_request_user)
         await usage_info.save()
 
         # 记录优先排队操作日志
@@ -1153,7 +1352,8 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
             operation_type="device_priority_queue",
             operation_result="success",
             device_name=device.name,
-            description=f"优先排队设备 {device.name}，排队位置: 1"
+            description=f"优先排队设备 {device.name}，排队位置: 1",
+            device_ip=device.ip
         )
 
         return BaseResponse(
@@ -1176,6 +1376,7 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
+    await ensure_user_vpn_ip(device, current_user)
     await ensure_device_access(device, current_user)
     
     usage_info = await DeviceUsage.filter(device=device).first()
@@ -1183,9 +1384,12 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
         usage_info = await DeviceUsage.create(device=device)
     
     # 检查设备状态
+    normalized_request_user = resolve_request_user(request.user, current_user)
+
     if usage_info.status == DeviceStatusEnum.AVAILABLE:
         # 设备可用，直接占用
-        usage_info.current_user = request.user
+        await revoke_shared_access(device, current_user, "device_unified_queue_use")
+        usage_info.current_user = normalized_request_user
         usage_info.start_time = get_current_time()
         usage_info.expected_duration = request.expected_duration
         usage_info.status = DeviceStatusEnum.OCCUPIED
@@ -1194,7 +1398,7 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
         # 创建使用历史记录
         await DeviceUsageHistory.create(
             device=device,
-            user=request.user,
+            user=normalized_request_user,
             start_time=get_current_time(),
             purpose=request.purpose
         )
@@ -1205,7 +1409,8 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
             operation_type="device_unified_queue",
             operation_result="success",
             device_name=device.name,
-            description=f"统一排队设备 {device.name}（设备可用，直接使用）"
+            description=f"统一排队设备 {device.name}（设备可用，直接使用）",
+            device_ip=device.ip
         )
 
         return BaseResponse(
@@ -1223,17 +1428,18 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
             raise HTTPException(status_code=400, detail="该设备不支持排队等待")
         
         # 检查是否是当前使用者尝试排队
-        if usage_info.current_user == request.user:
+        if normalize_employee_id(usage_info.current_user) == normalized_request_user:
             raise HTTPException(status_code=400, detail="您已经在使用此设备")
         
         # 检查用户是否已在排队
-        if request.user in (usage_info.queue_users or []):
+        normalized_queue = [normalize_employee_id(u) for u in (usage_info.queue_users or [])]
+        if normalized_request_user in normalized_queue:
             raise HTTPException(status_code=400, detail="您已在排队中")
         
         # 加入排队列表末尾
         if not usage_info.queue_users:
             usage_info.queue_users = []
-        usage_info.queue_users.append(request.user)
+        usage_info.queue_users.append(normalized_request_user)
         await usage_info.save()
 
         # 记录统一排队操作日志（加入排队）
@@ -1242,7 +1448,8 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
             operation_type="device_unified_queue",
             operation_result="success",
             device_name=device.name,
-            description=f"统一排队设备 {device.name}，排队位置: {len(usage_info.queue_users)}"
+            description=f"统一排队设备 {device.name}，排队位置: {len(usage_info.queue_users)}",
+            device_ip=device.ip
         )
 
         return BaseResponse(
@@ -1256,12 +1463,227 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
         )
 
 
+@router.post("/share-requests", response_model=BaseResponse, summary="申请共用设备")
+async def create_share_request(
+    share_data: DeviceShareRequestCreate,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """申请共用已被占用的设备"""
+    device = await Device.filter(id=share_data.device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    await ensure_device_access(device, current_user)
+    await ensure_user_vpn_ip(device, current_user)
+
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if not usage_info or usage_info.status not in [DeviceStatusEnum.OCCUPIED, DeviceStatusEnum.LONG_TERM_OCCUPIED]:
+        raise HTTPException(status_code=400, detail="设备当前未被占用，无法申请共用")
+
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+
+    if normalize_employee_id(usage_info.current_user) == normalized_employee:
+        raise HTTPException(status_code=400, detail="您已经在使用该设备")
+
+    existing = await DeviceShareRequest.filter(
+        device=device,
+        requester_employee_id__iexact=normalized_employee,
+        status__in=["pending", "approved"]
+    ).first()
+    if existing:
+        message = "您已提交共用申请，请等待占用人处理" if existing.status == "pending" else "您已经拥有共用权限"
+        raise HTTPException(status_code=400, detail=message)
+
+    share_request = await DeviceShareRequest.create(
+        device=device,
+        requester_employee_id=normalized_employee,
+        requester_username=current_user.username,
+        request_message=share_data.message
+    )
+    await share_request.fetch_related("device")
+
+    await OperationLog.create_log(
+        user=current_user,
+        operation_type="device_share_request",
+        operation_result="success",
+        device_name=device.name,
+        description=f"申请共用设备 {device.name}",
+        device_ip=device.ip
+    )
+
+    return BaseResponse(
+        code=200,
+        message="共用申请已提交",
+        data=serialize_share_request_record(share_request)
+    )
+
+
+@router.get("/share-requests/pending", response_model=BaseResponse, summary="获取待处理共用申请")
+async def get_pending_share_requests(current_user: User = Depends(AuthManager.get_current_user)):
+    """获取由当前用户占用设备的共用申请"""
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+    usage_infos = await DeviceUsage.filter(current_user__iexact=normalized_employee).values_list("device_id", flat=True)
+    device_ids = list(usage_infos)
+    if not device_ids:
+        return BaseResponse(code=200, message="暂无共用申请", data=[])
+
+    pending_requests = await DeviceShareRequest.filter(
+        device_id__in=device_ids,
+        status="pending"
+    ).prefetch_related("device").order_by("created_at")
+
+    data = [serialize_share_request_record(req) for req in pending_requests]
+    return BaseResponse(code=200, message="共用申请获取成功", data=data)
+
+
+@router.post("/share-requests/{request_id:int}/decision", response_model=BaseResponse, summary="处理共用申请")
+async def decide_share_request(
+    request_id: int,
+    decision: DeviceShareDecision,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """占用人处理共用申请"""
+    share_request = await DeviceShareRequest.filter(id=request_id).prefetch_related("device").first()
+    if not share_request:
+        raise HTTPException(status_code=404, detail="共用申请不存在")
+
+    usage_info = await DeviceUsage.filter(device=share_request.device).first()
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+    if not usage_info or normalize_employee_id(usage_info.current_user) != normalized_employee:
+        raise HTTPException(status_code=403, detail="只有当前占用人可以处理共用申请")
+
+    if share_request.status != "pending":
+        raise HTTPException(status_code=400, detail="该共用申请已处理")
+
+    share_request.status = "approved" if decision.approve else "rejected"
+    share_request.processed_by = current_user.employee_id
+    share_request.processed_at = get_current_time()
+    share_request.decision_reason = decision.reason
+    await share_request.save()
+    await share_request.fetch_related("device")
+
+    operation_type = "device_share_approve" if decision.approve else "device_share_reject"
+    description = (
+        f"同意用户 {share_request.requester_employee_id} 共用设备 {share_request.device.name}"
+        if decision.approve else
+        f"拒绝用户 {share_request.requester_employee_id} 共用设备 {share_request.device.name}"
+    )
+    await OperationLog.create_log(
+        user=current_user,
+        operation_type=operation_type,
+        operation_result="success",
+        device_name=share_request.device.name if share_request.device else None,
+        description=description,
+        device_ip=share_request.device.ip if share_request.device else None
+    )
+
+    return BaseResponse(
+        code=200,
+        message="共用申请已处理",
+        data=serialize_share_request_record(share_request)
+    )
+
+
+@router.post("/share-requests/{request_id:int}/cancel", response_model=BaseResponse, summary="取消我的共用申请")
+async def cancel_share_request(
+    request_id: int,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """申请人在待审批或已通过后取消共用"""
+    share_request = await DeviceShareRequest.filter(id=request_id).prefetch_related("device").first()
+    if not share_request:
+        raise HTTPException(status_code=404, detail="共用申请不存在")
+
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+    if normalize_employee_id(share_request.requester_employee_id) != normalized_employee:
+        raise HTTPException(status_code=403, detail="只能取消自己的共用申请")
+
+    if share_request.status not in ["pending", "approved"]:
+        raise HTTPException(status_code=400, detail="当前状态不支持取消")
+
+    new_status = "cancelled" if share_request.status == "pending" else "revoked"
+    share_request.status = new_status
+    share_request.processed_by = normalized_employee
+    share_request.processed_at = get_current_time()
+    share_request.decision_reason = "申请人取消共用"
+    await share_request.save()
+    await share_request.fetch_related("device")
+
+    action_text = "取消共用申请" if new_status == "cancelled" else "取消已审批的共用"
+    await OperationLog.create_log(
+        user=current_user,
+        operation_type="device_share_cancel",
+        operation_result="success",
+        device_name=share_request.device.name if share_request.device else None,
+        description=f"{action_text}（设备 {share_request.device.name if share_request.device else ''}）",
+        device_ip=share_request.device.ip if share_request.device else None
+    )
+
+    return BaseResponse(
+        code=200,
+        message="共用申请已取消",
+        data=serialize_share_request_record(share_request)
+    )
+
+
+@router.get("/my-usage-summary", response_model=BaseResponse, summary="获取我的环境使用情况")
+async def get_my_usage_summary(current_user: User = Depends(AuthManager.get_current_user)):
+    """获取我当前占用和共用的设备"""
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+    usage_infos = await DeviceUsage.filter(current_user__iexact=normalized_employee).prefetch_related("device")
+    occupied_devices = []
+    for usage in usage_infos:
+        if not usage.device:
+            continue
+        occupied_devices.append({
+            "id": usage.device.id,
+            "name": usage.device.name,
+            "ip": usage.device.ip,
+            "status": usage.status,
+            "owner": usage.device.owner,
+            "current_user": usage.current_user
+        })
+
+    shared_requests = await DeviceShareRequest.filter(
+        requester_employee_id__iexact=normalized_employee,
+        status="approved"
+    ).prefetch_related("device")
+
+    shared_devices = []
+    for share in shared_requests:
+        device = share.device
+        if not device:
+            continue
+        try:
+            await device.fetch_related("usage_info")
+        except Exception:
+            pass
+        current_usage = getattr(device, "usage_info", None)
+        shared_devices.append({
+            "id": device.id,
+            "name": device.name,
+            "ip": device.ip,
+            "status": current_usage.status if current_usage else DeviceStatusEnum.AVAILABLE,
+            "owner": device.owner,
+            "current_user": current_usage.current_user if current_usage else None
+        })
+
+    return BaseResponse(
+        code=200,
+        message="环境信息获取成功",
+        data={
+            "occupied_devices": occupied_devices,
+            "shared_devices": shared_devices
+        }
+    )
+
+
 @router.post("/batch-release-my-devices", summary="批量释放我的设备")
 async def batch_release_my_devices(current_user: User = Depends(AuthManager.get_current_user)):
     """批量释放当前用户占用的所有设备"""
     try:
         # 查找当前用户占用的所有设备
-        usage_infos = await DeviceUsage.filter(current_user=current_user.employee_id).prefetch_related("device")
+        normalized_employee = normalize_employee_id(current_user.employee_id)
+        usage_infos = await DeviceUsage.filter(current_user__iexact=normalized_employee).prefetch_related("device")
 
         if not usage_infos:
             return BaseResponse(
@@ -1275,6 +1697,7 @@ async def batch_release_my_devices(current_user: User = Depends(AuthManager.get_
 
         for usage_info in usage_infos:
             try:
+                await revoke_shared_access(usage_info.device, current_user, "device_batch_release")
                 # 释放设备
                 usage_info.current_user = None
                 usage_info.start_time = None
@@ -1285,9 +1708,12 @@ async def batch_release_my_devices(current_user: User = Depends(AuthManager.get_
                 usage_info.long_term_purpose = None
 
                 # 如果有排队用户，让第一个用户占用设备
+                next_user_display = None
                 if usage_info.queue_users:
                     next_user = usage_info.queue_users[0]
-                    usage_info.current_user = next_user
+                    normalized_next_user = normalize_employee_id(next_user) or next_user
+                    next_user_display = normalized_next_user
+                    usage_info.current_user = normalized_next_user
                     usage_info.start_time = get_current_time()
                     usage_info.status = DeviceStatusEnum.OCCUPIED
                     usage_info.queue_users = usage_info.queue_users[1:]  # 移除第一个用户
@@ -1296,13 +1722,14 @@ async def batch_release_my_devices(current_user: User = Depends(AuthManager.get_
                 released_count += 1
 
                 # 记录批量释放操作日志
-                next_user_info = f"，设备已分配给下一个用户 {next_user}" if usage_info.queue_users else "，设备现在可用"
+                next_user_info = f"，设备已分配给下一个用户 {next_user_display}" if next_user_display else "，设备现在可用"
                 await OperationLog.create_log(
                     user=current_user,
                     operation_type="device_batch_release",
                     operation_result="success",
                     device_name=usage_info.device.name,
-                    description=f"批量释放设备 {usage_info.device.name}{next_user_info}"
+                    description=f"批量释放设备 {usage_info.device.name}{next_user_info}",
+                    device_ip=usage_info.device.ip if usage_info.device else None
                 )
 
             except Exception as e:
@@ -1342,29 +1769,37 @@ async def batch_cancel_my_queues(current_user: User = Depends(AuthManager.get_cu
         cancelled_count = 0
         failed_devices = []
 
+        normalized_employee = normalize_employee_id(current_user.employee_id)
         for usage_info in all_usage_infos:
-            if usage_info.queue_users and current_user.employee_id in usage_info.queue_users:
-                try:
-                    # 从排队列表中移除当前用户
-                    queue_users = usage_info.queue_users.copy()
-                    queue_users.remove(current_user.employee_id)
-                    usage_info.queue_users = queue_users
+            if not usage_info.queue_users:
+                continue
+            queue_users = usage_info.queue_users
+            normalized_queue = [normalize_employee_id(u) for u in queue_users]
+            if normalized_employee not in normalized_queue:
+                continue
+            try:
+                # 从排队列表中移除当前用户
+                usage_info.queue_users = [
+                    user_id for user_id, normalized in zip(queue_users, normalized_queue)
+                    if normalized != normalized_employee
+                ]
 
-                    await usage_info.save()
-                    cancelled_count += 1
+                await usage_info.save()
+                cancelled_count += 1
 
-                    # 记录批量取消排队操作日志
-                    await OperationLog.create_log(
-                        user=current_user,
-                        operation_type="device_batch_cancel_queue",
-                        operation_result="success",
-                        device_name=usage_info.device.name,
-                        description=f"批量取消设备 {usage_info.device.name} 排队"
-                    )
+                # 记录批量取消排队操作日志
+                await OperationLog.create_log(
+                    user=current_user,
+                    operation_type="device_batch_cancel_queue",
+                    operation_result="success",
+                    device_name=usage_info.device.name,
+                    description=f"批量取消设备 {usage_info.device.name} 排队",
+                    device_ip=usage_info.device.ip if usage_info.device else None
+                )
 
-                except Exception as e:
-                    failed_devices.append(usage_info.device.name)
-                    print(f"取消设备 {usage_info.device.name} 排队失败: {e}")
+            except Exception as e:
+                failed_devices.append(usage_info.device.name)
+                print(f"取消设备 {usage_info.device.name} 排队失败: {e}")
 
         if cancelled_count == 0:
             return BaseResponse(
@@ -1428,7 +1863,7 @@ async def admin_force_cleanup_all_devices(current_user: User = Depends(AuthManag
 
 # ===== 设备配置管理接口 =====
 
-@router.get("/{device_id}/configs", response_model=BaseResponse, summary="获取设备配置列表")
+@router.get("/{device_id:int}/configs", response_model=BaseResponse, summary="获取设备配置列表")
 async def get_device_configs(
     device_id: int,
     current_user: User = Depends(AuthManager.get_current_user)
@@ -1460,7 +1895,7 @@ async def get_device_configs(
     return BaseResponse(data=result)
 
 
-@router.post("/{device_id}/configs", response_model=BaseResponse, summary="添加设备配置")
+@router.post("/{device_id:int}/configs", response_model=BaseResponse, summary="添加设备配置")
 async def add_device_config(
     device_id: int,
     config_data: DeviceConfigCreate,
@@ -1508,7 +1943,8 @@ async def add_device_config(
             operation_type="add_device_config",
             operation_result="success",
             device_name=device.name,
-            description=f"添加配置: 参数1={config_data.config_param1}, 参数2={config_data.config_param2}, 值={config_data.config_value}"
+            description=f"添加配置: 参数1={config_data.config_param1}, 参数2={config_data.config_param2}, 值={config_data.config_value}",
+            device_ip=device.ip
         )
         
         result = {
@@ -1527,7 +1963,7 @@ async def add_device_config(
         raise HTTPException(status_code=400, detail=f"添加配置失败: {str(e)}")
 
 
-@router.put("/{device_id}/configs/{config_id}", response_model=BaseResponse, summary="更新设备配置")
+@router.put("/{device_id:int}/configs/{config_id:int}", response_model=BaseResponse, summary="更新设备配置")
 async def update_device_config(
     device_id: int,
     config_id: int,
@@ -1581,7 +2017,8 @@ async def update_device_config(
             operation_type="update_device_config",
             operation_result="success",
             device_name=device.name,
-            description=f"更新配置: {old_config} => 参数1={config.config_param1}, 参数2={config.config_param2}, 值={config.config_value}"
+            description=f"更新配置: {old_config} => 参数1={config.config_param1}, 参数2={config.config_param2}, 值={config.config_value}",
+            device_ip=device.ip
         )
         
         result = {
@@ -1600,7 +2037,7 @@ async def update_device_config(
         raise HTTPException(status_code=400, detail=f"更新配置失败: {str(e)}")
 
 
-@router.delete("/{device_id}/configs/{config_id}", response_model=BaseResponse, summary="删除设备配置")
+@router.delete("/{device_id:int}/configs/{config_id:int}", response_model=BaseResponse, summary="删除设备配置")
 async def delete_device_config(
     device_id: int,
     config_id: int,
@@ -1639,7 +2076,8 @@ async def delete_device_config(
             operation_type="delete_device_config",
             operation_result="success",
             device_name=device.name,
-            description=f"删除配置: {config_info}"
+            description=f"删除配置: {config_info}",
+            device_ip=device.ip
         )
         
         return BaseResponse(message="配置删除成功")

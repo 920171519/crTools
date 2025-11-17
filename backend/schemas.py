@@ -387,6 +387,13 @@ class DeviceUsageUpdate(BaseModel):
     status: Optional[str] = None
 
 
+class DeviceSharedUser(BaseModel):
+    """共用用户信息"""
+    employee_id: str
+    username: str
+    approved_at: Optional[datetime] = None
+
+
 class DeviceUsageResponse(DeviceUsageBase):
     """设备使用情况响应模型"""
     id: int
@@ -396,6 +403,11 @@ class DeviceUsageResponse(DeviceUsageBase):
     occupied_duration: int = 0
     queue_count: int = 0
     updated_at: datetime
+    shared_users: List[DeviceSharedUser] = []
+    has_pending_share_request: bool = False
+    is_shared_user: bool = False
+    share_request_id: Optional[int] = None
+    share_status: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -422,6 +434,10 @@ class DeviceListItem(BaseModel):
     project_name: Optional[str] = None
     support_queue: bool = True
     groups: List[GroupSummary] = []
+    is_shared_user: bool = False
+    has_pending_share_request: bool = False
+    share_request_id: Optional[int] = None
+    share_status: Optional[str] = None
 
 
 class DeviceUseRequest(BaseModel):
@@ -466,6 +482,49 @@ class DeviceUnifiedQueueRequest(BaseModel):
     user: str
     expected_duration: int = Field(60, description="预计使用时间(分钟)")
     purpose: Optional[str] = None
+
+
+class DeviceShareRequestCreate(BaseModel):
+    """申请共用设备"""
+    device_id: int = Field(..., description="设备ID")
+    message: Optional[str] = Field(None, description="申请备注信息")
+
+
+class DeviceShareDecision(BaseModel):
+    """共用申请处理请求"""
+    approve: bool = Field(..., description="是否通过")
+    reason: Optional[str] = Field(None, description="处理说明")
+
+
+class DeviceShareRequestResponse(BaseModel):
+    """共用申请响应数据"""
+    id: int
+    device_id: int
+    device_name: str
+    requester_employee_id: str
+    requester_username: str
+    status: str
+    request_message: Optional[str] = None
+    decision_reason: Optional[str] = None
+    processed_by: Optional[str] = None
+    processed_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class MyUsageDeviceSummary(BaseModel):
+    """个人当前环境概要"""
+    id: int
+    name: str
+    ip: str
+    status: str
+    owner: str
+    current_user: Optional[str] = None
+
+
+class MyUsageSummaryResponse(BaseModel):
+    """个人当前占用与共用环境"""
+    occupied_devices: List[MyUsageDeviceSummary] = []
+    shared_devices: List[MyUsageDeviceSummary] = []
 
 
 # ===== 设备配置相关模式 =====

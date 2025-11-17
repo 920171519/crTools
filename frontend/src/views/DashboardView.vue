@@ -11,6 +11,72 @@
       </div>
     </el-card>
 
+    <el-alert
+      v-if="pendingShareRequests.length"
+      type="warning"
+      show-icon
+      :closable="false"
+      class="share-alert"
+      :title="`有 ${pendingShareRequests.length} 个共用申请待处理`"
+    />
+
+    <el-card class="share-requests-card" shadow="never">
+      <template #header>
+        <div class="card-header">
+          <el-icon><User /></el-icon>
+          <span>设备共用申请</span>
+          <el-button text size="small" @click="loadPendingShareRequests">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
+      </template>
+      <div v-if="pendingShareRequests.length" class="share-request-list">
+        <div
+          class="share-request-item"
+          v-for="request in pendingShareRequests"
+          :key="request.id"
+        >
+          <div class="share-request-info">
+            <div class="device-name">{{ request.device_name }}</div>
+            <div class="request-meta">
+              申请人：{{ request.requester_username }} ({{ request.requester_employee_id }})
+            </div>
+            <div class="request-meta">
+              申请时间：{{ formatTime(request.created_at) }}
+            </div>
+            <div
+              class="request-message"
+              v-if="request.request_message"
+            >
+              备注：{{ request.request_message }}
+            </div>
+          </div>
+          <div class="share-request-actions">
+            <el-button
+              type="primary"
+              plain
+              size="small"
+              @click="handleShareDecision(request, true)"
+              :loading="shareDecisionLoading[request.id]"
+            >
+              允许共用
+            </el-button>
+            <el-button
+              type="danger"
+              plain
+              size="small"
+              @click="handleShareDecision(request, false)"
+              :loading="shareDecisionLoading[request.id]"
+            >
+              拒绝
+            </el-button>
+          </div>
+        </div>
+      </div>
+      <el-empty v-else description="暂无共用申请" />
+    </el-card>
+
     <!-- crTools管理系统标题 -->
     <div class="system-title">
       <h1>crTools 管理系统</h1>
@@ -133,17 +199,19 @@
         </el-card>
       </el-col>
     </el-row>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { deviceApi } from '@/api/device'
+import { ElMessage } from 'element-plus'
 import {
   User, Document, Setting,
-  Lightning, Clock, Monitor
+  Lightning, Clock, Monitor, Refresh
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -155,6 +223,9 @@ const deviceStats = ref({
   queueCount: 0,
   totalCount: 0
 })
+
+const pendingShareRequests = ref([])
+const shareDecisionLoading = reactive<Record<number, boolean>>({})
 
 // 当前时间
 const currentTime = computed(() => {
@@ -200,6 +271,32 @@ const formatTime = (timeStr?: string) => {
   })
 }
 
+const loadPendingShareRequests = async () => {
+  try {
+    const response = await deviceApi.getPendingShareRequests()
+    pendingShareRequests.value = response.data || []
+  } catch (error) {
+    console.error('加载共用申请失败:', error)
+    pendingShareRequests.value = []
+  }
+}
+
+const handleShareDecision = async (request: any, approve: boolean) => {
+  if (shareDecisionLoading[request.id]) return
+  try {
+    shareDecisionLoading[request.id] = true
+    await deviceApi.decideShareRequest(request.id, { approve })
+    ElMessage.success(approve ? '已允许共用' : '已拒绝共用')
+    await loadPendingShareRequests()
+  } catch (error: any) {
+    console.error('处理共用申请失败:', error)
+    const message = error?.response?.data?.detail || '处理共用申请失败'
+    ElMessage.error(message)
+  } finally {
+    shareDecisionLoading[request.id] = false
+  }
+}
+
 // 加载设备统计数据
 const loadDeviceStats = async () => {
   try {
@@ -242,6 +339,7 @@ const loadDeviceStats = async () => {
 // 初始化
 onMounted(() => {
   loadDeviceStats()
+  loadPendingShareRequests()
 })
 </script>
 
@@ -422,6 +520,55 @@ onMounted(() => {
 
 .system-info {
   padding: 8px 0;
+}
+
+.share-alert {
+  margin-top: 20px;
+}
+
+.share-requests-card {
+  margin-top: 20px;
+}
+
+.share-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.share-request-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f2f2f2;
+}
+
+.share-request-item:last-child {
+  border-bottom: none;
+}
+
+.share-request-info .device-name {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.request-meta {
+  color: #909399;
+  font-size: 13px;
+}
+
+.request-message {
+  margin-top: 6px;
+  color: #606266;
+}
+
+.share-request-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 160px;
+  align-items: flex-end;
 }
 
 /* 响应式设计 */

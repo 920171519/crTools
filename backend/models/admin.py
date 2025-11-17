@@ -180,9 +180,11 @@ class OperationLog(Model):
         operation_result: str = "success",
         device_name: str = None,
         description: str = None,
-        ip_address: str = None
+        ip_address: str = None,
+        device_ip: str = None
     ):
         """创建操作日志的便捷方法"""
+        ip_value = device_ip if device_ip is not None else ip_address
         return await cls.create(
             employee_id=user.employee_id,
             username=user.username,
@@ -190,5 +192,5 @@ class OperationLog(Model):
             operation_result=operation_result,
             device_name=device_name,
             description=description,
-            ip_address=ip_address
+            ip_address=ip_value
         )

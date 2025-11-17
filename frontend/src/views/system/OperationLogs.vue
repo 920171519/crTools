@@ -53,19 +53,31 @@
       </div>
 
       <el-table :data="loginLogs" :loading="loginLoading" stripe style="width: 100%">
-        <el-table-column prop="employee_id" label="工号" width="120" align="center" />
-        <el-table-column prop="username" label="用户名" width="120" align="center" />
+        <el-table-column prop="employee_id" label="工号" width="120" align="center">
+          <template #default="{ row }">
+            {{ row.employee_id || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="username" label="用户名" width="120" align="center">
+          <template #default="{ row }">
+            {{ row.username || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="operation_type" label="操作" width="100" align="center">
           <template #default="{ row }">
             <el-tag
-              :type="row.operation_type === 'login' ? 'success' : 'warning'"
+              :type="row.operation_type === 'logout' ? 'warning' : 'success'"
               size="small"
             >
-              {{ row.operation_type === 'login' ? '登录' : '退出' }}
+              {{ getLoginOperationText(row.operation_type) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="ip_address" label="IP地址" width="150" align="center" />
+        <el-table-column prop="ip_address" label="IP地址" width="150" align="center">
+          <template #default="{ row }">
+            {{ row.ip_address || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="时间" width="180" align="center">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
@@ -142,10 +154,27 @@
       </div>
 
       <el-table :data="deviceLogs" :loading="deviceLoading" stripe style="width: 100%">
-        <el-table-column prop="employee_id" label="操作人" width="100" align="center" />
-        <el-table-column prop="username" label="用户名" width="100" align="center" />
-        <el-table-column prop="device_name" label="设备名称" width="150" align="center" />
-        <el-table-column prop="operation_type" label="操作" width="120" align="center">
+        <el-table-column label="操作人" width="100" align="center">
+          <template #default="{ row }">
+            {{ row.employee_id || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="用户名" width="120" align="center">
+          <template #default="{ row }">
+            {{ row.username || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="设备名称" width="150" align="center">
+          <template #default="{ row }">
+            {{ row.device_name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="设备IP" width="150" align="center">
+          <template #default="{ row }">
+            {{ row.ip_address || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" align="center">
           <template #default="{ row }">
             <el-tag
               :type="getDeviceOperationTagType(row.operation_type)"
@@ -155,7 +184,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="operation_result" label="结果" width="80" align="center">
+        <el-table-column label="结果" width="80" align="center">
           <template #default="{ row }">
             <el-tag
               :type="row.operation_result === 'success' ? 'success' : 'danger'"
@@ -165,7 +194,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="时间" width="180" align="center">
+        <el-table-column label="时间" width="180" align="center">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>
@@ -349,6 +378,16 @@ const getDeviceOperationText = (type: string) => {
   return textMap[type] || type
 }
 
+const getLoginOperationText = (type: string) => {
+  if (type === 'logout') {
+    return '退出'
+  }
+  if (type === 'login') {
+    return '登录'
+  }
+  return type || '-'
+}
+
 // 加载登录日志
 const loadLoginLogs = async () => {
   try {
@@ -429,8 +468,9 @@ const loadCommandLogs = async () => {
     })
 
     const response = await commandApi.getCommandOperationLogs(params)
-    commandLogs.value = response.data.items || []
-    commandPagination.value.total = response.data.total || 0
+    const result = response?.data || {}
+    commandLogs.value = result.items || []
+    commandPagination.value.total = result.total || 0
   } catch (error) {
     console.error('加载命令行日志失败:', error)
     ElMessage.error('加载命令行日志失败')

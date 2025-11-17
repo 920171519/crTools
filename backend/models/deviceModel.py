@@ -67,6 +67,7 @@ class Device(Model):
     usage_info: fields.ReverseRelation["DeviceUsage"]
     internal_info: fields.ReverseRelation["DeviceInternal"]
     group_links: fields.ReverseRelation["DeviceGroup"]
+    device_share_requests: fields.ReverseRelation["DeviceShareRequest"]
     
     class Meta:
         table = "devices"
@@ -185,3 +186,26 @@ class DeviceConfig(Model):
     
     def __str__(self):
         return f"{self.device.name} - 参数1:{self.config_param1}, 参数2:{self.config_param2} = {self.config_value}" 
+
+
+class DeviceShareRequest(Model):
+    """设备共用申请记录"""
+
+    id = fields.IntField(pk=True, description="共用申请ID")
+    device = fields.ForeignKeyField("models.Device", related_name="device_share_requests", description="关联设备")
+    requester_employee_id = fields.CharField(max_length=20, description="申请人工号")
+    requester_username = fields.CharField(max_length=50, description="申请人姓名")
+    status = fields.CharField(max_length=20, default="pending", description="申请状态")
+    request_message = fields.CharField(max_length=255, null=True, description="申请备注")
+    decision_reason = fields.CharField(max_length=255, null=True, description="处理说明")
+    processed_by = fields.CharField(max_length=50, null=True, description="处理人工号")
+    processed_at = fields.DatetimeField(null=True, description="处理时间")
+    created_at = fields.DatetimeField(auto_now_add=True, description="申请时间")
+    updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
+
+    class Meta:
+        table = "device_share_requests"
+        table_description = "设备共用申请表"
+
+    def __str__(self):
+        return f"{self.device_id} - {self.requester_employee_id} - {self.status}"

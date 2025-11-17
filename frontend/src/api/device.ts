@@ -49,6 +49,10 @@ export interface DeviceListItem {
   last_connectivity_check?: string
   support_queue: boolean
   groups?: DeviceGroupSummary[]
+  is_shared_user?: boolean
+  has_pending_share_request?: boolean
+  share_request_id?: number
+  share_status?: string
 }
 
 export interface DeviceCreateRequest {
@@ -118,6 +122,33 @@ export interface ConnectivityResponse {
   [deviceId: string]: ConnectivityStatus
 }
 
+export interface DeviceSharedUser {
+  employee_id: string
+  username: string
+  approved_at?: string | null
+}
+
+export interface DeviceUsageDetail {
+  id: number
+  device_id: number
+  current_user?: string
+  start_time?: string | null
+  expected_duration: number
+  is_long_term: boolean
+  long_term_purpose?: string | null
+  end_date?: string | null
+  queue_users: string[]
+  status: string
+  occupied_duration: number
+  queue_count: number
+  updated_at?: string | null
+  shared_users: DeviceSharedUser[]
+  has_pending_share_request: boolean
+  is_shared_user: boolean
+  share_request_id?: number
+  share_status?: string
+}
+
 // 设备配置相关接口类型定义
 export interface DeviceConfig {
   id: number
@@ -168,6 +199,44 @@ export interface DeviceGroupSummary {
   description?: string
 }
 
+export interface DeviceShareRequestPayload {
+  device_id: number
+  message?: string
+}
+
+export interface DeviceShareDecisionPayload {
+  approve: boolean
+  reason?: string
+}
+
+export interface DeviceShareRequestItem {
+  id: number
+  device_id: number
+  device_name: string
+  requester_employee_id: string
+  requester_username: string
+  status: string
+  request_message?: string | null
+  decision_reason?: string | null
+  processed_by?: string | null
+  processed_at?: string | null
+  created_at?: string | null
+}
+
+export interface UsageSummaryItem {
+  id: number
+  name: string
+  ip: string
+  status: string
+  owner: string
+  current_user?: string | null
+}
+
+export interface UsageSummaryResponse {
+  occupied_devices: UsageSummaryItem[]
+  shared_devices: UsageSummaryItem[]
+}
+
 // 设备管理API
 export const deviceApi = {
   // 获取设备列表
@@ -212,7 +281,7 @@ export const deviceApi = {
 
   // 获取设备使用情况
   getDeviceUsage: (deviceId: number) => {
-    return api.get(`/devices/${deviceId}/usage`)
+    return api.get<DeviceUsageDetail>(`/devices/${deviceId}/usage`)
   },
 
   // 抢占设备
@@ -282,5 +351,30 @@ export const deviceApi = {
   // 删除设备配置
   deleteDeviceConfig: (deviceId: number, configId: number) => {
     return api.delete(`/devices/${deviceId}/configs/${configId}`)
+  },
+
+  // 申请共用
+  requestShare: (data: DeviceShareRequestPayload) => {
+    return api.post<DeviceShareRequestItem>('/devices/share-requests', data)
+  },
+
+  // 获取待处理共用申请
+  getPendingShareRequests: () => {
+    return api.get<DeviceShareRequestItem[]>('/devices/share-requests/pending')
+  },
+
+  // 处理共用申请
+  decideShareRequest: (requestId: number, data: DeviceShareDecisionPayload) => {
+    return api.post<DeviceShareRequestItem>(`/devices/share-requests/${requestId}/decision`, data)
+  },
+
+  // 取消共用申请/共用
+  cancelShareRequest: (requestId: number) => {
+    return api.post<DeviceShareRequestItem>(`/devices/share-requests/${requestId}/cancel`)
+  },
+
+  // 获取我的环境使用情况
+  getMyUsageSummary: () => {
+    return api.get<UsageSummaryResponse>('/devices/my-usage-summary')
   }
 }
