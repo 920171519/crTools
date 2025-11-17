@@ -53,16 +53,8 @@
       </div>
 
       <el-table :data="loginLogs" :loading="loginLoading" stripe style="width: 100%">
-        <el-table-column prop="employee_id" label="工号" width="120" align="center">
-          <template #default="{ row }">
-            {{ row.employee_id || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="username" label="用户名" width="120" align="center">
-          <template #default="{ row }">
-            {{ row.username || '-' }}
-          </template>
-        </el-table-column>
+        <el-table-column prop="employee_id" label="工号" width="120" align="center" />
+        <el-table-column prop="username" label="用户名" width="120" align="center" />
         <el-table-column prop="operation_type" label="操作" width="100" align="center">
           <template #default="{ row }">
             <el-tag
@@ -73,11 +65,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="ip_address" label="IP地址" width="150" align="center">
-          <template #default="{ row }">
-            {{ row.ip_address || '-' }}
-          </template>
-        </el-table-column>
+        <el-table-column prop="ip_address" label="IP地址" width="150" align="center" />
         <el-table-column prop="created_at" label="时间" width="180" align="center">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
@@ -154,27 +142,11 @@
       </div>
 
       <el-table :data="deviceLogs" :loading="deviceLoading" stripe style="width: 100%">
-        <el-table-column label="操作人" width="100" align="center">
-          <template #default="{ row }">
-            {{ row.employee_id || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="用户名" width="120" align="center">
-          <template #default="{ row }">
-            {{ row.username || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="设备名称" width="150" align="center">
-          <template #default="{ row }">
-            {{ row.device_name || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="设备IP" width="150" align="center">
-          <template #default="{ row }">
-            {{ row.ip_address || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="120" align="center">
+        <el-table-column prop="employee_id" label="操作人" width="100" align="center" />
+        <el-table-column prop="username" label="用户名" width="120" align="center" />
+        <el-table-column prop="device_name" label="设备名称" width="150" align="center" />
+        <el-table-column prop="ip_address" label="设备IP" width="150" align="center" />
+        <el-table-column prop="operation_type" label="操作" width="120" align="center">
           <template #default="{ row }">
             <el-tag
               :type="getDeviceOperationTagType(row.operation_type)"
@@ -184,7 +156,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="结果" width="80" align="center">
+        <el-table-column prop="operation_result" label="结果" width="80" align="center">
           <template #default="{ row }">
             <el-tag
               :type="row.operation_result === 'success' ? 'success' : 'danger'"
@@ -194,7 +166,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="时间" width="180" align="center">
+        <el-table-column prop="created_at" label="时间" width="180" align="center">
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>

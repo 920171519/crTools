@@ -1292,6 +1292,9 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch, onActivated, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+// 修复某些版本下自动样式导入路径不一致问题，手动引入所需样式
+import 'element-plus/es/components/message-box/style/css'
+import 'element-plus/es/components/message/style/css'
 import {
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled,
   VideoPlay, VideoPause, Delete, Edit, Search, SuccessFilled, WarningFilled
@@ -1840,9 +1843,19 @@ const requestShare = async (device) => {
     return
   }
   try {
+    // 申请共用时需填写说明
+    const { value, action } = await ElMessageBox.prompt('请输入申请共用的说明', '申请共用', {
+      confirmButtonText: '提交',
+      cancelButtonText: '取消',
+      inputPattern: /\S+/,
+      inputErrorMessage: '说明不能为空'
+    })
+    if (action !== 'confirm') return
+
     shareRequestLoading[device.id] = true
     await deviceApi.requestShare({
-      device_id: device.id
+      device_id: device.id,
+      message: value
     })
     ElMessage.success('共用申请已提交')
     await loadDevices()

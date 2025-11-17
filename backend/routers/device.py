@@ -1664,7 +1664,8 @@ async def get_my_usage_summary(current_user: User = Depends(AuthManager.get_curr
             "ip": device.ip,
             "status": current_usage.status if current_usage else DeviceStatusEnum.AVAILABLE,
             "owner": device.owner,
-            "current_user": current_usage.current_user if current_usage else None
+            "current_user": current_usage.current_user if current_usage else None,
+            "share_message": share.request_message
         })
 
     return BaseResponse(

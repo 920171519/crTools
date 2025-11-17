@@ -20,7 +20,7 @@
       :title="`有 ${pendingShareRequests.length} 个共用申请待处理`"
     />
 
-    <el-card class="share-requests-card" shadow="never">
+    <el-card v-if="pendingShareRequests.length" class="share-requests-card" shadow="never">
       <template #header>
         <div class="card-header">
           <el-icon><User /></el-icon>
@@ -31,7 +31,7 @@
           </el-button>
         </div>
       </template>
-      <div v-if="pendingShareRequests.length" class="share-request-list">
+      <div class="share-request-list">
         <div
           class="share-request-item"
           v-for="request in pendingShareRequests"
@@ -74,7 +74,65 @@
           </div>
         </div>
       </div>
-      <el-empty v-else description="暂无共用申请" />
+    </el-card>
+
+    <!-- 我的环境使用情况 -->
+    <el-card
+      v-if="usageSummary.occupied.length || usageSummary.shared.length"
+      class="my-usage-card"
+      shadow="never"
+    >
+      <template #header>
+        <div class="card-header">
+          <el-icon><Monitor /></el-icon>
+          <span>我的环境</span>
+          <el-button text size="small" @click="loadMyUsageSummary">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+        </div>
+      </template>
+      <div class="usage-section">
+        <div class="usage-title">我占用的环境</div>
+        <el-empty v-if="!usageSummary.occupied.length" description="暂无占用中的环境" />
+        <div v-else class="usage-list">
+          <div v-for="env in usageSummary.occupied" :key="`occ-${env.id}`" class="device-row">
+            <div class="device-name">
+              <el-icon class="device-icon"><Monitor /></el-icon>
+              <span class="name-text">{{ env.name }}</span>
+              <el-tag type="info" size="small" class="ip-tag">{{ env.ip }}</el-tag>
+            </div>
+            <div class="device-status">
+              <el-tag :type="getStatusTag(env.status)" size="small">{{ getStatusText(env.status) }}</el-tag>
+            </div>
+            <div class="device-user" v-if="env.current_user">
+              <el-icon><User /></el-icon>
+              <span class="user-text">{{ env.current_user }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="usage-section">
+        <div class="usage-title">我共用的环境</div>
+        <el-empty v-if="!usageSummary.shared.length" description="暂无共用设备" />
+        <div v-else class="usage-list">
+          <div v-for="env in usageSummary.shared" :key="`shared-${env.id}`" class="device-row">
+            <div class="device-name">
+              <el-icon class="device-icon"><Monitor /></el-icon>
+              <span class="name-text">{{ env.name }}</span>
+              <el-tag type="info" size="small" class="ip-tag">{{ env.ip }}</el-tag>
+            </div>
+            <div class="device-status">
+              <el-tag :type="getStatusTag(env.status)" size="small">{{ getStatusText(env.status) }}</el-tag>
+            </div>
+            <div class="share-message" v-if="env.share_message">
+              <el-tag type="warning" size="small">共用说明</el-tag>
+              <span class="share-text">{{ env.share_message }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </el-card>
 
     <!-- crTools管理系统标题 -->
@@ -225,7 +283,32 @@ const deviceStats = ref({
 })
 
 const pendingShareRequests = ref([])
+const usageSummary = reactive<{ occupied: any[]; shared: any[] }>({ occupied: [], shared: [] })
 const shareDecisionLoading = reactive<Record<number, boolean>>({})
+
+// 与设备管理页保持一致的状态文案/标签
+const getStatusText = (status: string) => {
+  const statusMap: Record<string, string> = {
+    available: '可用',
+    occupied: '占用中',
+    long_term_occupied: '长时间占用',
+    maintenance: '维护中',
+    offline: '不可占用',
+    queue: '排队中'
+  }
+  return statusMap[status] || status
+}
+
+const getStatusTag = (status: string) => {
+  const tagMap: Record<string, string> = {
+    available: 'success',
+    occupied: 'warning',
+    long_term_occupied: 'danger',
+    maintenance: 'info',
+    offline: 'danger'
+  }
+  return tagMap[status] || 'info'
+}
 
 // 当前时间
 const currentTime = computed(() => {
@@ -278,6 +361,18 @@ const loadPendingShareRequests = async () => {
   } catch (error) {
     console.error('加载共用申请失败:', error)
     pendingShareRequests.value = []
+  }
+}
+
+// 获取我的环境摘要
+const loadMyUsageSummary = async () => {
+  try {
+    const res = await deviceApi.getMyUsageSummary()
+    usageSummary.occupied = res.data?.occupied_devices || []
+    usageSummary.shared = res.data?.shared_devices || []
+  } catch (e) {
+    usageSummary.occupied = []
+    usageSummary.shared = []
   }
 }
 
@@ -340,6 +435,7 @@ const loadDeviceStats = async () => {
 onMounted(() => {
   loadDeviceStats()
   loadPendingShareRequests()
+  loadMyUsageSummary()
 })
 </script>
 
@@ -371,6 +467,51 @@ onMounted(() => {
   color: #909399;
   font-size: 14px;
 }
+
+.my-usage-card {
+  margin-bottom: 20px;
+}
+
+.usage-section {
+  margin-bottom: 16px;
+}
+
+.usage-title {
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.usage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.device-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+}
+
+.device-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.device-icon { color: #909399; }
+.name-text { font-weight: 500; }
+.ip-tag { margin-left: 4px; }
+
+.device-status { min-width: 100px; text-align: right; }
+
+.device-user { color: #606266; display: flex; align-items: center; gap: 4px; }
+
+.share-message { color: #606266; display: flex; align-items: center; gap: 6px; }
+.share-text { color: #606266; }
 
 /* 系统标题样式 */
 .system-title {

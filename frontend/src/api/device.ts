@@ -230,6 +230,7 @@ export interface UsageSummaryItem {
   status: string
   owner: string
   current_user?: string | null
+  share_message?: string
 }
 
 export interface UsageSummaryResponse {
