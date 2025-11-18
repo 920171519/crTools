@@ -20,7 +20,7 @@
       :title="`有 ${pendingShareRequests.length} 个共用申请待处理`"
     />
 
-    <el-card v-if="pendingShareRequests.length" class="share-requests-card" shadow="never">
+    <el-card class="share-requests-card" shadow="never">
       <template #header>
         <div class="card-header">
           <el-icon><User /></el-icon>
@@ -55,119 +55,6 @@
         </el-table-column>
       </el-table>
     </el-card>
-
-    <!-- 我的环境使用情况 -->
-    <el-card
-      v-if="usageSummary.occupied.length || usageSummary.shared.length"
-      class="my-usage-card"
-      shadow="never"
-    >
-      <template #header>
-        <div class="card-header">
-          <el-icon><Monitor /></el-icon>
-          <span>我的环境</span>
-          <el-button text size="small" @click="loadMyUsageSummary">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
-        </div>
-      </template>
-      <div class="usage-section">
-        <div class="usage-title">我占用的环境</div>
-        <el-empty v-if="!usageSummary.occupied.length" description="暂无占用中的环境" />
-        <el-table v-else :data="usageSummary.occupied" size="small" style="width:100%">
-          <el-table-column label="环境名称" min-width="180">
-            <template #default="{ row }">
-              <div class="device-name">
-                <el-icon class="device-icon"><Monitor /></el-icon>
-                <span class="name-text">{{ row.name }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="环境IP" width="160">
-            <template #default="{ row }">
-              <el-tag type="info" size="small">{{ row.ip }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="已使用时长" width="140">
-            <template #default="{ row }">
-              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration) }}</span>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="所属分组" min-width="200">
-            <template #default="{ row }">
-              <template v-if="row.groups?.length">
-                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name }}</el-tag>
-              </template>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="160">
-            <template #default="{ row }">
-              <el-button type="danger" size="small" @click="releaseFromDashboard(row)" :loading="row.__releasing">释放</el-button>
-            </template>
-          </el-table-column>
-          <el-table-column label="详情" width="120">
-            <template #default="{ row }">
-              <el-button size="small" @click="goToDeviceDetails(row)">详情</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-
-      <div class="usage-section">
-        <div class="usage-title">我共用的环境</div>
-        <el-empty v-if="!usageSummary.shared.length" description="暂无共用设备" />
-        <el-table v-else :data="usageSummary.shared" size="small" style="width:100%">
-          <el-table-column label="环境名称" min-width="180">
-            <template #default="{ row }">
-              <div class="device-name">
-                <el-icon class="device-icon"><Monitor /></el-icon>
-                <span class="name-text">{{ row.name }}</span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="环境IP" width="160">
-            <template #default="{ row }">
-              <el-tag type="info" size="small">{{ row.ip }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="已使用时长" width="140">
-            <template #default="{ row }">
-              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration) }}</span>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="所属分组" min-width="200">
-            <template #default="{ row }">
-              <template v-if="row.groups?.length">
-                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name }}</el-tag>
-              </template>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="220">
-            <template #default="{ row }">
-              <el-button type="danger" size="small" plain @click="cancelShareFromDashboard(row)" :disabled="!row.share_request_id" :loading="row.__canceling">
-                取消共用
-              </el-button>
-            </template>
-          </el-table-column>
-          <el-table-column label="详情" width="120">
-            <template #default="{ row }">
-              <el-button size="small" @click="goToDeviceDetails(row)">详情</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
-    </el-card>
-
-    <!-- crTools管理系统标题
-    <div class="system-title">
-      <h1>crTools 管理系统</h1>
-      <p>基于工号认证的环境管理平台</p>
-    </div> -->
 
     <!-- 快捷操作模块 - 紧跟在标题下方 -->
     <el-card class="modules-card" shadow="never">
@@ -311,7 +198,6 @@ const deviceStats = ref({
 })
 
 const pendingShareRequests = ref([])
-const usageSummary = reactive<{ occupied: any[]; shared: any[] }>({ occupied: [], shared: [] })
 const shareDecisionLoading = reactive<Record<number, boolean>>({})
 
 // 与设备管理页保持一致的状态文案/标签
@@ -401,17 +287,6 @@ const loadPendingShareRequests = async () => {
   }
 }
 
-// 获取我的环境摘要
-const loadMyUsageSummary = async () => {
-  try {
-    const res = await deviceApi.getMyUsageSummary()
-    usageSummary.occupied = res.data?.occupied_devices || []
-    usageSummary.shared = res.data?.shared_devices || []
-  } catch (e) {
-    usageSummary.occupied = []
-    usageSummary.shared = []
-  }
-}
 
 const handleShareDecision = async (request: any, approve: boolean) => {
   if (shareDecisionLoading[request.id]) return
@@ -506,7 +381,6 @@ const loadDeviceStats = async () => {
 onMounted(() => {
   loadDeviceStats()
   loadPendingShareRequests()
-  loadMyUsageSummary()
 })
 </script>
 

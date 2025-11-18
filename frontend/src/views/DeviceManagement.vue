@@ -19,37 +19,89 @@
           </el-button>
         </div>
       </template>
-      <div class="usage-summary-content">
-        <div class="summary-column">
-          <div class="column-title">我占用的环境</div>
-          <div v-if="usageSummary.occupied.length" class="summary-tags">
-            <el-tag
-              v-for="env in usageSummary.occupied"
-              :key="`occupied-${env.id}`"
-              type="warning"
-              size="small"
-              class="summary-tag"
-            >
-              {{ env.name }} ({{ env.ip }})
-            </el-tag>
-          </div>
-          <div v-else class="empty-summary">暂无占用中的环境</div>
-        </div>
-        <div class="summary-column">
-          <div class="column-title">共用的环境</div>
-          <div v-if="usageSummary.shared.length" class="summary-tags">
-            <el-tag
-              v-for="env in usageSummary.shared"
-              :key="`shared-${env.id}`"
-              type="success"
-              size="small"
-              class="summary-tag"
-            >
-              {{ env.name }} ({{ env.ip }})
-            </el-tag>
-          </div>
-          <div v-else class="empty-summary">暂无共用设备</div>
-        </div>
+      <div class="usage-section">
+        <div class="usage-title">我占用的环境</div>
+        <el-table :data="usageSummary.occupied" size="small" style="width:100%">
+          <el-table-column label="环境名称" min-width="180">
+            <template #default="{ row }">
+              <div class="device-name">
+                <el-icon class="device-icon"><Monitor /></el-icon>
+                <span class="name-text">{{ row.name }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="环境IP" width="160">
+            <template #default="{ row }">
+              <el-tag type="info" size="small">{{ row.ip }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="已使用时长" width="140">
+            <template #default="{ row }">
+              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration) }}</span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="所属分组" min-width="200">
+            <template #default="{ row }">
+              <template v-if="row.groups?.length">
+                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name }}</el-tag>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="160">
+            <template #default="{ row }">
+              <el-button type="danger" size="small" @click="releaseFromUsage(row)" :loading="row.__releasing">释放</el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="详情" width="120">
+            <template #default="{ row }">
+              <el-button size="small" @click="viewDetails(row)">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div class="usage-section">
+        <div class="usage-title">我共用的环境</div>
+        <el-table :data="usageSummary.shared" size="small" style="width:100%">
+          <el-table-column label="环境名称" min-width="180">
+            <template #default="{ row }">
+              <div class="device-name">
+                <el-icon class="device-icon"><Monitor /></el-icon>
+                <span class="name-text">{{ row.name }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="环境IP" width="160">
+            <template #default="{ row }">
+              <el-tag type="info" size="small">{{ row.ip }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="已使用时长" width="140">
+            <template #default="{ row }">
+              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration) }}</span>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="所属分组" min-width="200">
+            <template #default="{ row }">
+              <template v-if="row.groups?.length">
+                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name }}</el-tag>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="200">
+            <template #default="{ row }">
+              <el-button type="danger" size="small" plain @click="cancelShareFromUsage(row)" :disabled="!row.share_request_id" :loading="row.__canceling">取消共用</el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="详情" width="120">
+            <template #default="{ row }">
+              <el-button size="small" @click="viewDetails(row)">详情</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
     </el-card>
 
@@ -1328,6 +1380,38 @@ const ensureDeviceOperational = (device, action: '使用' | '排队' = '使用')
     return false
   }
   return true
+}
+
+// 从使用摘要表格释放设备
+const releaseFromUsage = async (row) => {
+  if (!row?.id) return
+  try {
+    row.__releasing = true
+    await deviceApi.releaseDevice({ device_id: row.id, user: currentUserEmployeeId.value })
+    ElMessage.success('设备已释放')
+    await loadDevices()
+    await loadUsageSummary()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '释放失败')
+  } finally {
+    row.__releasing = false
+  }
+}
+
+// 从使用摘要表格取消共用
+const cancelShareFromUsage = async (row) => {
+  if (!row?.share_request_id) return
+  try {
+    row.__canceling = true
+    await deviceApi.cancelShareRequest(row.share_request_id)
+    ElMessage.success('已取消共用')
+    await loadDevices()
+    await loadUsageSummary()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '取消失败')
+  } finally {
+    row.__canceling = false
+  }
 }
 
 // 详情页Tab状态
