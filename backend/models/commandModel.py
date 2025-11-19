@@ -12,6 +12,11 @@ class Command(Model):
     id = fields.IntField(pk=True, description="命令ID")
     command_text = fields.CharField(max_length=1000, description="命令内容")
     link = fields.CharField(max_length=1000, null=True, description="介绍网页链接")
+    view = fields.CharField(max_length=100, null=True, description="视图/类别")
+    # 新增扩展字段
+    description = fields.TextField(null=True, description="描述/注意事项等摘要")
+    notice = fields.TextField(null=True, description="注意事项")
+    param_ranges = fields.JSONField(default=list, description="参数范围(表格JSON)")
     remarks = fields.TextField(null=True, description="备注内容")
     creator = fields.CharField(max_length=50, description="创建人工号")
     last_editor = fields.CharField(max_length=50, null=True, description="最后编辑人工号")
@@ -63,4 +68,3 @@ class CommandOperationLog(Model):
             description=description,
             ip_address=ip_address
         )
-

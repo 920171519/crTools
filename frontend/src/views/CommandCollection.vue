@@ -9,7 +9,7 @@
     <el-card shadow="never" style="margin-bottom: 20px;">
       <div class="search-bar">
         <el-form :model="searchForm" inline>
-          <el-form-item label="命令内容">
+          <el-form-item label="命令行">
             <el-input
               v-model="searchForm.command_keyword"
               placeholder="请输入命令内容关键词"
@@ -17,10 +17,18 @@
               style="width: 250px"
             />
           </el-form-item>
-          <el-form-item label="备注内容">
+          <el-form-item label="描述">
+            <el-input
+              v-model="searchForm.description_keyword"
+              placeholder="请输入描述关键词"
+              clearable
+              style="width: 250px"
+            />
+          </el-form-item>
+          <el-form-item label="备注">
             <el-input
               v-model="searchForm.remarks_keyword"
-              placeholder="请输入备注内容关键词"
+              placeholder="请输入备注关键词"
               clearable
               style="width: 250px"
             />
@@ -41,8 +49,8 @@
 
     <!-- 操作栏 -->
     <div class="action-bar">
-      <el-button type="primary" icon="Plus" @click="openAddDialog">
-        添加命令行
+      <el-button type="primary" icon="Plus" @click="openImportDialog">
+        导入
       </el-button>
       <el-button icon="Refresh" @click="loadCommands">
         刷新
@@ -52,30 +60,19 @@
     <!-- 命令行列表 -->
     <el-card shadow="never">
       <el-table :data="commands" stripe style="width: 100%" v-loading="loading">
-        <el-table-column prop="command_text" label="命令内容" min-width="300">
+        <el-table-column prop="view" label="视图" width="150">
+          <template #default="{ row }">
+            <span>{{ row.view || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="command_text" label="cli" min-width="300">
           <template #default="{ row }">
             <div class="command-text">{{ row.command_text }}</div>
           </template>
         </el-table-column>
-
-        <el-table-column prop="link" label="链接" width="150">
+        <el-table-column prop="description" label="描述" min-width="200">
           <template #default="{ row }">
-            <a
-              v-if="row.link"
-              :href="row.link"
-              target="_blank"
-              class="command-link"
-            >
-              <el-icon><Link /></el-icon>
-              打开链接
-            </a>
-            <span v-else class="no-link">-</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="remarks" label="备注" min-width="200">
-          <template #default="{ row }">
-            <div class="remarks-text">{{ row.remarks || '-' }}</div>
+            <div class="remarks-text">{{ row.description || '-' }}</div>
           </template>
         </el-table-column>
 
@@ -105,61 +102,29 @@
       </div>
     </el-card>
 
-    <!-- 添加/编辑命令行对话框 -->
-    <el-dialog
-      v-model="showFormDialog"
-      :title="isEditing ? '编辑命令行' : '添加命令行'"
-      width="700px"
-      :before-close="handleFormDialogClose"
-    >
-      <el-form
-        ref="formRef"
-        :model="commandForm"
-        :rules="formRules"
-        label-width="100px"
-      >
-        <el-form-item label="命令内容" prop="command_text">
-          <el-input
-            v-model="commandForm.command_text"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入命令内容（最多1000字符）"
-            maxlength="1000"
-            show-word-limit
-          />
-        </el-form-item>
-
-        <el-form-item label="链接" prop="link">
-          <el-input
-            v-model="commandForm.link"
-            placeholder="请输入介绍网页链接（选填，最多1000字符）"
-            maxlength="1000"
-            show-word-limit
-          />
-        </el-form-item>
-
-        <el-form-item label="备注" prop="remarks">
-          <el-input
-            v-model="commandForm.remarks"
-            type="textarea"
-            :rows="5"
-            placeholder="请输入备注内容（选填，最多5000字符）"
-            maxlength="5000"
-            show-word-limit
-          />
-        </el-form-item>
-      </el-form>
-
+    <!-- 导入对话框 -->
+    <el-dialog v-model="showImportDialog" title="导入命令行（xlsx）" width="500px">
+      <div>
+        <el-upload
+          class="upload-block"
+          drag
+          :show-file-list="true"
+          :limit="1"
+          :auto-upload="false"
+          accept=".xlsx"
+          :on-change="onFileChange"
+        >
+          <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+          <div class="el-upload__text">将文件拖拽到此处，或<em>点击上传</em></div>
+          <template #tip>
+            <div class="el-upload__tip">仅支持 .xlsx 文件</div>
+          </template>
+        </el-upload>
+      </div>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showFormDialog = false">取消</el-button>
-          <el-button
-            type="primary"
-            @click="handleSubmitForm"
-            :loading="submitLoading"
-          >
-            {{ isEditing ? '保存' : '创建' }}
-          </el-button>
+          <el-button @click="showImportDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleImport" :loading="importLoading">导入</el-button>
         </span>
       </template>
     </el-dialog>
@@ -174,100 +139,42 @@
     >
       <div v-loading="detailLoading" class="command-detail">
         <template v-if="commandDetail">
+          <!-- 顶部地址 -->
+          <div class="detail-url">
+            <label>地址：</label>
+            <a v-if="commandDetail.link" :href="commandDetail.link" target="_blank" class="detail-link">{{ commandDetail.link }}</a>
+            <span v-else>-</span>
+          </div>
+
+          <!-- 注意事项 -->
           <div class="detail-section">
-            <div class="section-header">
-              <h3 class="section-title">
-                <el-icon><InfoFilled /></el-icon>
-                基本信息
-              </h3>
-              <el-button
-                type="primary"
-                size="small"
-                plain
-                @click="toggleEditMode"
-                class="edit-button"
-              >
-                <el-icon><Edit /></el-icon>
-                {{ isEditMode ? '取消编辑' : '编辑' }}
-              </el-button>
-            </div>
+            <h3 class="section-title">
+              <el-icon><InfoFilled /></el-icon>
+              注意事项
+            </h3>
+            <div class="remarks">{{ commandDetail.notice || '暂无' }}</div>
+          </div>
 
-            <div class="info-grid">
-              <div class="info-item full-width">
-                <label>命令内容：</label>
-                <el-input
-                  v-if="isEditMode"
-                  v-model="editCommandForm.command_text"
-                  type="textarea"
-                  :rows="3"
-                  maxlength="1000"
-                  show-word-limit
-                />
-                <div v-else class="command-content">{{ commandDetail.command_text }}</div>
-              </div>
+          <!-- 参数范围（表格） -->
+          <div class="detail-section">
+            <h3 class="section-title">
+              <el-icon><InfoFilled /></el-icon>
+              参数范围
+            </h3>
+            <el-table :data="(commandDetail.param_ranges || []) as any[]" size="small" style="width: 100%">
+              <el-table-column prop="name" label="参数" width="140" />
+              <el-table-column prop="range" label="取值范围" />
+              <el-table-column prop="desc" label="说明" />
+            </el-table>
+          </div>
 
-              <div class="info-item full-width">
-                <label>链接：</label>
-                <el-input
-                  v-if="isEditMode"
-                  v-model="editCommandForm.link"
-                  maxlength="1000"
-                  show-word-limit
-                />
-                <a
-                  v-else-if="commandDetail.link"
-                  :href="commandDetail.link"
-                  target="_blank"
-                  class="detail-link"
-                >
-                  {{ commandDetail.link }}
-                </a>
-                <span v-else class="no-link">未设置</span>
-              </div>
-
-              <div class="info-item full-width">
-                <label>备注：</label>
-                <el-input
-                  v-if="isEditMode"
-                  v-model="editCommandForm.remarks"
-                  type="textarea"
-                  :rows="5"
-                  maxlength="5000"
-                  show-word-limit
-                />
-                <div v-else class="remarks">
-                  {{ commandDetail.remarks || '暂无备注' }}
-                </div>
-              </div>
-
-              <div class="info-item">
-                <label>创建人：</label>
-                <span>{{ commandDetail.creator }}</span>
-              </div>
-
-              <div class="info-item">
-                <label>最后编辑人：</label>
-                <span>{{ commandDetail.last_editor || '-' }}</span>
-              </div>
-
-              <div class="info-item">
-                <label>创建时间：</label>
-                <span>{{ formatDateTime(commandDetail.created_at) }}</span>
-              </div>
-
-              <div class="info-item">
-                <label>更新时间：</label>
-                <span>{{ formatDateTime(commandDetail.updated_at) }}</span>
-              </div>
-            </div>
-
-            <!-- 编辑模式下的操作按钮 -->
-            <div v-if="isEditMode" class="edit-actions">
-              <el-button type="primary" @click="handleSaveEdit" :loading="saveLoading">
-                保存
-              </el-button>
-              <el-button @click="toggleEditMode">取消</el-button>
-            </div>
+          <!-- 备注 -->
+          <div class="detail-section">
+            <h3 class="section-title">
+              <el-icon><InfoFilled /></el-icon>
+              备注
+            </h3>
+            <div class="remarks">{{ commandDetail.remarks || '暂无' }}</div>
           </div>
         </template>
       </div>
@@ -279,7 +186,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Plus, Refresh, Search, Link, InfoFilled, Edit
+  Plus, Refresh, Search, Link, InfoFilled, Edit, UploadFilled
 } from '@element-plus/icons-vue'
 import { commandApi, type CommandListItem, type Command } from '../api/command'
 import { useUserStore } from '@/stores/user'
@@ -308,20 +215,9 @@ const pagination = reactive({
 })
 
 // 对话框相关
-const showFormDialog = ref(false)
-const isEditing = ref(false)
-const formRef = ref()
-const commandForm = reactive({
-  command_text: '',
-  link: '',
-  remarks: ''
-})
-
-const formRules = {
-  command_text: [
-    { required: true, message: '请输入命令内容', trigger: 'blur' }
-  ]
-}
+const showImportDialog = ref(false)
+const importFile = ref<File | null>(null)
+const importLoading = ref(false)
 
 // 抽屉相关
 const showDetailDrawer = ref(false)
@@ -398,20 +294,19 @@ const handleCurrentChange = (val: number) => {
 }
 
 // 打开添加对话框
-const openAddDialog = () => {
-  isEditing.value = false
-  commandForm.command_text = ''
-  commandForm.link = ''
-  commandForm.remarks = ''
-  showFormDialog.value = true
+const openImportDialog = () => {
+  importFile.value = null
+  showImportDialog.value = true
 }
 
-// 打开编辑对话框
-const openEditDialog = (command: CommandListItem) => {
-  isEditing.value = true
-  currentEditId.value = command.id
-  // 需要获取完整的命令详情
-  loadCommandDetail(command.id, true)
+const onFileChange = (file: any) => {
+  const f = file.raw as File
+  if (!f) return
+  if (!f.name.toLowerCase().endsWith('.xlsx')) {
+    ElMessage.error('只支持 .xlsx 文件')
+    return
+  }
+  importFile.value = f
 }
 
 // 加载命令详情
@@ -448,42 +343,25 @@ const viewDetails = async (command: CommandListItem) => {
   await loadCommandDetail(command.id)
 }
 
-// 提交表单
-const handleSubmitForm = async () => {
-  if (!formRef.value) return
-
+const handleImport = async () => {
+  if (!importFile.value) {
+    ElMessage.warning('请先选择文件')
+    return
+  }
   try {
-    await formRef.value.validate()
-    submitLoading.value = true
-
-    if (isEditing.value && currentEditId.value) {
-      // 更新命令行
-      await commandApi.updateCommand(currentEditId.value, commandForm)
-      ElMessage.success('命令行更新成功')
-    } else {
-      // 创建命令行
-      await commandApi.createCommand(commandForm)
-      ElMessage.success('命令行创建成功')
-    }
-
-    showFormDialog.value = false
+    importLoading.value = true
+    const res = await commandApi.importCommands(importFile.value)
+    ElMessage.success(res.message || '导入成功')
+    showImportDialog.value = false
     await loadCommands()
-  } catch (error: any) {
-    if (error.response?.data?.detail) {
-      ElMessage.error(error.response.data.detail)
-    } else {
-      ElMessage.error(isEditing.value ? '更新命令行失败' : '创建命令行失败')
-    }
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.response?.data?.detail || '导入失败')
   } finally {
-    submitLoading.value = false
+    importLoading.value = false
   }
 }
 
-// 关闭表单对话框
-const handleFormDialogClose = () => {
-  formRef.value?.resetFields()
-  showFormDialog.value = false
-}
+// 详情仍保留编辑按钮逻辑，无需导入相关表单
 
 // 切换编辑模式
 const toggleEditMode = () => {
@@ -777,4 +655,3 @@ onMounted(async () => {
   }
 }
 </style>
-

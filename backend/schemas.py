@@ -561,7 +561,11 @@ class CommandBase(BaseModel):
     """命令行基础模式"""
     command_text: str = Field(..., min_length=1, max_length=1000, description="命令内容")
     link: Optional[str] = Field(None, max_length=1000, description="介绍网页链接")
-    remarks: Optional[str] = Field(None, max_length=5000, description="备注内容")
+    view: Optional[str] = Field(None, max_length=100, description="视图/类别")
+    description: Optional[str] = Field(None, description="描述")
+    notice: Optional[str] = Field(None, description="注意事项")
+    param_ranges: Optional[List[dict]] = Field(default_factory=list, description="参数范围表")
+    remarks: Optional[str] = Field(None, max_length=5000, description="备注信息")
 
 
 class CommandCreate(CommandBase):
@@ -573,7 +577,11 @@ class CommandUpdate(BaseModel):
     """更新命令行请求模式"""
     command_text: Optional[str] = Field(None, min_length=1, max_length=1000, description="命令内容")
     link: Optional[str] = Field(None, max_length=1000, description="介绍网页链接")
-    remarks: Optional[str] = Field(None, max_length=5000, description="备注内容")
+    view: Optional[str] = Field(None, max_length=100, description="视图/类别")
+    description: Optional[str] = Field(None, description="描述")
+    notice: Optional[str] = Field(None, description="注意事项")
+    param_ranges: Optional[List[dict]] = Field(default=None, description="参数范围表")
+    remarks: Optional[str] = Field(None, max_length=5000, description="备注信息")
 
 
 class CommandResponse(CommandBase):
@@ -592,8 +600,8 @@ class CommandListItem(BaseModel):
     """命令行列表项模式"""
     id: int
     command_text: str
-    link: Optional[str]
-    remarks: Optional[str]
+    view: Optional[str]
+    description: Optional[str]
     last_editor: Optional[str]
     updated_at: datetime
 

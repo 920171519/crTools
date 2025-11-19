@@ -8,6 +8,10 @@ export interface Command {
   id: number
   command_text: string
   link?: string
+  view?: string
+  description?: string
+  notice?: string
+  param_ranges?: any[]
   remarks?: string
   creator: string
   last_editor?: string
@@ -18,8 +22,8 @@ export interface Command {
 export interface CommandListItem {
   id: number
   command_text: string
-  link?: string
-  remarks?: string
+  view?: string
+  description?: string
   last_editor?: string
   updated_at: string
 }
@@ -33,6 +37,10 @@ export interface CommandCreateRequest {
 export interface CommandUpdateRequest {
   command_text?: string
   link?: string
+  view?: string
+  description?: string
+  notice?: string
+  param_ranges?: any[]
   remarks?: string
 }
 
@@ -40,6 +48,7 @@ export interface CommandSearchParams {
   page?: number
   page_size?: number
   command_keyword?: string
+  description_keyword?: string
   remarks_keyword?: string
 }
 
@@ -77,6 +86,15 @@ export const commandApi = {
     return api.delete(`/commands/${id}`)
   },
 
+  // 导入命令行（xlsx）
+  importCommands: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post('/commands/import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+
   // 获取命令行操作日志
   getCommandOperationLogs: (params?: {
     page?: number
@@ -86,4 +104,3 @@ export const commandApi = {
     return api.get('/commands/operation-logs', { params })
   }
 }
-

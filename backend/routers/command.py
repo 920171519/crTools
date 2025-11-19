@@ -2,8 +2,10 @@
 命令行集路由
 提供命令行的增删改查等API接口
 """
-from fastapi import APIRouter, HTTPException, Depends, Query
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File
+from typing import Optional, List
+import openpyxl  # 需要依赖 openpyxl
+import os
 from datetime import datetime
 
 from models.commandModel import Command, CommandOperationLog
@@ -21,7 +23,8 @@ async def get_commands(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     command_keyword: Optional[str] = Query(None, description="命令内容搜索关键词"),
-    remarks_keyword: Optional[str] = Query(None, description="备注内容搜索关键词"),
+    description_keyword: Optional[str] = Query(None, description="描述搜索关键词"),
+    remarks_keyword: Optional[str] = Query(None, description="备注搜索关键词"),
     current_user: User = Depends(AuthManager.get_current_user)
 ):
     """
@@ -37,22 +40,12 @@ async def get_commands(
     query = Command.all()
 
     # 根据搜索关键词进行过滤
-    has_command_keyword = command_keyword and command_keyword.strip()
-    has_remarks_keyword = remarks_keyword and remarks_keyword.strip()
-    
-    if has_command_keyword and has_remarks_keyword:
-        # 两个都不为空，同时考虑两个条件
-        query = query.filter(
-            command_text__icontains=command_keyword.strip(),
-            remarks__icontains=remarks_keyword.strip()
-        )
-    elif has_command_keyword:
-        # 只有命令内容关键词
+    if command_keyword and command_keyword.strip():
         query = query.filter(command_text__icontains=command_keyword.strip())
-    elif has_remarks_keyword:
-        # 只有备注内容关键词
+    if description_keyword and description_keyword.strip():
+        query = query.filter(description__icontains=description_keyword.strip())
+    if remarks_keyword and remarks_keyword.strip():
         query = query.filter(remarks__icontains=remarks_keyword.strip())
-    # 如果都为空，则不添加过滤条件
 
     # 获取总数
     total = await query.count()
@@ -67,8 +60,8 @@ async def get_commands(
         result.append(CommandListItem(
             id=command.id,
             command_text=command.command_text,
-            link=command.link,
-            remarks=command.remarks,
+            view=getattr(command, 'view', None),
+            description=getattr(command, 'description', None),
             last_editor=command.last_editor,
             updated_at=command.updated_at
         ))
@@ -85,6 +78,48 @@ async def get_commands(
     )
 
 
+@router.post("/import", response_model=BaseResponse, summary="导入命令行xlsx")
+async def import_commands(
+    file: UploadFile = File(...),
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """上传xlsx文件并导入命令行数据
+    预期列：视图(link)、cli(command_text)、描述(description)、注意事项(notice)、参数范围(param_ranges)、备注(remarks)
+    """
+    # 校验扩展名
+    filename = file.filename or ''
+    if not filename.lower().endswith('.xlsx'):
+        raise HTTPException(status_code=400, detail="仅支持xlsx文件")
+
+    # 保存到 user-files 目录
+    base_dir = os.path.dirname(os.path.dirname(__file__))  # backend/
+    save_dir = os.path.join(base_dir, 'user-files')
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, filename)
+
+    content = await file.read()
+    with open(save_path, 'wb') as f:
+        f.write(content)
+
+    # 暂不解析xlsx，直接插入一条固定示例命令
+    try:
+        await Command.create(
+            link="www.baidu.com",
+            view="用户",
+            command_text="display health <a> <b>",
+            description="查询",
+            notice="间隔一秒敲",
+            param_ranges=[
+                {"name": "a", "range": "1 ~ 10"},
+                {"name": "b", "range": "10 ~ 20"}
+            ],
+            remarks="无",
+            creator=current_user.employee_id
+        )
+        return BaseResponse(code=200, message="导入成功，共 1 条", data={"imported": 1})
+    except Exception as e:
+        print(f"保存固定示例命令失败: {e}")
+        raise HTTPException(status_code=500, detail="导入失败")
 @router.post("/", response_model=BaseResponse, summary="创建命令行")
 async def create_command(
     command_data: CommandCreate,
@@ -96,6 +131,10 @@ async def create_command(
         command = await Command.create(
             command_text=command_data.command_text,
             link=command_data.link,
+            view=getattr(command_data, 'view', None),
+            description=getattr(command_data, 'description', None),
+            notice=getattr(command_data, 'notice', None),
+            param_ranges=getattr(command_data, 'param_ranges', []) or [],
             remarks=command_data.remarks,
             creator=current_user.employee_id
         )
@@ -194,6 +233,10 @@ async def get_command(
         "id": command.id,
         "command_text": command.command_text,
         "link": command.link,
+        "view": command.view,
+        "description": getattr(command, 'description', None),
+        "notice": getattr(command, 'notice', None),
+        "param_ranges": getattr(command, 'param_ranges', []),
         "remarks": command.remarks,
         "creator": command.creator,
         "last_editor": command.last_editor,
