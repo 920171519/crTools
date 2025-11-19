@@ -136,6 +136,7 @@ async def get_device_shared_users(device: Device):
     result = []
     for share in share_requests:
         result.append({
+            "share_request_id": share.id,
             "employee_id": share.requester_employee_id,
             "username": share.requester_username,
             "approved_at": share.processed_at.isoformat() if share.processed_at else None
@@ -1622,6 +1623,28 @@ async def create_share_request(
     )
     await share_request.fetch_related("device")
 
+    # 自动加入排队列表
+    try:
+        if device.support_queue:
+            usage_info = await DeviceUsage.filter(device=device).first()
+            if usage_info and usage_info.status in [DeviceStatusEnum.OCCUPIED, DeviceStatusEnum.LONG_TERM_OCCUPIED]:
+                queue = usage_info.queue_users or []
+                normalized_queue = [normalize_employee_id(u) for u in queue]
+                if normalized_employee != normalize_employee_id(usage_info.current_user) and normalized_employee not in normalized_queue:
+                    queue.append(normalized_employee)
+                    usage_info.queue_users = queue
+                    await usage_info.save()
+                    await OperationLog.create_log(
+                        user=current_user,
+                        operation_type="device_queue",
+                        operation_result="success",
+                        device_name=device.name,
+                        description=f"共用申请自动加入排队，当前排队位置: {len(queue)}",
+                        device_ip=device.ip
+                    )
+    except Exception as e:
+        print(f"共用申请自动排队失败: {e}")
+
     await OperationLog.create_log(
         user=current_user,
         operation_type="device_share_request",
@@ -1712,6 +1735,58 @@ async def decide_share_request(
     return BaseResponse(
         code=200,
         message="共用申请已处理",
+        data=serialize_share_request_record(share_request)
+    )
+
+
+@router.post("/share-requests/{request_id:int}/revoke", response_model=BaseResponse, summary="剔除共用用户")
+async def revoke_shared_user(
+    request_id: int,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """占用人或管理员剔除已审批的共用用户"""
+    share_request = await DeviceShareRequest.filter(id=request_id).prefetch_related("device").first()
+    if not share_request:
+        raise HTTPException(status_code=404, detail="共用记录不存在")
+
+    device = share_request.device
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if not usage_info:
+        raise HTTPException(status_code=404, detail="设备使用信息不存在")
+
+    # 权限：设备当前占用人或管理员/超级管理员
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+    is_admin_or_super = current_user.is_superuser or (await current_user.has_role("管理员"))
+    is_occupant = usage_info.current_user and normalize_employee_id(usage_info.current_user) == normalized_employee
+    if not (is_admin_or_super or is_occupant):
+        raise HTTPException(status_code=403, detail="只有占用人或管理员可以剔除共用用户")
+
+    if share_request.status != "approved":
+        raise HTTPException(status_code=400, detail="当前记录不是已审批状态")
+
+    # 设置为revoked
+    share_request.status = "revoked"
+    share_request.processed_by = current_user.employee_id
+    share_request.processed_at = get_current_time()
+    share_request.decision_reason = "占用人/管理员剔除共用"
+    await share_request.save()
+
+    # 清理访问IP
+    await delete_device_access_ip(device, share_request.requester_employee_id, role="shared")
+
+    # 日志
+    await OperationLog.create_log(
+        user=current_user,
+        operation_type="device_share_revoke",
+        operation_result="success",
+        device_name=device.name if device else None,
+        description=f"剔除共用用户 {share_request.requester_employee_id}（设备 {device.name if device else ''}）",
+        device_ip=device.ip if device else None
+    )
+
+    return BaseResponse(
+        code=200,
+        message="已剔除共用用户",
         data=serialize_share_request_record(share_request)
     )
 

@@ -377,6 +377,11 @@ export const deviceApi = {
     return api.post<DeviceShareRequestItem>(`/devices/share-requests/${requestId}/cancel`)
   },
 
+  // 占用人/管理员剔除共用用户
+  revokeSharedUser: (requestId: number) => {
+    return api.post<DeviceShareRequestItem>(`/devices/share-requests/${requestId}/revoke`)
+  },
+
   // 获取我的环境使用情况
   getMyUsageSummary: () => {
     return api.get<UsageSummaryResponse>('/devices/my-usage-summary')

@@ -1049,6 +1049,17 @@
                   <span class="shared-time" v-if="user.approved_at">
                     于 {{ formatDateTime(user.approved_at) }} 获批
                   </span>
+                  <el-button
+                    v-if="isCurrentUserOccupant || isAdmin"
+                    type="danger"
+                    size="small"
+                    plain
+                    @click="revokeSharedUser(user)"
+                    :loading="detailShareLoading"
+                    style="margin-left: 8px;"
+                  >
+                    剔除
+                  </el-button>
                 </div>
               </div>
               <div v-else class="no-data">暂无共用用户</div>
@@ -2029,6 +2040,25 @@ const cancelShareFromDetail = async () => {
       ElMessage.error(error.response.data.detail)
     } else {
       ElMessage.error('取消共用失败')
+    }
+  } finally {
+    detailShareLoading.value = false
+  }
+}
+
+const revokeSharedUser = async (user) => {
+  if (!usageDetail.value || !user?.share_request_id) return
+  try {
+    detailShareLoading.value = true
+    await deviceApi.revokeSharedUser(user.share_request_id)
+    ElMessage.success('已剔除共用用户')
+    await loadDevices()
+    await viewDetails(deviceDetail.value)
+  } catch (error) {
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('剔除失败')
     }
   } finally {
     detailShareLoading.value = false
