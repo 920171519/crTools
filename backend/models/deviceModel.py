@@ -209,3 +209,28 @@ class DeviceShareRequest(Model):
 
     def __str__(self):
         return f"{self.device_id} - {self.requester_employee_id} - {self.status}"
+
+
+class DeviceAccessIP(Model):
+    """设备访问IP记录
+    记录当前对设备具有访问权限的人员（占用人/共用用户）及其对应VPN IP。
+    """
+
+    id = fields.IntField(pk=True, description="记录ID")
+    device = fields.ForeignKeyField("models.Device", related_name="access_ips", description="关联设备")
+    employee_id = fields.CharField(max_length=20, description="工号")
+    username = fields.CharField(max_length=50, description="姓名")
+    role = fields.CharField(max_length=20, description="身份(occupant/shared)")
+    vpn_ip = fields.CharField(max_length=45, null=True, description="访问VPN IP")
+    # 仅记录最后更新时间即可
+    updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
+
+    class Meta:
+        table = "device_access_ips"
+        table_description = "设备访问IP记录表"
+        # 一个用户在同一设备上同一时刻只有一种身份（占用或共用）
+        # 因此唯一约束到设备+工号即可
+        unique_together = ("device", "employee_id")
+
+    def __str__(self):
+        return f"{self.device_id} - {self.employee_id} ({self.role}) - {self.vpn_ip}"

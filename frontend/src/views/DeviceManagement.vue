@@ -1078,6 +1078,32 @@
             </div>
           </div>
 
+          <!-- 访问IP信息 -->
+          <div class="detail-section" v-if="usageDetail?.can_view_access_ips">
+            <h3 class="section-title">
+              <el-icon><InfoFilled /></el-icon>
+              访问IP
+            </h3>
+            <el-table :data="usageDetail?.access_ips || []" size="small" style="width: 100%">
+              <el-table-column label="人员" min-width="200">
+                <template #default="{ row }">
+                  {{ row.username }} ({{ row.employee_id }})
+                </template>
+              </el-table-column>
+              <el-table-column prop="role" label="身份" width="120" />
+              <el-table-column label="访问IP" min-width="180">
+                <template #default="{ row }">
+                  <span>{{ row.vpn_ip || '-' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="更新时间" width="180">
+                <template #default="{ row }">
+                  <span>{{ row.updated_at ? formatDateTime(row.updated_at) : '-' }}</span>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
           <!-- 操作按钮 -->
           <div class="detail-actions">
             <!-- 普通用户按钮逻辑 -->

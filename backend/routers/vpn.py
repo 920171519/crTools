@@ -284,6 +284,65 @@ async def update_user_vpn_config(
                 ip_address=config_data.ip_address
             )
 
+        # 同步设备访问IP记录：更新当前用户在该VPN下的所有设备的访问IP
+        try:
+            from models.deviceModel import DeviceAccessIP, Device, DeviceUsage, DeviceShareRequest, DeviceStatusEnum
+            from routers.device import delete_device_access_ip, upsert_device_access_ip, revoke_shared_access, get_current_time
+            # 更新访问IP
+            await DeviceAccessIP.filter(
+                employee_id=current_user.employee_id,
+                device__vpn_config_id=vpn_config_id
+            ).update(vpn_ip=config_data.ip_address)
+
+            # 如果清空了IP，则释放该VPN下用户占用的设备，并取消/撤销共用
+            if not config_data.ip_address:
+                normalized_emp = current_user.employee_id.lower()
+                devices = await Device.filter(vpn_config_id=vpn_config_id).all()
+                for d in devices:
+                    usage = await DeviceUsage.filter(device=d).first()
+                    if usage and usage.current_user and usage.current_user.lower() == normalized_emp:
+                        # 释放占用（参考 release_device 逻辑的核心部分）
+                        # 撤销共用
+                        await revoke_shared_access(d, current_user, "vpn_ip_cleared")
+                        if usage.queue_users and len(usage.queue_users) > 0:
+                            next_user = usage.queue_users.pop(0)
+                            usage.current_user = next_user.lower()
+                            usage.start_time = get_current_time()
+                            usage.expected_duration = 60
+                            await usage.save()
+                            # 更新占用人访问IP
+                            next_user_obj = await User.filter(employee_id__iexact=usage.current_user).first()
+                            if next_user_obj:
+                                await DeviceAccessIP.filter(device=d).filter(employee_id__iexact=normalized_emp).delete()
+                                await upsert_device_access_ip(d, next_user_obj, role="occupant")
+                        else:
+                            usage.current_user = None
+                            usage.start_time = None
+                            usage.expected_duration = 0
+                            usage.status = DeviceStatusEnum.AVAILABLE
+                            await usage.save()
+                            # 清理访问IP
+                            await DeviceAccessIP.filter(device=d).filter(employee_id__iexact=normalized_emp).delete()
+
+                # 取消/撤销共用及申请
+                shares = await DeviceShareRequest.filter(
+                    requester_employee_id__iexact=normalized_emp,
+                    device__vpn_config_id=vpn_config_id,
+                    status__in=["pending", "approved"]
+                ).prefetch_related("device")
+                for s in shares:
+                    if s.status == "pending":
+                        s.status = "cancelled"
+                    else:
+                        s.status = "revoked"
+                        await delete_device_access_ip(s.device, normalized_emp, role="shared")
+                    s.processed_by = normalized_emp
+                    s.processed_at = get_current_time()
+                    s.decision_reason = "用户清空VPN IP，系统自动取消"
+                    await s.save()
+        except Exception as e:
+            print(f"同步设备访问IP/释放设备/取消共用失败: {e}")
+
         return BaseResponse(
             code=200,
             message="更新VPN IP配置成功",

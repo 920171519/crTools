@@ -14,7 +14,8 @@ from models.deviceModel import (
     DeviceUsageHistory,
     DeviceConfig,
     DeviceStatusEnum,
-    DeviceShareRequest
+    DeviceShareRequest,
+    DeviceAccessIP
 )
 from models.admin import User, OperationLog
 from models.vpnModel import VPNConfig, UserVPNConfig
@@ -123,6 +124,10 @@ async def revoke_shared_access(device: Device, actor: Optional[User] = None, rea
         processed_at=now,
         decision_reason=reason
     )
+    # 清理已审批共用用户的访问IP记录
+    approved_users = await DeviceShareRequest.filter(device=device, status="revoked").values_list("requester_employee_id", flat=True)
+    for emp in approved_users:
+        await delete_device_access_ip(device, emp, role="shared")
 
 
 async def get_device_shared_users(device: Device):
@@ -136,6 +141,46 @@ async def get_device_shared_users(device: Device):
             "approved_at": share.processed_at.isoformat() if share.processed_at else None
         })
     return result
+
+
+async def get_user_vpn_ip_for_device(user: User, device: Device) -> str | None:
+    """获取用户在设备所需VPN下的IP地址"""
+    if not device.vpn_config_id:
+        return None
+    uvpn = await UserVPNConfig.filter(user_id=user.id, vpn_config_id=device.vpn_config_id).first()
+    return uvpn.ip_address if uvpn else None
+
+
+async def upsert_device_access_ip(device: Device, user: User, role: str):
+    """创建或更新设备访问IP记录"""
+    ip = await get_user_vpn_ip_for_device(user, device)
+    # 以 device + employee 唯一
+    existing = await DeviceAccessIP.filter(device=device, employee_id=user.employee_id).first()
+    if existing:
+        existing.username = user.username
+        existing.vpn_ip = ip
+        existing.role = role
+        await existing.save()
+    else:
+        await DeviceAccessIP.create(
+            device=device,
+            employee_id=user.employee_id,
+            username=user.username,
+            role=role,
+            vpn_ip=ip
+        )
+
+
+async def delete_device_access_ip(device: Device, employee_id: str, role: str | None = None):
+    """删除指定用户的访问IP记录"""
+    q = DeviceAccessIP.filter(device=device, employee_id__iexact=employee_id)
+    if role:
+        q = q.filter(role=role)
+    await q.delete()
+
+
+async def clear_role_access(device: Device, role: str):
+    await DeviceAccessIP.filter(device=device, role=role).delete()
 
 
 async def fetch_user_share_status(device_ids: List[int], employee_id: str):
@@ -639,6 +684,7 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
 
     # 处理VPN配置更新
     update_data = device_data.dict(exclude_unset=True)
+    old_vpn_config_id = device.vpn_config_id
     vpn_config_id = update_data.pop('vpn_config_id', None)
     group_ids = update_data.pop('group_ids', None)
 
@@ -665,6 +711,23 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
 
     # 重新获取设备信息以包含最新的VPN配置
     device = await Device.filter(id=device_id).prefetch_related("vpn_config", "group_links__group").first()
+
+    # 如果设备VPN发生变化，迁移访问IP记录到新VPN对应的用户IP
+    try:
+        if old_vpn_config_id != device.vpn_config_id:
+            from models.vpnModel import UserVPNConfig
+            from models.deviceModel import DeviceAccessIP
+            access_records = await DeviceAccessIP.filter(device=device).all()
+            for rec in access_records:
+                user = await User.filter(employee_id__iexact=rec.employee_id).first()
+                if user and device.vpn_config_id:
+                    uvpn = await UserVPNConfig.filter(user_id=user.id, vpn_config_id=device.vpn_config_id).first()
+                    rec.vpn_ip = uvpn.ip_address if uvpn else None
+                else:
+                    rec.vpn_ip = None
+                await rec.save()
+    except Exception as e:
+        print(f"迁移设备访问IP失败: {e}")
 
     # 构建响应数据
     vpn_config_id = device.vpn_config.id if device.vpn_config else None
@@ -793,6 +856,10 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
         device_ip=device.ip
     )
 
+    # 更新访问IP记录（占用人）
+    occupant_user = await User.filter(employee_id__iexact=normalized_request_user).first() or current_user
+    await upsert_device_access_ip(device, occupant_user, role="occupant")
+
     return BaseResponse(
         code=200,
         message="设备占用成功",
@@ -800,6 +867,15 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
             "device_id": device.id,
         },
     )
+    
+    # 更新访问IP记录（占用人）
+    try:
+        await current_user.fetch_related('role')
+    except Exception:
+        pass
+    # 占用人为当前操作人或指定用户
+    occupant_user = await User.filter(employee_id__iexact=normalized_request_user).first() or current_user
+    await upsert_device_access_ip(device, occupant_user, role="occupant")
 
 
 @router.post("/long-term-use", summary="申请长时间占用设备")
@@ -855,6 +931,10 @@ async def long_term_use_device(request: DeviceLongTermUseRequest, current_user: 
         description=f"成功申请长时间占用设备 {device.name}，截至时间：{request.end_date}",
         device_ip=device.ip
     )
+
+    # 更新访问IP记录（占用人）
+    occupant_user = await User.filter(employee_id__iexact=normalized_request_user).first() or current_user
+    await upsert_device_access_ip(device, occupant_user, role="occupant")
 
     return BaseResponse(
         code=200,
@@ -994,6 +1074,15 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
             device_ip=device.ip
         )
 
+        # 更新访问IP：切换占用人
+        try:
+            await clear_role_access(device, role="occupant")
+            next_user_obj = await User.filter(employee_id__iexact=normalized_next_user).first()
+            if next_user_obj:
+                await upsert_device_access_ip(device, next_user_obj, role="occupant")
+        except Exception as e:
+            print(f"更新占用人访问IP失败: {e}")
+
         return BaseResponse(
             code=200,
             message="设备已释放并分配给下一个用户",
@@ -1021,6 +1110,13 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
             description=f"{release_type}设备 {device.name}，设备现在可用",
             device_ip=device.ip
         )
+
+        # 清理占用人的访问IP
+        try:
+            if release_user:
+                await delete_device_access_ip(device, release_user, role="occupant")
+        except Exception as e:
+            print(f"清理占用人访问IP失败: {e}")
 
         return BaseResponse(
             code=200,
@@ -1094,6 +1190,11 @@ async def get_device_usage(device_id: int, current_user: User = Depends(AuthMana
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
     await ensure_device_access(device, current_user)
+    # 预取VPN配置，供IP匹配
+    try:
+        await device.fetch_related("vpn_config")
+    except Exception:
+        pass
     
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
@@ -1145,6 +1246,26 @@ async def get_device_usage(device_id: int, current_user: User = Depends(AuthMana
             usage_data["is_shared_user"] = True
     else:
         usage_data["has_pending_share_request"] = False
+
+    # 从持久化表读取访问IP记录
+    records = await DeviceAccessIP.filter(device=device).order_by("-updated_at")
+    access_entries = [
+        {
+            "employee_id": r.employee_id,
+            "username": r.username,
+            "role": ("占用人" if r.role == "occupant" else "共用用户"),
+            "vpn_ip": r.vpn_ip,
+            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+        }
+        for r in records
+    ]
+
+    # 可见性：占用人、共用用户、管理员/超级管理员可见
+    is_admin_or_super = current_user.is_superuser or (await current_user.has_role("管理员"))
+    is_occupant = usage_info.current_user and normalize_employee_id(usage_info.current_user) == normalized_employee
+    is_shared = usage_data.get("is_shared_user", False)
+    usage_data["can_view_access_ips"] = bool(is_admin_or_super or is_occupant or is_shared)
+    usage_data["access_ips"] = access_entries
     
     return BaseResponse(
         code=200,
@@ -1576,6 +1697,18 @@ async def decide_share_request(
         device_ip=share_request.device.ip if share_request.device else None
     )
 
+    # 同步访问IP记录
+    try:
+        if decision.approve and share_request.device:
+            requester = await User.filter(employee_id__iexact=share_request.requester_employee_id).first()
+            if requester:
+                await upsert_device_access_ip(share_request.device, requester, role="shared")
+        else:
+            # 拒绝则清理（保险起见）
+            await delete_device_access_ip(share_request.device, share_request.requester_employee_id, role="shared")
+    except Exception as e:
+        print(f"同步共用访问IP失败: {e}")
+
     return BaseResponse(
         code=200,
         message="共用申请已处理",
@@ -1617,6 +1750,13 @@ async def cancel_share_request(
         description=f"{action_text}（设备 {share_request.device.name if share_request.device else ''}）",
         device_ip=share_request.device.ip if share_request.device else None
     )
+
+    # 清理访问IP（若为已审批的共用）
+    try:
+        if new_status == "revoked" and share_request.device:
+            await delete_device_access_ip(share_request.device, share_request.requester_employee_id, role="shared")
+    except Exception as e:
+        print(f"取消共用时清理访问IP失败: {e}")
 
     return BaseResponse(
         code=200,
