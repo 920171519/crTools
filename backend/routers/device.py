@@ -756,6 +756,121 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
         "updated_at": device.updated_at
     }
 
+    # 分组变更后的可见性联动处理
+    try:
+        usage_info = await DeviceUsage.filter(device=device).first()
+        # 处理占用人无权访问的情况
+        if usage_info and usage_info.current_user:
+            occ_emp = normalize_employee_id(usage_info.current_user)
+            occ_user = await User.filter(employee_id__iexact=occ_emp).first()
+            if occ_user and not await user_has_device_access(device, occ_user):
+                await revoke_shared_access(device, current_user, "device_groups_changed")
+                if usage_info.queue_users and len(usage_info.queue_users) > 0:
+                    next_user = usage_info.queue_users.pop(0)
+                    normalized_next = normalize_employee_id(next_user)
+                    usage_info.current_user = normalized_next
+                    usage_info.start_time = get_current_time()
+                    usage_info.expected_duration = 60
+                    await usage_info.save()
+                    try:
+                        await clear_role_access(device, role="occupant")
+                        next_user_obj = await User.filter(employee_id__iexact=normalized_next).first()
+                        if next_user_obj:
+                            await upsert_device_access_ip(device, next_user_obj, role="occupant")
+                    except Exception as e:
+                        print(f"分组变更切换占用人访问IP失败: {e}")
+                    await OperationLog.create_log(
+                        user=current_user,
+                        operation_type="device_release",
+                        operation_result="success",
+                        device_name=device.name,
+                        description=f"分组调整导致占用人无权访问，设备分配给下一个用户 {normalized_next}",
+                        device_ip=device.ip
+                    )
+                else:
+                    usage_info.current_user = None
+                    usage_info.start_time = None
+                    usage_info.expected_duration = 0
+                    usage_info.status = DeviceStatusEnum.AVAILABLE
+                    await usage_info.save()
+                    try:
+                        await delete_device_access_ip(device, occ_emp, role="occupant")
+                    except Exception as e:
+                        print(f"分组变更清理占用人访问IP失败: {e}")
+                    await OperationLog.create_log(
+                        user=current_user,
+                        operation_type="device_release",
+                        operation_result="success",
+                        device_name=device.name,
+                        description="分组调整导致占用人无权访问，设备已释放",
+                        device_ip=device.ip
+                    )
+
+        # 处理共用用户无权访问的情况（已审批 + 待审批），并同步移除队列
+        # 已审批共用
+        approved_shares = await DeviceShareRequest.filter(device=device, status="approved").all()
+        for s in approved_shares:
+            share_user = await User.filter(employee_id__iexact=s.requester_employee_id).first()
+            if share_user and not await user_has_device_access(device, share_user):
+                s.status = "revoked"
+                s.processed_by = current_user.employee_id
+                s.processed_at = get_current_time()
+                s.decision_reason = "device_groups_changed"
+                await s.save()
+                # 从队列中剔除该用户（如果存在）
+                if usage_info and usage_info.queue_users:
+                    q = usage_info.queue_users
+                    normalized_queue = [normalize_employee_id(u) for u in q]
+                    target = normalize_employee_id(s.requester_employee_id)
+                    if target in normalized_queue:
+                        usage_info.queue_users = [
+                            uid for uid, norm in zip(q, normalized_queue) if norm != target
+                        ]
+                        await usage_info.save()
+                try:
+                    await delete_device_access_ip(device, s.requester_employee_id, role="shared")
+                except Exception as e:
+                    print(f"分组变更清理共用访问IP失败: {e}")
+                await OperationLog.create_log(
+                    user=current_user,
+                    operation_type="device_share_revoke",
+                    operation_result="success",
+                    device_name=device.name,
+                    description=f"分组调整导致用户 {s.requester_employee_id} 无权访问，已取消共用并移出队列",
+                    device_ip=device.ip
+                )
+
+        # 待审批共用
+        pending_shares = await DeviceShareRequest.filter(device=device, status="pending").all()
+        for s in pending_shares:
+            share_user = await User.filter(employee_id__iexact=s.requester_employee_id).first()
+            if share_user and not await user_has_device_access(device, share_user):
+                s.status = "cancelled"
+                s.processed_by = current_user.employee_id
+                s.processed_at = get_current_time()
+                s.decision_reason = "device_groups_changed"
+                await s.save()
+                # 从队列中剔除该用户（如果存在）
+                if usage_info and usage_info.queue_users:
+                    q = usage_info.queue_users
+                    normalized_queue = [normalize_employee_id(u) for u in q]
+                    target = normalize_employee_id(s.requester_employee_id)
+                    if target in normalized_queue:
+                        usage_info.queue_users = [
+                            uid for uid, norm in zip(q, normalized_queue) if norm != target
+                        ]
+                        await usage_info.save()
+                await OperationLog.create_log(
+                    user=current_user,
+                    operation_type="device_share_cancel",
+                    operation_result="success",
+                    device_name=device.name,
+                    description=f"分组调整导致用户 {s.requester_employee_id} 无权访问，已取消共用申请并移出队列",
+                    device_ip=device.ip
+                )
+    except Exception as e:
+        print(f"分组变更联动处理失败: {e}")
+
     return BaseResponse(
         code=200,
         message="设备更新成功",
