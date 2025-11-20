@@ -54,6 +54,16 @@ def get_current_time():
     return datetime.now()
 
 
+async def send_device_notification(device: Device, user: Optional[User], action: str):
+    """发送设备状态变更通知（当前仅打印）"""
+    try:
+        emp = user.employee_id if user else '-'
+        name = user.username if user else '-'
+        print(f"[通知] 设备: {device.name}({device.ip}) | 用户: {emp}({name}) | 动作: {action}")
+    except Exception as e:
+        print(f"发送通知失败: {e}")
+
+
 def normalize_employee_id(employee_id: Optional[str]) -> Optional[str]:
     """工号统一小写处理"""
     if isinstance(employee_id, str):
@@ -846,6 +856,12 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
                     description=f"分组调整导致用户 {s.requester_employee_id} 无权访问，已取消共用并移出队列",
                     device_ip=device.ip
                 )
+                # 通知：共用被强制取消
+                try:
+                    share_user_obj = await User.filter(employee_id__iexact=s.requester_employee_id).first()
+                    await send_device_notification(device, share_user_obj, "分组变更：共用被强制取消")
+                except Exception as e:
+                    print(f"通知失败: {e}")
 
         # 待审批共用
         pending_shares = await DeviceShareRequest.filter(device=device, status="pending").all()
@@ -875,6 +891,12 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
                     description=f"分组调整导致用户 {s.requester_employee_id} 无权访问，已取消共用申请并移出队列",
                     device_ip=device.ip
                 )
+                # 通知：共用申请被系统取消
+                try:
+                    share_user_obj = await User.filter(employee_id__iexact=s.requester_employee_id).first()
+                    await send_device_notification(device, share_user_obj, "分组变更：共用申请被取消")
+                except Exception as e:
+                    print(f"通知失败: {e}")
     except Exception as e:
         print(f"分组变更联动处理失败: {e}")
 
@@ -983,6 +1005,9 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
     occupant_user = await User.filter(employee_id__iexact=normalized_request_user).first() or current_user
     await upsert_device_access_ip(device, occupant_user, role="occupant")
 
+    # 通知
+    # 主动占用成功无需通知
+
     return BaseResponse(
         code=200,
         message="设备占用成功",
@@ -1058,6 +1083,9 @@ async def long_term_use_device(request: DeviceLongTermUseRequest, current_user: 
     # 更新访问IP记录（占用人）
     occupant_user = await User.filter(employee_id__iexact=normalized_request_user).first() or current_user
     await upsert_device_access_ip(device, occupant_user, role="occupant")
+
+    # 通知
+    # 主动长时间占用成功无需通知
 
     return BaseResponse(
         code=200,
@@ -1206,6 +1234,17 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         except Exception as e:
             print(f"更新占用人访问IP失败: {e}")
 
+        # 通知：原占用人、下一位占用者
+        try:
+            # 若为强制释放则通知原占用人
+            if is_force_release:
+                prev_user_obj = await User.filter(employee_id__iexact=release_user).first()
+                await send_device_notification(device, prev_user_obj, "设备已被释放，分配给下一位")
+            next_user_obj = await User.filter(employee_id__iexact=normalized_next_user).first()
+            await send_device_notification(device, next_user_obj, "由排队状态转为占用状态")
+        except Exception as e:
+            print(f"通知失败: {e}")
+
         return BaseResponse(
             code=200,
             message="设备已释放并分配给下一个用户",
@@ -1240,6 +1279,15 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
                 await delete_device_access_ip(device, release_user, role="occupant")
         except Exception as e:
             print(f"清理占用人访问IP失败: {e}")
+
+        # 通知：原占用人
+        try:
+            # 若为强制释放则通知原占用人
+            if is_force_release:
+                prev_user_obj = await User.filter(employee_id__iexact=release_user).first()
+                await send_device_notification(device, prev_user_obj, "设备已被释放，设备变为可用")
+        except Exception as e:
+            print(f"通知失败: {e}")
 
         return BaseResponse(
             code=200,
@@ -1448,6 +1496,8 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
             device_ip=device.ip
         )
 
+        # 抢占者主动行为，无需通知
+
         return BaseResponse(
             code=200,
             message="设备占用成功",
@@ -1501,6 +1551,13 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
             description=f"抢占设备 {device.name}，原用户 {previous_user} 已加入排队列表首位",
             device_ip=device.ip
         )
+
+        # 通知：仅通知原占用人被抢占
+        try:
+            prev_user_obj = await User.filter(employee_id__iexact=previous_user).first()
+            await send_device_notification(device, prev_user_obj, "占用状态被抢占，已加入排队")
+        except Exception as e:
+            print(f"通知失败: {e}")
 
         return BaseResponse(
             code=200,
@@ -1854,6 +1911,17 @@ async def decide_share_request(
     except Exception as e:
         print(f"同步共用访问IP失败: {e}")
 
+    # 消息通知：申请人
+    try:
+        requester = await User.filter(employee_id__iexact=share_request.requester_employee_id).first()
+        await send_device_notification(
+            share_request.device,
+            requester,
+            "共用申请已通过" if decision.approve else "共用申请被拒绝"
+        )
+    except Exception as e:
+        print(f"通知失败: {e}")
+
     return BaseResponse(
         code=200,
         message="共用申请已处理",
@@ -1905,6 +1973,13 @@ async def revoke_shared_user(
         description=f"剔除共用用户 {share_request.requester_employee_id}（设备 {device.name if device else ''}）",
         device_ip=device.ip if device else None
     )
+
+    # 消息通知：被剔除的共用用户
+    try:
+        requester = await User.filter(employee_id__iexact=share_request.requester_employee_id).first()
+        await send_device_notification(share_request.device, requester, "共用权限被占用人/管理员剔除")
+    except Exception as e:
+        print(f"通知失败: {e}")
 
     return BaseResponse(
         code=200,
