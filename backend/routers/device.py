@@ -135,11 +135,18 @@ async def get_device_shared_users(device: Device):
     share_requests = await DeviceShareRequest.filter(device=device, status="approved").order_by("processed_at")
     result = []
     for share in share_requests:
+        # 返回本地时间字符串，避免前端解析ISO字符串被当作UTC导致+8小时偏移
+        approved_at = None
+        if share.processed_at:
+            try:
+                approved_at = share.processed_at.strftime("%Y-%m-%d %H:%M:%S")
+            except Exception:
+                approved_at = share.processed_at.isoformat()
         result.append({
             "share_request_id": share.id,
             "employee_id": share.requester_employee_id,
             "username": share.requester_username,
-            "approved_at": share.processed_at.isoformat() if share.processed_at else None
+            "approved_at": approved_at
         })
     return result
 
