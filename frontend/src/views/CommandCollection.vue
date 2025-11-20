@@ -170,11 +170,28 @@
 
           <!-- 备注 -->
           <div class="detail-section">
-            <h3 class="section-title">
-              <el-icon><InfoFilled /></el-icon>
-              备注
-            </h3>
-            <div class="remarks">{{ commandDetail.remarks || '暂无' }}</div>
+            <div class="section-header">
+              <h3 class="section-title">
+                <el-icon><InfoFilled /></el-icon>
+                备注
+              </h3>
+              <el-button type="primary" size="small" plain @click="toggleEditRemarks" v-if="!isEditRemarks">
+                编辑
+              </el-button>
+              <div v-else>
+                <el-button type="primary" size="small" @click="saveRemarks" :loading="saveLoading">保存</el-button>
+                <el-button size="small" @click="cancelEditRemarks">取消</el-button>
+              </div>
+            </div>
+            <div class="remarks" v-if="!isEditRemarks">{{ commandDetail.remarks || '暂无' }}</div>
+            <el-input
+              v-else
+              v-model="editRemarksText"
+              type="textarea"
+              :rows="4"
+              maxlength="5000"
+              show-word-limit
+            />
           </div>
         </template>
       </div>
@@ -204,6 +221,7 @@ const saveLoading = ref(false)
 // 搜索表单
 const searchForm = reactive({
   command_keyword: '',
+  description_keyword: '',
   remarks_keyword: ''
 })
 
@@ -230,6 +248,10 @@ const editCommandForm = reactive({
 })
 const currentEditId = ref<number | null>(null)
 
+// 仅编辑备注
+const isEditRemarks = ref(false)
+const editRemarksText = ref('')
+
 // 计算属性
 const currentUser = computed(() => userStore.userInfo?.username || '')
 const currentUserEmployeeId = computed(() => userStore.userInfo?.employee_id?.toLowerCase() || '')
@@ -254,6 +276,7 @@ const loadCommands = async () => {
       page: pagination.page,
       page_size: pagination.page_size,
       command_keyword: searchForm.command_keyword,
+      description_keyword: searchForm.description_keyword,
       remarks_keyword: searchForm.remarks_keyword
     })
     commands.value = response.data.items
@@ -275,6 +298,7 @@ const handleSearch = () => {
 // 重置搜索
 const handleReset = () => {
   searchForm.command_keyword = ''
+  searchForm.description_keyword = ''
   searchForm.remarks_keyword = ''
   pagination.page = 1
   loadCommands()
@@ -341,6 +365,9 @@ const viewDetails = async (command: CommandListItem) => {
   showDetailDrawer.value = true
   isEditMode.value = false
   await loadCommandDetail(command.id)
+  // 初始化备注编辑内容
+  editRemarksText.value = commandDetail.value?.remarks || ''
+  isEditRemarks.value = false
 }
 
 const handleImport = async () => {
@@ -397,6 +424,32 @@ const handleSaveEdit = async () => {
     } else {
       ElMessage.error('更新命令行失败')
     }
+  } finally {
+    saveLoading.value = false
+  }
+}
+
+// 备注编辑开关
+const toggleEditRemarks = () => {
+  isEditRemarks.value = true
+  editRemarksText.value = commandDetail.value?.remarks || ''
+}
+
+const cancelEditRemarks = () => {
+  isEditRemarks.value = false
+  editRemarksText.value = commandDetail.value?.remarks || ''
+}
+
+const saveRemarks = async () => {
+  if (!commandDetail.value) return
+  try {
+    saveLoading.value = true
+    await commandApi.updateCommand(commandDetail.value.id, { remarks: editRemarksText.value })
+    ElMessage.success('备注已更新')
+    await loadCommandDetail(commandDetail.value.id)
+    isEditRemarks.value = false
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.detail || '更新备注失败')
   } finally {
     saveLoading.value = false
   }
