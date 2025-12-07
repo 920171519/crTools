@@ -105,3 +105,9 @@ export const updateUserGroups = (userId: number, groupIds: number[]) => {
     group_ids: groupIds
   })
 }
+
+export const addGroupMembers = (groupId: number, userIds: number[]) => {
+  return api.post(`/users/groups/${groupId}/members`, {
+    user_ids: userIds
+  })
+}

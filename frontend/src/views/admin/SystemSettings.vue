@@ -3,7 +3,7 @@
     <el-card shadow="never">
       <template #header>
         <div class="card-header">
-          <span>系统设置</span>
+          <span>设备管理系统设置</span>
         </div>
       </template>
 

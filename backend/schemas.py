@@ -111,6 +111,11 @@ class UserGroupUpdateRequest(BaseModel):
     group_ids: List[int] = Field(default_factory=list, description="分组ID列表")
 
 
+class GroupMembersAddRequest(BaseModel):
+    """为分组添加成员请求"""
+    user_ids: List[int] = Field(default_factory=list, description="用户ID列表")
+
+
 class GroupMembersResponse(BaseModel):
     """分组及成员信息"""
     id: int

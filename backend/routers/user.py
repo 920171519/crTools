@@ -12,7 +12,8 @@ from schemas import (
     UserResponse,
     GroupCreate,
     GroupUpdate,
-    UserGroupUpdateRequest
+    UserGroupUpdateRequest,
+    GroupMembersAddRequest
 )
 from auth import AuthManager, require_active_user, PermissionChecker, Permissions
 
@@ -222,6 +223,61 @@ async def delete_group(
         code=200,
         message="分组删除成功",
         data=None
+    )
+
+
+@router.post("/groups/{group_id}/members", response_model=BaseResponse, summary="为分组添加用户")
+async def add_group_members(
+    group_id: int,
+    member_request: GroupMembersAddRequest,
+    current_user: User = require_active_user,
+    _: bool = require_user_update
+):
+    """向指定分组添加用户（不会移除已存在的成员）"""
+    group = await Group.filter(id=group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="分组不存在")
+
+    user_ids = set(member_request.user_ids or [])
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="用户ID列表不能为空")
+
+    users = await User.filter(id__in=user_ids)
+    found_ids = {user.id for user in users}
+    missing = user_ids - found_ids
+    if missing:
+        raise HTTPException(status_code=404, detail=f"以下用户不存在: {', '.join(map(str, missing))}")
+
+    existing_user_ids = set(await GroupMember.filter(group_id=group_id).values_list('user_id', flat=True))
+    created_count = 0
+    for user in users:
+        if user.id in existing_user_ids:
+            continue
+        await GroupMember.create(group=group, user=user)
+        created_count += 1
+
+    members_data = []
+    members = await GroupMember.filter(group_id=group_id).prefetch_related("user__role")
+    for member in members:
+        if member.user:
+            role_name = await member.user.get_role_name()
+            members_data.append({
+                "id": member.user.id,
+                "employee_id": member.user.employee_id,
+                "username": member.user.username,
+                "is_superuser": member.user.is_superuser,
+                "role": role_name
+            })
+
+    return BaseResponse(
+        code=200,
+        message="分组成员更新成功",
+        data={
+            "group_id": group.id,
+            "added_count": created_count,
+            "member_count": len(members_data),
+            "members": members_data
+        }
     )
 
 

@@ -6,6 +6,7 @@ from datetime import datetime, time
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from models.deviceModel import Device, DeviceUsage, DeviceStatusEnum
+from models.admin import User
 import logging
 
 
@@ -20,6 +21,25 @@ logger = logging.getLogger(__name__)
 class DeviceScheduler:
     def __init__(self):
         self.scheduler = AsyncIOScheduler()
+
+    async def _notify_forced_release(self, device: Device, employee_id: str | None, context: str):
+        """通知占用人被系统/管理员清理释放（仅打印）。
+        使用本地打印以避免与routers.device的循环依赖。
+        打印格式与设备路由中的保持一致：
+        [通知] 设备: name(ip) | 用户: emp(name) | 动作: action
+        """
+        try:
+            emp = (employee_id or "-")
+            user = None
+            username = "-"
+            if employee_id:
+                user = await User.filter(employee_id__iexact=employee_id).first()
+                if user:
+                    username = user.username or "-"
+            action = f"{context}：被强制释放"
+            print(f"[通知] 设备: {device.name}({device.ip}) | 用户: {emp}({username}) | 动作: {action}")
+        except Exception as e:
+            logger.error(f"发送定时/管理员清理通知失败: {e}")
 
     async def start(self):
         """启动定时任务调度器"""
@@ -126,6 +146,7 @@ class DeviceScheduler:
 
                     # 记录清理前的状态
                     had_user = bool(usage_info.current_user)
+                    prev_emp = (usage_info.current_user.lower() if usage_info.current_user else None)
                     had_queue = bool(usage_info.queue_users)
 
                     # 清理占用状态
@@ -145,6 +166,9 @@ class DeviceScheduler:
                     if had_user:
                         released_count += 1
                         logger.info(f"已释放设备: {usage_info.device.name}")
+                        # 通知上一位占用人
+                        context = "强制清理" if force_cleanup else "定时清理"
+                        await self._notify_forced_release(usage_info.device, prev_emp, context)
 
                     if had_queue:
                         queue_cleared_count += 1

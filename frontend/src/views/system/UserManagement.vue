@@ -160,6 +160,14 @@
                       text
                       type="primary"
                       size="small"
+                      @click.stop="openGroupMemberDialog(group)"
+                    >
+                      新增成员
+                    </el-button>
+                    <el-button
+                      text
+                      type="primary"
+                      size="small"
                       @click.stop="openGroupDialog(group)"
                     >
                       编辑
@@ -268,6 +276,42 @@
       </template>
     </el-dialog>
 
+    <!-- 分组新增成员对话框 -->
+    <el-dialog
+      v-model="groupMemberDialogVisible"
+      :title="selectedGroupForMembers ? `向 ${selectedGroupForMembers.name} 添加成员` : '添加分组成员'"
+      width="500px"
+    >
+      <el-form label-width="90px">
+        <el-form-item label="选择用户">
+          <el-select
+            v-model="groupMemberSelection"
+            multiple
+            filterable
+            :loading="userOptionsLoading"
+            placeholder="请选择要加入的用户"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="user in userOptions"
+              :key="user.id"
+              :label="`${user.username} (${user.employee_id})`"
+              :value="user.id"
+              :disabled="selectedGroupForMembers?.members?.some(member => member.id === user.id)"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="groupMemberDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleAddMembersToGroup" :loading="addingGroupMembers">
+            添加
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 分组创建/编辑对话框 -->
     <el-dialog
       v-model="groupDialogVisible"
@@ -307,7 +351,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
-import { getUserList, updateUserRole, deleteUser, ROLE_OPTIONS, getRoleTagType, getGroupList, createGroup, updateGroup, deleteGroup, updateUserGroups, type GroupItem } from '@/api/user'
+import { getUserList, updateUserRole, deleteUser, ROLE_OPTIONS, getRoleTagType, getGroupList, createGroup, updateGroup, deleteGroup, updateUserGroups, addGroupMembers, type GroupItem } from '@/api/user'
 
 const userStore = useUserStore()
 
@@ -360,6 +404,12 @@ const userGroupDialogVisible = ref(false)
 const currentUserForGroups = ref<any>(null)
 const userGroupSelection = ref<number[]>([])
 const userGroupSaving = ref(false)
+const groupMemberDialogVisible = ref(false)
+const selectedGroupForMembers = ref<GroupItem | null>(null)
+const groupMemberSelection = ref<number[]>([])
+const userOptions = ref<any[]>([])
+const userOptionsLoading = ref(false)
+const addingGroupMembers = ref(false)
 
 // 获取用户列表
 const fetchUserList = async () => {
@@ -389,6 +439,22 @@ const fetchGroupList = async () => {
   } catch (error) {
     console.error('获取分组列表错误:', error)
     ElMessage.error('获取分组列表失败')
+  }
+}
+
+const fetchUserOptions = async () => {
+  userOptionsLoading.value = true
+  try {
+    const response = await getUserList({
+      page: 1,
+      page_size: 100
+    })
+    userOptions.value = response.data.items || []
+  } catch (error) {
+    console.error('获取用户列表错误:', error)
+    ElMessage.error('获取用户列表失败')
+  } finally {
+    userOptionsLoading.value = false
   }
 }
 
@@ -553,6 +619,38 @@ const confirmDeleteGroup = async (group: GroupItem) => {
       console.error('删除分组失败:', error)
       ElMessage.error('删除分组失败')
     }
+  }
+}
+
+const openGroupMemberDialog = async (group: GroupItem) => {
+  selectedGroupForMembers.value = group
+  groupMemberSelection.value = []
+  await fetchUserOptions()
+  groupMemberDialogVisible.value = true
+}
+
+const handleAddMembersToGroup = async () => {
+  if (!selectedGroupForMembers.value) return
+  if (!groupMemberSelection.value.length) {
+    ElMessage.error('请选择要添加的用户')
+    return
+  }
+  addingGroupMembers.value = true
+  try {
+    await addGroupMembers(selectedGroupForMembers.value.id, groupMemberSelection.value)
+    ElMessage.success('已添加到分组')
+    groupMemberDialogVisible.value = false
+    await fetchGroupList()
+    await fetchUserList()
+  } catch (error: any) {
+    console.error('添加分组成员失败:', error)
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('添加分组成员失败')
+    }
+  } finally {
+    addingGroupMembers.value = false
   }
 }
 
