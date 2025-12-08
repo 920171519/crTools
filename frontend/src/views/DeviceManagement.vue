@@ -1530,7 +1530,6 @@ const currentUserEmployeeId = computed(() => userStore.userInfo?.employee_id?.to
 const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
 const isAdvancedUser = computed(() => userStore.isAdvancedUser)
 const isAdminUser = computed(() => userStore.isAdminUser)
-const canViewGroupOptions = computed(() => userStore.hasPermission?.('user:read') || isAdmin.value)
 
 const showShareControls = (device) => {
   if (!device) return false
@@ -1578,11 +1577,7 @@ onMounted(async () => {
   userInfoLoaded.value = true
   await loadDevices()
   await loadVPNConfigs()
-  if (canViewGroupOptions.value) {
-    await loadGroupOptions()
-  } else {
-    groupOptions.value = []
-  }
+  await loadGroupOptions()
 
   // 启动连通性检测定时器
   startConnectivityTimer()

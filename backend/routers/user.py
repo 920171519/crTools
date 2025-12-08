@@ -126,11 +126,8 @@ async def get_available_roles(
 
 
 @router.get("/groups", response_model=BaseResponse, summary="获取所有用户分组")
-async def list_groups(
-    current_user: User = require_active_user,
-    _: bool = require_user_read
-):
-    """获取分组及其成员列表"""
+async def list_groups(current_user: User = require_active_user):
+    """获取分组及其成员列表（所有登录用户可见）"""
     groups = await Group.all().order_by("sort_order", "id").prefetch_related("members__user", "members__user__role")
     group_list = []
     for group in groups:
