@@ -184,6 +184,7 @@ export interface DeviceSearchParams {
   name?: string
   ip?: string
   status?: string
+  config_value?: string
 }
 
 export interface DeviceListResponse {
@@ -350,6 +351,11 @@ export const deviceApi = {
   // 更新设备配置
   updateDeviceConfig: (deviceId: number, configId: number, data: DeviceConfigUpdateRequest) => {
     return api.put(`/devices/${deviceId}/configs/${configId}`, data)
+  },
+
+  // 一键导入设备全部配置
+  importAllDeviceConfigs: (deviceId: number) => {
+    return api.post(`/devices/${deviceId}/configs/import-all`)
   },
 
   // 删除设备配置

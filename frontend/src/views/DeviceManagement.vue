@@ -134,6 +134,9 @@
           <el-form-item label="环境IP">
             <el-input v-model="searchForm.ip" placeholder="请输入环境IP" clearable />
           </el-form-item>
+          <el-form-item label="配置值">
+            <el-input v-model="searchForm.config_value" placeholder="请输入配置关键词" clearable />
+          </el-form-item>
           <el-form-item label="环境状态">
             <el-select
               v-model="searchForm.status"
@@ -835,20 +838,34 @@
             <el-tab-pane label="基本信息" name="basic">
               <div class="detail-section">
             <h3 class="section-title">
-              <el-icon><InfoFilled /></el-icon>
-              基本信息
-              <!-- 编辑按钮 - 环境归属人或管理员可见 -->
-              <el-button
-                v-if="canEditDevice"
-                type="primary"
-                size="small"
-                plain
-                @click="openEditDialog"
-                class="edit-button"
-              >
-                <el-icon><Edit /></el-icon>
-                编辑
-              </el-button>
+              <div class="section-title__info">
+                <el-icon><InfoFilled /></el-icon>
+                基本信息
+              </div>
+              <div class="section-actions">
+                <el-button
+                  type="primary"
+                  size="small"
+                  plain
+                  class="copy-button"
+                  @click="copyDeviceInfo"
+                >
+                  <el-icon><DocumentCopy /></el-icon>
+                  一键复制
+                </el-button>
+                <!-- 编辑按钮 - 环境归属人或管理员可见 -->
+                <el-button
+                  v-if="canEditDevice"
+                  type="primary"
+                  size="small"
+                  plain
+                  @click="openEditDialog"
+                  class="edit-button"
+                >
+                  <el-icon><Edit /></el-icon>
+                  编辑
+                </el-button>
+              </div>
             </h3>
             <div class="info-grid">
               <div class="info-item">
@@ -1240,15 +1257,28 @@
               <div class="config-section">
                 <div class="config-header">
                   <h3>设备配置</h3>
-                  <el-button
-                    v-if="canEditDevice"
-                    type="primary"
-                    size="small"
-                    @click="openConfigDialog"
-                    icon="Plus"
-                  >
-                    添加配置
-                  </el-button>
+                  <div class="config-actions">
+                    <el-button
+                      v-if="canEditDevice"
+                      type="primary"
+                      size="small"
+                      plain
+                      :loading="configImportLoading"
+                      @click="triggerImportConfigs"
+                    >
+                      <el-icon><UploadFilled /></el-icon>
+                      一键导入
+                    </el-button>
+                    <el-button
+                      v-if="canEditDevice"
+                      type="primary"
+                      size="small"
+                      @click="openConfigDialog"
+                      icon="Plus"
+                    >
+                      添加配置
+                    </el-button>
+                  </div>
                 </div>
                 
                 <el-table 
@@ -1285,7 +1315,7 @@
                   <el-table-column 
                     v-if="canEditDevice" 
                     label="操作" 
-                    width="150"
+                    width="120"
                     fixed="right"
                   >
                     <template #default="{ row }">
@@ -1386,7 +1416,8 @@ import 'element-plus/es/components/message-box/style/css'
 import 'element-plus/es/components/message/style/css'
 import {
   Monitor, User, Plus, Refresh, InfoFilled, Clock, UserFilled,
-  VideoPlay, VideoPause, Delete, Edit, Search, SuccessFilled, WarningFilled
+  VideoPlay, VideoPause, Delete, Edit, Search, SuccessFilled, WarningFilled,
+  DocumentCopy, UploadFilled
 } from '@element-plus/icons-vue'
 import { deviceApi, type DeviceConfig } from '../api/device'
 import { vpnApi } from '../api/vpn'
@@ -1462,6 +1493,24 @@ const isEditingConfig = ref(false)
 const currentConfigId = ref<number | null>(null)
 const configSaveLoading = ref(false)
 const configFormRef = ref()
+const triggerImportConfigs = async () => {
+  if (!deviceDetail.value) {
+    ElMessage.warning('设备信息不存在')
+    return
+  }
+  try {
+    configImportLoading.value = true
+    const response = await deviceApi.importAllDeviceConfigs(deviceDetail.value.id) as any
+    ElMessage.success(response.data?.message || '导入任务已触发')
+    await loadDeviceConfigs(deviceDetail.value.id)
+  } catch (error) {
+    console.error('触发配置导入失败:', error)
+    ElMessage.error(error?.response?.data?.detail || '导入失败')
+  } finally {
+    configImportLoading.value = false
+  }
+}
+const configImportLoading = ref(false)
 
 // 配置表单
 const configForm = reactive({
@@ -1508,7 +1557,8 @@ const loadGroupOptions = async () => {
 const searchForm = reactive({
   name: '',
   ip: '',
-  status: ''
+  status: '',
+  config_value: ''
 })
 
 // 分页信息
@@ -1782,6 +1832,7 @@ const shouldShowCurrentCredentials = computed(() => {
   if (canEditDevice.value) return false
   return isCurrentUserOccupant.value || isSharedUser.value
 })
+const canViewCredentials = computed(() => canEditDevice.value || shouldShowCurrentCredentials.value)
 
 // 编辑设备相关
 const showEditDialog = ref(false)
@@ -2057,6 +2108,30 @@ const revokeSharedUser = async (user) => {
     }
   } finally {
     detailShareLoading.value = false
+  }
+}
+
+const copyDeviceInfo = async () => {
+  if (!deviceDetail.value) {
+    ElMessage.warning('暂无可复制的设备信息')
+    return
+  }
+  const parts = [
+    `设备名称: ${deviceDetail.value.name}`,
+    `设备IP: ${deviceDetail.value.ip}`,
+    `所需VPN: ${deviceDetail.value.vpn_display_name || '未配置'}`
+  ]
+  if (canViewCredentials.value) {
+    parts.push(`管理员账号: ${deviceDetail.value.admin_username}`)
+    parts.push(`管理员密码: ${deviceDetail.value.admin_password}`)
+  }
+  const text = parts.join('\n')
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success('设备信息已复制')
+  } catch (error) {
+    console.error('复制设备信息失败:', error)
+    ElMessage.error('复制失败，请手动查看')
   }
 }
 
@@ -2814,7 +2889,8 @@ const handleReset = () => {
   Object.assign(searchForm, {
     name: '',
     ip: '',
-    status: ''
+    status: '',
+    config_value: ''
   })
   pagination.page = 1
   loadDevices()
@@ -3085,7 +3161,7 @@ watch(activeDetailTab, (newTab) => {
 .section-title {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
   margin: 0 0 16px 0;
   font-size: 16px;
@@ -3095,8 +3171,20 @@ watch(activeDetailTab, (newTab) => {
   padding-bottom: 8px;
 }
 
-.section-title .edit-button {
+.section-title__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-left: auto;
+}
+
+.section-title .edit-button {
   margin-bottom: 4px;
 }
 
@@ -3370,6 +3458,12 @@ watch(activeDetailTab, (newTab) => {
   font-size: 16px;
   font-weight: 600;
   color: #303133;
+}
+
+.config-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 /* 连通性状态样式 */

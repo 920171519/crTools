@@ -289,6 +289,7 @@ async def get_devices(
     name: Optional[str] = Query(None, description="环境名称搜索"),
     ip: Optional[str] = Query(None, description="环境IP搜索"),
     status: Optional[str] = Query(None, description="环境状态搜索"),
+    config_value: Optional[str] = Query(None, description="配置值搜索"),
     current_user: User = Depends(AuthManager.get_current_user)
 ):
     """
@@ -303,6 +304,23 @@ async def get_devices(
         query = query.filter(name__icontains=name)
     if ip:
         query = query.filter(ip__icontains=ip)
+    if config_value:
+        config_device_ids = await DeviceConfig.filter(
+            config_value__icontains=config_value
+        ).values_list("device_id", flat=True)
+        device_id_set = set(config_device_ids)
+        if not device_id_set:
+            return BaseResponse(
+                code=200,
+                message="设备列表获取成功",
+                data={
+                    "items": [],
+                    "total": 0,
+                    "page": page,
+                    "page_size": page_size
+                }
+            )
+        query = query.filter(id__in=list(device_id_set))
 
     # 获取所有设备用于过滤
     all_devices = await query
@@ -2397,6 +2415,48 @@ async def add_device_config(
         raise HTTPException(status_code=400, detail=f"添加配置失败: {str(e)}")
 
 
+@router.post("/{device_id:int}/configs/import-all", response_model=BaseResponse, summary="一键导入设备全部配置")
+async def import_all_device_configs(
+    device_id: int,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """
+    一键导入设备所有配置（占位实现）
+    - 只有设备归属人或管理员可以操作
+    - 当前实现为打印导入动作
+    """
+    device = await Device.get_or_none(id=device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+
+    current_user_id = current_user.employee_id or current_user.username
+    is_admin = current_user.is_superuser or current_user.role == '管理员'
+    is_owner = device.owner == current_user_id
+
+    if not (is_admin or is_owner):
+        raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
+
+    try:
+        print(f"[配置批量导入] 设备: {device.name}({device.ip})，准备拉取全部配置")
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="import_device_configs_all",
+            operation_result="success",
+            device_name=device.name,
+            description="触发一键导入全部配置",
+            device_ip=device.ip
+        )
+    except Exception as e:
+        print(f"[配置批量导入失败] device_id={device_id}, error={e}")
+        raise HTTPException(status_code=500, detail="触发导入失败")
+
+    return BaseResponse(
+        code=200,
+        message="导入任务已触发，正在拉取设备配置",
+        data={"device_id": device.id}
+    )
+
+
 @router.put("/{device_id:int}/configs/{config_id:int}", response_model=BaseResponse, summary="更新设备配置")
 async def update_device_config(
     device_id: int,
@@ -2469,6 +2529,56 @@ async def update_device_config(
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"更新配置失败: {str(e)}")
+
+
+@router.post("/{device_id:int}/configs/{config_id:int}/import", response_model=BaseResponse, summary="一键导入设备配置")
+async def import_device_config(
+    device_id: int,
+    config_id: int,
+    current_user: User = Depends(AuthManager.get_current_user)
+):
+    """
+    一键导入设备配置
+    - 权限与添加配置一致（设备归属人或管理员）
+    - 当前实现为占位符：打印导入动作
+    """
+    device = await Device.get_or_none(id=device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+
+    config = await DeviceConfig.get_or_none(id=config_id, device=device)
+    if not config:
+        raise HTTPException(status_code=404, detail="配置不存在")
+
+    current_user_id = current_user.employee_id or current_user.username
+    is_admin = current_user.is_superuser or current_user.role == '管理员'
+    is_owner = device.owner == current_user_id
+
+    if not (is_admin or is_owner):
+        raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
+
+    try:
+        print(f"[配置导入] 设备: {device.name}({device.ip}) 配置: ({config.config_param1}, {config.config_param2}) 值: {config.config_value}")
+        await OperationLog.create_log(
+            user=current_user,
+            operation_type="import_device_config",
+            operation_result="success",
+            device_name=device.name,
+            description=f"触发一键导入，配置ID={config.id}",
+            device_ip=device.ip
+        )
+    except Exception as e:
+        print(f"[配置导入失败] device_id={device_id}, config_id={config_id}, error={e}")
+        raise HTTPException(status_code=500, detail="触发导入失败")
+
+    return BaseResponse(
+        code=200,
+        message="导入任务已触发",
+        data={
+            "device_id": device.id,
+            "config_id": config.id
+        }
+    )
 
 
 @router.delete("/{device_id:int}/configs/{config_id:int}", response_model=BaseResponse, summary="删除设备配置")
