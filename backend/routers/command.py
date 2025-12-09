@@ -18,6 +18,17 @@ from auth import AuthManager
 router = APIRouter(prefix="/api/commands", tags=["命令行集"])
 
 
+def _split_keywords(keyword: Optional[str]) -> list[str]:
+    """
+    将搜索词拆分为关键词列表，空格表示分词，便于逐词模糊匹配
+    例如 'a b c' -> ['a', 'b', 'c']
+    """
+    if not keyword:
+        return []
+    parts = [p for p in keyword.strip().split() if p]
+    return parts
+
+
 @router.get("/", response_model=BaseResponse, summary="获取命令行列表")
 async def get_commands(
     page: int = Query(1, ge=1, description="页码"),
@@ -39,17 +50,16 @@ async def get_commands(
     # 构建查询条件
     query = Command.all()
 
-    # 根据搜索关键词进行过滤
-    if command_keyword and command_keyword.strip():
-        query = query.filter(command_text__icontains=command_keyword.strip())
-    if description_keyword and description_keyword.strip():
-        query = query.filter(description__icontains=description_keyword.strip())
-    if remarks_keyword and remarks_keyword.strip():
-        query = query.filter(remarks__icontains=remarks_keyword.strip())
+    # 根据搜索关键词进行过滤，空格视为分词，逐词 AND 模糊匹配
+    for token in _split_keywords(command_keyword):
+        query = query.filter(command_text__icontains=token)
+    for token in _split_keywords(description_keyword):
+        query = query.filter(description__icontains=token)
+    for token in _split_keywords(remarks_keyword):
+        query = query.filter(remarks__icontains=token)
 
     # 获取总数
     total = await query.count()
-    
     # 分页查询
     offset = (page - 1) * page_size
     commands = await query.offset(offset).limit(page_size).order_by('-updated_at')
