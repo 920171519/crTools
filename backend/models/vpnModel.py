@@ -11,6 +11,10 @@ class VPNConfig(Model):
     id = fields.IntField(pk=True, description="VPN配置ID")
     region = fields.CharField(max_length=50, description="地域")
     network = fields.CharField(max_length=50, description="网段")
+    lns = fields.CharField(max_length=45, description="LNS地址")
+    gw = fields.CharField(max_length=45, description="网关地址")
+    ip = fields.CharField(max_length=45, description="VPN IP")
+    mask = fields.CharField(max_length=45, description="子网掩码")
 
     class Meta:
         table = "vpn_configs"

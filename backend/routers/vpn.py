@@ -4,6 +4,7 @@ VPN配置管理路由
 """
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
+import asyncio
 from models.admin import User
 from models.vpnModel import VPNConfig, UserVPNConfig
 from schemas import (
@@ -13,6 +14,22 @@ from schemas import (
 from auth import AuthManager, require_permission
 
 router = APIRouter(prefix="/vpn", tags=["VPN配置管理"])
+
+
+async def _ping_ip(ip: str, timeout: int = 3) -> bool:
+    """简单ping检测，用于VPN网关状态"""
+    if not ip:
+        return False
+    try:
+        process = await asyncio.create_subprocess_exec(
+            'ping', '-c', '1', '-W', str(timeout), ip,
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL
+        )
+        await asyncio.wait_for(process.wait(), timeout=timeout + 2)
+        return process.returncode == 0
+    except Exception:
+        return False
 
 
 # ===== 管理员VPN配置管理 =====
@@ -43,10 +60,16 @@ async def get_vpn_configs(
         # 转换为响应格式
         items = []
         for config in configs:
+            status = await _ping_ip(config.gw)
             items.append(VPNConfigResponse(
                 id=config.id,
                 region=config.region,
-                network=config.network
+                network=config.network,
+                lns=config.lns,
+                gw=config.gw,
+                ip=config.ip,
+                mask=config.mask,
+                status=status
             ))
 
         return BaseResponse(
@@ -90,7 +113,11 @@ async def create_vpn_config(
         # 创建VPN配置
         config = await VPNConfig.create(
             region=config_data.region,
-            network=config_data.network
+            network=config_data.network,
+            lns=config_data.lns,
+            gw=config_data.gw,
+            ip=config_data.ip,
+            mask=config_data.mask
         )
 
         return BaseResponse(
@@ -99,7 +126,11 @@ async def create_vpn_config(
             data={
                 "id": config.id,
                 "region": config.region,
-                "network": config.network
+                "network": config.network,
+                "lns": config.lns,
+                "gw": config.gw,
+                "ip": config.ip,
+                "mask": config.mask
             }
         )
     except Exception as e:
@@ -151,6 +182,14 @@ async def update_vpn_config(
             update_data["region"] = config_data.region
         if config_data.network is not None:
             update_data["network"] = config_data.network
+        if config_data.lns is not None:
+            update_data["lns"] = config_data.lns
+        if config_data.gw is not None:
+            update_data["gw"] = config_data.gw
+        if config_data.ip is not None:
+            update_data["ip"] = config_data.ip
+        if config_data.mask is not None:
+            update_data["mask"] = config_data.mask
 
         if update_data:
             await VPNConfig.filter(id=config_id).update(**update_data)
@@ -376,7 +415,11 @@ async def get_all_vpn_configs(
             items.append({
                 "id": config.id,
                 "region": config.region,
-                "network": config.network
+                "network": config.network,
+                "lns": config.lns,
+                "gw": config.gw,
+                "ip": config.ip,
+                "mask": config.mask
             })
 
         return BaseResponse(

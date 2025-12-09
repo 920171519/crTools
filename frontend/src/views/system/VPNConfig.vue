@@ -47,6 +47,10 @@
       <el-table :data="vpnConfigs" stripe style="width: 100%" v-loading="loading">
         <el-table-column prop="region" label="地域" min-width="200" align="center"/>
         <el-table-column prop="network" label="网段" min-width="200" align="center"/>
+        <el-table-column prop="lns" label="LNS" min-width="160" align="center"/>
+        <el-table-column prop="gw" label="网关" min-width="160" align="center"/>
+        <el-table-column prop="ip" label="VPN IP" min-width="160" align="center"/>
+        <el-table-column prop="mask" label="掩码" min-width="140" align="center"/>
         <el-table-column label="状态" min-width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="getVpnStatus(row) ? 'success' : 'danger'">
@@ -132,12 +136,12 @@
     </el-card>
 
     <!-- 添加/编辑对话框 -->
-    <el-dialog
-      :title="dialogTitle"
-      v-model="dialogVisible"
-      width="500px"
-      @close="resetForm"
-    >
+      <el-dialog
+        :title="dialogTitle"
+        v-model="dialogVisible"
+        width="500px"
+        @close="resetForm"
+      >
       <el-form
         ref="formRef"
         :model="form"
@@ -149,6 +153,18 @@
         </el-form-item>
         <el-form-item label="网段" prop="network">
           <el-input v-model="form.network" placeholder="请输入网段" />
+        </el-form-item>
+        <el-form-item label="LNS" prop="lns">
+          <el-input v-model="form.lns" placeholder="请输入LNS地址" />
+        </el-form-item>
+        <el-form-item label="网关" prop="gw">
+          <el-input v-model="form.gw" placeholder="请输入网关地址" />
+        </el-form-item>
+        <el-form-item label="VPN IP" prop="ip">
+          <el-input v-model="form.ip" placeholder="请输入VPN IP" />
+        </el-form-item>
+        <el-form-item label="掩码" prop="mask">
+          <el-input v-model="form.mask" placeholder="例如 255.0.0.0" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -203,11 +219,15 @@ const editId = ref(0)
 const formRef = ref<FormInstance>()
 const form = reactive({
   region: '',
-  network: ''
+  network: '',
+  lns: '',
+  gw: '',
+  ip: '',
+  mask: ''
 })
 
-const getVpnStatus = (_config: VPNConfig) => {
-  return true
+const getVpnStatus = (config: VPNConfig) => {
+  return !!config.status
 }
 
 const rules = {
@@ -218,6 +238,21 @@ const rules = {
   network: [
     { required: true, message: '请输入网段', trigger: 'blur' },
     { min: 1, max: 50, message: '长度在 1 到 50 个字符', trigger: 'blur' }
+  ],
+  lns: [
+    { required: true, message: '请输入LNS地址', trigger: 'blur' },
+    { pattern: /^\d{1,3}(\.\d{1,3}){3}$/, message: '请输入正确的IP地址', trigger: 'blur' }
+  ],
+  gw: [
+    { required: true, message: '请输入网关地址', trigger: 'blur' },
+    { pattern: /^\d{1,3}(\.\d{1,3}){3}$/, message: '请输入正确的IP地址', trigger: 'blur' }
+  ],
+  ip: [
+    { required: true, message: '请输入VPN IP', trigger: 'blur' },
+    { pattern: /^\d{1,3}(\.\d{1,3}){3}$/, message: '请输入正确的IP地址', trigger: 'blur' }
+  ],
+  mask: [
+    { required: true, message: '请输入掩码', trigger: 'blur' }
   ]
 }
 
@@ -283,7 +318,11 @@ const openEditDialog = (row: VPNConfig) => {
   editId.value = row.id
   Object.assign(form, {
     region: row.region,
-    network: row.network
+    network: row.network,
+    lns: row.lns,
+    gw: row.gw,
+    ip: row.ip,
+    mask: row.mask
   })
   dialogVisible.value = true
 }
@@ -292,7 +331,11 @@ const openEditDialog = (row: VPNConfig) => {
 const resetForm = () => {
   Object.assign(form, {
     region: '',
-    network: ''
+    network: '',
+    lns: '',
+    gw: '',
+    ip: '',
+    mask: ''
   })
   formRef.value?.clearValidate()
 }
@@ -309,7 +352,11 @@ const handleSubmit = async () => {
       // 编辑
       const updateData: VPNConfigUpdate = {
         region: form.region,
-        network: form.network
+        network: form.network,
+        lns: form.lns,
+        gw: form.gw,
+        ip: form.ip,
+        mask: form.mask
       }
       await vpnApi.updateVPNConfig(editId.value, updateData)
       ElMessage.success('更新VPN配置成功')
@@ -317,7 +364,11 @@ const handleSubmit = async () => {
       // 添加
       const createData: VPNConfigCreate = {
         region: form.region,
-        network: form.network
+        network: form.network,
+        lns: form.lns,
+        gw: form.gw,
+        ip: form.ip,
+        mask: form.mask
       }
       await vpnApi.createVPNConfig(createData)
       ElMessage.success('创建VPN配置成功')

@@ -255,6 +255,10 @@ class VPNConfigBase(BaseModel):
     """VPN配置基础模式"""
     region: str = Field(..., min_length=1, max_length=50, description="地域")
     network: str = Field(..., min_length=1, max_length=50, description="网段")
+    lns: str = Field(..., min_length=1, max_length=45, description="LNS地址")
+    gw: str = Field(..., min_length=1, max_length=45, description="网关地址")
+    ip: str = Field(..., min_length=1, max_length=45, description="VPN IP")
+    mask: str = Field(..., min_length=1, max_length=45, description="子网掩码")
 
 
 class VPNConfigCreate(VPNConfigBase):
@@ -266,11 +270,16 @@ class VPNConfigUpdate(BaseModel):
     """更新VPN配置请求模式"""
     region: Optional[str] = Field(None, min_length=1, max_length=50, description="地域")
     network: Optional[str] = Field(None, min_length=1, max_length=50, description="网段")
+    lns: Optional[str] = Field(None, min_length=1, max_length=45, description="LNS地址")
+    gw: Optional[str] = Field(None, min_length=1, max_length=45, description="网关地址")
+    ip: Optional[str] = Field(None, min_length=1, max_length=45, description="VPN IP")
+    mask: Optional[str] = Field(None, min_length=1, max_length=45, description="子网掩码")
 
 
 class VPNConfigResponse(VPNConfigBase):
     """VPN配置响应模式"""
     id: int
+    status: Optional[bool] = None
 
     class Config:
         from_attributes = True

@@ -4,16 +4,29 @@ export interface VPNConfig {
   id: number
   region: string
   network: string
+  lns: string
+  gw: string
+  ip: string
+  mask: string
+  status?: boolean
 }
 
 export interface VPNConfigCreate {
   region: string
   network: string
+  lns: string
+  gw: string
+  ip: string
+  mask: string
 }
 
 export interface VPNConfigUpdate {
   region?: string
   network?: string
+  lns?: string
+  gw?: string
+  ip?: string
+  mask?: string
 }
 
 export interface UserVPNConfig {
