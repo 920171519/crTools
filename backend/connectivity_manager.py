@@ -36,6 +36,8 @@ class ConnectivityManager:
         self.access_timeout = 20  # 访问超时时间（秒）
         self.ping_timeout = 3  # ping超时时间（秒）
         self.cache_expire = 15  # 缓存过期时间（秒）
+        self.invalid_ip_cleanup_interval = 60  # 无效IP清理间隔（秒）
+        self._last_invalid_ip_cleanup: Optional[datetime] = None
     
     async def start(self):
         """启动连通性检测服务"""
@@ -127,6 +129,13 @@ class ConnectivityManager:
                 # 对活跃设备进行ping检测
                 if self.active_devices:
                     await self._ping_active_devices()
+
+                # 周期性清理可连通设备的无效IP（占位实现）
+                now = datetime.now()
+                if (self._last_invalid_ip_cleanup is None or
+                        (now - self._last_invalid_ip_cleanup).total_seconds() >= self.invalid_ip_cleanup_interval):
+                    await self._cleanup_invalid_ips()
+                    self._last_invalid_ip_cleanup = now
                 
                 # 等待下次检测
                 await asyncio.sleep(self.ping_interval)
@@ -237,6 +246,26 @@ class ConnectivityManager:
                 "last_ping": current_time
             }
             logger.error(f"设备 {device_id} ({ip}) ping检测出错: {e}")
+
+    async def _cleanup_invalid_ips(self):
+        """
+        清理可连通设备的无效IP（占位实现）
+        当前仅打印采集动作和现有访问IP列表，未执行真实清理
+        """
+        try:
+            from models.deviceModel import Device, DeviceAccessIP
+            # 只处理当前连通的设备
+            devices = await Device.filter(connectivity_status=True)
+            for device in devices:
+                # 模拟下发命令采集当前登录IP列表
+                print(f"[IP清理] 采集设备 {device.id} ({device.ip}) 登录IP列表（占位打印）")
+                # 读取持久化的访问IP记录
+                access_ips = await DeviceAccessIP.filter(device=device).values_list('vpn_ip', flat=True)
+                print(f"[IP清理] 设备 {device.id} 当前访问IP记录: {list(access_ips)}")
+                # 占位对比逻辑
+                print(f"[IP清理] 设备 {device.id} 登录IP与访问IP的对比结果（占位，未实际清理）")
+        except Exception as e:
+            logger.error(f"无效IP清理任务出错: {e}")
     
     def get_cache_info(self) -> Dict:
         """获取缓存信息（用于调试）"""
