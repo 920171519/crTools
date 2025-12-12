@@ -59,18 +59,18 @@
 
     <!-- 命令行列表 -->
     <el-card shadow="never">
-      <el-table :data="commands" stripe style="width: 100%" v-loading="loading">
+      <el-table :data="commands" stripe style="width: 100%" v-loading="loading" show-overflow-tooltip>
         <el-table-column prop="view" label="视图" width="150">
           <template #default="{ row }">
             <span>{{ row.view || '-' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="command_text" label="cli" min-width="300">
+        <el-table-column prop="command_text" label="cli" min-width="300" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="command-text">{{ row.command_text }}</div>
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="200">
+        <el-table-column prop="description" label="描述" width="200" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="remarks-text">{{ row.description || '-' }}</div>
           </template>
