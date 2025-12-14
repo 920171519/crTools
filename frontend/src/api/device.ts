@@ -15,6 +15,7 @@ export interface Device {
   creator: string
   ftp_prefix: boolean
   support_queue: boolean
+  max_occupy_minutes?: number | null
   owner: string
   device_type: string
   form_type: string
@@ -62,6 +63,7 @@ export interface DeviceCreateRequest {
   creator: string
   ftp_prefix: boolean
   support_queue: boolean
+  max_occupy_minutes?: number | null
   owner: string
   device_type: string
   form_type: string

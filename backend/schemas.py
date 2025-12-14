@@ -311,6 +311,7 @@ class DeviceBase(BaseModel):
     creator: str = Field(..., description="设备添加人")
     ftp_prefix: bool = Field(False, description="FTP连接是否需要输入前缀")
     support_queue: bool = Field(True, description="是否支持排队占用")
+    max_occupy_minutes: Optional[int] = Field(None, description="最大占用时长（分钟），有排队时超时会自动释放")
     owner: str = Field(..., description="设备归属人")
     admin_username: str = Field(..., description="管理员账号")
     admin_password: str = Field(..., description="管理员密码")
@@ -339,6 +340,7 @@ class DeviceUpdate(BaseModel):
     vpn_config_id: Optional[int] = None
     ftp_prefix: Optional[bool] = None
     support_queue: Optional[bool] = None
+    max_occupy_minutes: Optional[int] = None
     owner: Optional[str] = None
     admin_username: Optional[str] = None
     admin_password: Optional[str] = None
@@ -369,6 +371,7 @@ class DeviceResponse(BaseModel):
     creator: str
     ftp_prefix: bool
     support_queue: bool
+    max_occupy_minutes: Optional[int] = None
     owner: str
     admin_username: str
     admin_password: str

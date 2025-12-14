@@ -601,6 +601,15 @@
         <el-form-item label="FTP需要前缀">
           <el-switch v-model="addForm.ftp_prefix" />
         </el-form-item>
+        <el-form-item label="最长占用(分钟)">
+          <el-input-number
+            v-model="addForm.max_occupy_minutes"
+            :min="1"
+            :max="1440"
+            placeholder="留空表示不限制"
+            style="width: 100%"
+          />
+        </el-form-item>
         
         <el-form-item label="支持排队">
           <el-switch v-model="addForm.support_queue" />
@@ -727,6 +736,15 @@
         
         <el-form-item label="FTP需要前缀">
           <el-switch v-model="editForm.ftp_prefix" />
+        </el-form-item>
+        <el-form-item label="最长占用(分钟)">
+          <el-input-number
+            v-model="editForm.max_occupy_minutes"
+            :min="1"
+            :max="1440"
+            placeholder="留空表示不限制"
+            style="width: 100%"
+          />
         </el-form-item>
         
         <el-form-item label="支持排队">
@@ -947,6 +965,10 @@
                 <el-tag :type="deviceDetail.ftp_prefix ? 'warning' : 'success'" size="small">
                   {{ deviceDetail.ftp_prefix ? '是' : '否' }}
                 </el-tag>
+              </div>
+              <div class="info-item">
+                <label>最长占用(分钟)：</label>
+                <span>{{ deviceDetail.max_occupy_minutes ?? '未限制' }}</span>
               </div>
               <div class="info-item">
                 <label>支持排队：</label>
@@ -1777,6 +1799,7 @@ const addForm = reactive({
   device_type: 'test',
   form_type: '',
   ftp_prefix: false,
+  max_occupy_minutes: null as number | null,
   support_queue: true,
   remarks: '',
   group_ids: [] as number[]
@@ -1849,6 +1872,7 @@ const editForm = reactive({
   device_type: '',
   form_type: '',
   ftp_prefix: false,
+  max_occupy_minutes: null as number | null,
   support_queue: true,
   remarks: '',
   group_ids: [] as number[]
@@ -2504,6 +2528,7 @@ const handleAddDevice = async () => {
       device_type: addForm.device_type,
       form_type: addForm.form_type,
       ftp_prefix: addForm.ftp_prefix,
+      max_occupy_minutes: addForm.max_occupy_minutes || null,
       support_queue: addForm.support_queue,
       remarks: addForm.remarks,
       group_ids: addForm.group_ids,
@@ -2537,6 +2562,7 @@ const openAddDialog = () => {
   addForm.vpn_region = ''
   addForm.vpn_config_id = null
   addForm.group_ids = []
+  addForm.max_occupy_minutes = null
   filteredNetworksForAdd.value = []
 
   // 设置默认值
@@ -2579,6 +2605,7 @@ const openEditDialog = () => {
   editForm.device_type = deviceDetail.value.device_type
   editForm.form_type = deviceDetail.value.form_type
   editForm.ftp_prefix = deviceDetail.value.ftp_prefix
+  editForm.max_occupy_minutes = deviceDetail.value.max_occupy_minutes ?? null
   editForm.support_queue = deviceDetail.value.support_queue
   editForm.remarks = deviceDetail.value.remarks || ''
   editForm.group_ids = (deviceDetail.value.groups || []).map((group: any) => group.id)
@@ -2612,6 +2639,7 @@ const handleEditDevice = async () => {
       device_type: editForm.device_type,
       form_type: editForm.form_type,
       ftp_prefix: editForm.ftp_prefix,
+      max_occupy_minutes: editForm.max_occupy_minutes || null,
       support_queue: editForm.support_queue,
       remarks: editForm.remarks,
       group_ids: editForm.group_ids

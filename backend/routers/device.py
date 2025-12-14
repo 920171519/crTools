@@ -7,9 +7,6 @@ from typing import List, Optional
 from datetime import datetime, timezone
 import traceback
 from pydantic import BaseModel
-from dotenv import load_dotenv, find_dotenv
-import os
-load_dotenv(find_dotenv())
 
 from models.deviceModel import (
     Device,
@@ -50,6 +47,7 @@ from schemas import BaseResponse
 from auth import AuthManager
 from connectivity_manager import connectivity_manager
 from scheduler.scheduler import device_scheduler
+from utils.notification import send_device_notification
 
 router = APIRouter(prefix="/api/devices", tags=["设备管理"])
 
@@ -57,17 +55,6 @@ router = APIRouter(prefix="/api/devices", tags=["设备管理"])
 def get_current_time():
     """获取当前时间，统一使用naive datetime"""
     return datetime.now()
-
-
-async def send_device_notification(device: Device, user: Optional[User], action: str):
-    """发送设备状态变更通知（当前仅打印）"""
-    try:
-        auth = os.getenv("AUTH")
-        emp = user.employee_id if user else '-'
-        name = user.username if user else '-'
-        print(f"[通知] 设备: {device.name}({device.ip}) | 用户: {emp}({name}) | 动作: {action}")
-    except Exception as e:
-        print(f"发送通知失败: {e}")
 
 
 def normalize_employee_id(employee_id: Optional[str]) -> Optional[str]:
@@ -509,6 +496,7 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(Au
         "vpn_display_name": vpn_display_name,
         "creator": device.creator,
         "ftp_prefix": device.ftp_prefix,
+        "max_occupy_minutes": device.max_occupy_minutes,
         "support_queue": device.support_queue,
         "owner": device.owner,
         "device_type": device.device_type,
@@ -652,6 +640,7 @@ async def get_device(device_id: int, current_user: User = Depends(AuthManager.ge
         "creator": device.creator,
         "ftp_prefix": device.ftp_prefix,
         "support_queue": device.support_queue,
+        "max_occupy_minutes": device.max_occupy_minutes,
         "owner": device.owner,
         "admin_username": device.admin_username,
         "admin_password": device.admin_password,
@@ -785,6 +774,7 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
         "creator": device.creator,
         "ftp_prefix": device.ftp_prefix,
         "support_queue": device.support_queue,
+        "max_occupy_minutes": device.max_occupy_minutes,
         "owner": device.owner,
         "device_type": device.device_type,
         "form_type": device.form_type,

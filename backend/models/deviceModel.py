@@ -50,6 +50,7 @@ class Device(Model):
     creator = fields.CharField(max_length=50, description="设备添加人")
     ftp_prefix = fields.BooleanField(default=False, description="连接FTP时是否需要输入前缀")
     support_queue = fields.BooleanField(default=True, description="是否支持排队占用")
+    max_occupy_minutes = fields.IntField(null=True, description="最大占用时长（分钟），用于自动释放")
     owner = fields.CharField(max_length=50, description="设备归属人")
     admin_username = fields.CharField(max_length=50, description="管理员账号")
     admin_password = fields.CharField(max_length=255, description="管理员密码")

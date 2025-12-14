@@ -5,10 +5,12 @@ import asyncio
 from datetime import datetime, time
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from models.deviceModel import Device, DeviceUsage, DeviceStatusEnum
-from models.admin import User
+from models.admin import User, OperationLog
 from models.systemModel import SystemSettings
 from connectivity_manager import connectivity_manager
+from utils.notification import send_device_notification
 import logging
 
 
@@ -56,6 +58,14 @@ class DeviceScheduler:
             id='daily_device_cleanup',
             name='每日设备清理任务',
             replace_existing=True
+        )
+        # 占用时长检查（每分钟）
+        self.scheduler.add_job(
+            self.enforce_occupancy_limits,
+            IntervalTrigger(minutes=1),
+            id="enforce_occupancy_limits",
+            name="占用时长限制检查",
+            replace_existing=True,
         )
 
         self.scheduler.start()
@@ -111,6 +121,63 @@ class DeviceScheduler:
 
         self.scheduler.shutdown()
         logger.info("定时任务调度器已停止")
+    
+    async def enforce_occupancy_limits(self):
+        """检查并处理超时占用的设备（仅在有排队用户时释放并切换）"""
+        try:
+            now = get_current_time()
+            usage_list = await DeviceUsage.filter(
+                status=DeviceStatusEnum.OCCUPIED,
+                current_user__isnull=False,
+                device__max_occupy_minutes__isnull=False,
+            ).prefetch_related("device")
+
+            for usage in usage_list:
+                device = usage.device
+                if not device or device.max_occupy_minutes is None or device.max_occupy_minutes <= 0:
+                    continue
+                if not usage.start_time:
+                    continue
+
+                start_time = usage.start_time.replace(tzinfo=None) if usage.start_time.tzinfo else usage.start_time
+                elapsed_minutes = (now - start_time).total_seconds() / 60
+                if elapsed_minutes < device.max_occupy_minutes:
+                    continue
+
+                queue = list(usage.queue_users or [])
+                if not queue:
+                    # 无排队用户则不释放
+                    continue
+
+                previous_emp = usage.current_user
+                next_emp_raw = queue.pop(0)
+                next_emp = next_emp_raw.lower() if isinstance(next_emp_raw, str) else next_emp_raw
+
+                usage.current_user = next_emp
+                usage.start_time = now
+                usage.status = DeviceStatusEnum.OCCUPIED
+                usage.expected_duration = device.max_occupy_minutes or usage.expected_duration
+                usage.queue_users = queue
+                await usage.save()
+
+                prev_user_obj = await User.filter(employee_id__iexact=previous_emp).first() if previous_emp else None
+                next_user_obj = await User.filter(employee_id__iexact=next_emp).first() if next_emp else None
+
+                await send_device_notification(device, prev_user_obj, "占用超时，系统自动释放")
+                await send_device_notification(device, next_user_obj, "排队自动转为占用")
+
+                log_user = prev_user_obj or next_user_obj
+                if log_user:
+                    await OperationLog.create_log(
+                        user=log_user,
+                        operation_type="device_auto_release",
+                        operation_result="success",
+                        device_name=device.name,
+                        description=f"占用超过 {device.max_occupy_minutes} 分钟，自动释放并分配给排队用户 {next_emp}",
+                        device_ip=device.ip,
+                    )
+        except Exception as exc:
+            logger.error(f"占用时长限制检查失败: {exc}")
         
     async def daily_device_cleanup(self, force_cleanup=False):
         """每日设备清理任务：释放所有设备占用和排队
