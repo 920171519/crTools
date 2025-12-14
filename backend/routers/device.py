@@ -7,6 +7,9 @@ from typing import List, Optional
 from datetime import datetime, timezone
 import traceback
 from pydantic import BaseModel
+from dotenv import load_dotenv, find_dotenv
+import os
+load_dotenv(find_dotenv())
 
 from models.deviceModel import (
     Device,
@@ -59,6 +62,7 @@ def get_current_time():
 async def send_device_notification(device: Device, user: Optional[User], action: str):
     """发送设备状态变更通知（当前仅打印）"""
     try:
+        auth = os.getenv("AUTH")
         emp = user.employee_id if user else '-'
         name = user.username if user else '-'
         print(f"[通知] 设备: {device.name}({device.ip}) | 用户: {emp}({name}) | 动作: {action}")
