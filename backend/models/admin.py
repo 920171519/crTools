@@ -9,8 +9,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from models.groupModel import GroupMember
+from models.groupModel import GroupMember
 
 
 class User(Model):

@@ -7,6 +7,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from models.deviceModel import Device, DeviceUsage, DeviceStatusEnum
 from models.admin import User
+from models.systemModel import SystemSettings
+from connectivity_manager import connectivity_manager
 import logging
 
 
@@ -60,14 +62,12 @@ class DeviceScheduler:
         logger.info(f"定时任务调度器已启动，清理时间: {cleanup_time}")
 
         # 启动连通性检测管理器
-        from connectivity_manager import connectivity_manager
         await connectivity_manager.start()
         logger.info("连通性检测管理器已启动")
 
     async def _get_cleanup_time(self):
         """获取清理时间设置"""
         try:
-            from models.systemModel import SystemSettings
             settings = await SystemSettings.first()
             return settings.cleanup_time if settings else "00:30"
         except Exception as e:
@@ -106,7 +106,6 @@ class DeviceScheduler:
     async def stop(self):
         """停止定时任务调度器"""
         # 停止连通性检测管理器
-        from connectivity_manager import connectivity_manager
         await connectivity_manager.stop()
         logger.info("连通性检测管理器已停止")
 

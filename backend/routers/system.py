@@ -8,6 +8,7 @@ from models.systemModel import SystemSettings
 from models.admin import User
 from schemas import BaseResponse
 from auth import AuthManager
+from scheduler.scheduler import device_scheduler
 
 router = APIRouter(prefix="/system", tags=["系统设置"])
 
@@ -78,7 +79,6 @@ async def update_system_settings(
         
         # 更新调度器的定时任务
         try:
-            from scheduler.scheduler import device_scheduler
             await device_scheduler.update_cleanup_schedule(request.cleanup_time)
         except Exception as e:
             print(f"更新调度器失败: {e}")

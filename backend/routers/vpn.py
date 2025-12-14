@@ -7,11 +7,13 @@ from typing import List, Optional
 import asyncio
 from models.admin import User
 from models.vpnModel import VPNConfig, UserVPNConfig
+from models.deviceModel import DeviceAccessIP, Device, DeviceUsage, DeviceShareRequest, DeviceStatusEnum
 from schemas import (
     BaseResponse, VPNConfigCreate, VPNConfigUpdate, VPNConfigResponse,
     UserVPNConfigUpdate, UserVPNConfigResponse
 )
 from auth import AuthManager, require_permission
+from routers.device import delete_device_access_ip, upsert_device_access_ip, revoke_shared_access, get_current_time
 
 router = APIRouter(prefix="/vpn", tags=["VPN配置管理"])
 
@@ -321,12 +323,10 @@ async def update_user_vpn_config(
                 user=current_user,
                 vpn_config=vpn_config,
                 ip_address=config_data.ip_address
-            )
+        )
 
         # 同步设备访问IP记录：更新当前用户在该VPN下的所有设备的访问IP
         try:
-            from models.deviceModel import DeviceAccessIP, Device, DeviceUsage, DeviceShareRequest, DeviceStatusEnum
-            from routers.device import delete_device_access_ip, upsert_device_access_ip, revoke_shared_access, get_current_time
             # 更新访问IP
             await DeviceAccessIP.filter(
                 employee_id=current_user.employee_id,

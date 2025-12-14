@@ -5,6 +5,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from datetime import datetime, timezone
+import traceback
 from pydantic import BaseModel
 
 from models.deviceModel import (
@@ -45,6 +46,7 @@ from schemas import (
 from schemas import BaseResponse
 from auth import AuthManager
 from connectivity_manager import connectivity_manager
+from scheduler.scheduler import device_scheduler
 
 router = APIRouter(prefix="/api/devices", tags=["设备管理"])
 
@@ -481,7 +483,6 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(Au
     except Exception as e:
         print(f"创建设备时出错: {e}")
         print(f"错误类型: {type(e)}")
-        import traceback
         print(f"错误堆栈: {traceback.format_exc()}")
         raise
 
@@ -751,8 +752,6 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
     # 如果设备VPN发生变化，迁移访问IP记录到新VPN对应的用户IP
     try:
         if old_vpn_config_id != device.vpn_config_id:
-            from models.vpnModel import UserVPNConfig
-            from models.deviceModel import DeviceAccessIP
             access_records = await DeviceAccessIP.filter(device=device).all()
             for rec in access_records:
                 user = await User.filter(employee_id__iexact=rec.employee_id).first()
@@ -2296,9 +2295,6 @@ async def admin_force_cleanup_all_devices(current_user: User = Depends(AuthManag
         raise HTTPException(status_code=403, detail="权限不足，只有管理员可以执行此操作")
 
     try:
-        # 导入调度器（避免循环导入）
-        from scheduler.scheduler import device_scheduler
-
         # 执行清理任务
         await device_scheduler.force_cleanup_all_devices()
 

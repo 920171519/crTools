@@ -8,6 +8,7 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, Set, Optional
 import logging
+from models.deviceModel import Device, DeviceAccessIP
 
 logger = logging.getLogger(__name__)
 
@@ -164,9 +165,6 @@ class ConnectivityManager:
     
     async def _ping_active_devices(self):
         """对活跃设备进行ping检测"""
-        # 导入设备模型（避免循环导入）
-        from models.deviceModel import Device
-        
         # 获取需要检测的设备信息
         devices = await Device.filter(id__in=list(self.active_devices))
         
@@ -181,8 +179,6 @@ class ConnectivityManager:
     
     async def _ping_device_immediate(self, device_id: int):
         """立即对指定设备进行ping检测"""
-        from models.deviceModel import Device
-        
         device = await Device.filter(id=device_id).first()
         if device:
             await self._ping_device(device_id, device.ip)
@@ -218,7 +214,6 @@ class ConnectivityManager:
             }
             
             # 更新数据库中的连通性状态
-            from models.deviceModel import Device
             await Device.filter(id=device_id).update(
                 connectivity_status=is_connected,
                 last_ping_time=current_time,
@@ -253,7 +248,6 @@ class ConnectivityManager:
         当前仅打印采集动作和现有访问IP列表，未执行真实清理
         """
         try:
-            from models.deviceModel import Device, DeviceAccessIP
             # 只处理当前连通的设备
             devices = await Device.filter(connectivity_status=True)
             for device in devices:

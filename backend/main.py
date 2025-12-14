@@ -9,15 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import settings
 from database import init_database, setup_database
 from routers import device, user, system, operationLog, vpn, command, ai_tool
+from scheduler import start_scheduler, stop_scheduler  # type: ignore
 import uvicorn
-
-try:
-    from scheduler import start_scheduler, stop_scheduler  # type: ignore
-    SCHEDULER_AVAILABLE = True
-except ModuleNotFoundError as exc:  # pragma: no cover - 环境缺少依赖时禁用调度器
-    start_scheduler = stop_scheduler = None
-    SCHEDULER_AVAILABLE = False
-    print(f"⚠️ APScheduler 未安装: {exc}. 将跳过定时任务调度器。")
 
 
 # 创建FastAPI应用实例
@@ -47,20 +40,22 @@ async def on_startup():
     """应用启动时初始化资源"""
     print("🚀 crTools后台管理系统启动中...")
     await init_database()
-    if SCHEDULER_AVAILABLE and start_scheduler:
+    try:
         await start_scheduler()
         print("⏰ 定时任务调度器已启动")
-    else:
-        print("⚠️ 未安装APScheduler，跳过定时任务调度器初始化")
+    except Exception as exc:
+        print(f"⚠️ 定时任务调度器启动失败: {exc}")
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
     """应用关闭时清理资源"""
     print("🛑 crTools后台管理系统关闭")
-    if SCHEDULER_AVAILABLE and stop_scheduler:
+    try:
         await stop_scheduler()
         print("⏰ 定时任务调度器已停止")
+    except Exception as exc:
+        print(f"⚠️ 定时任务调度器关闭失败: {exc}")
 
 
 # 全局异常处理器

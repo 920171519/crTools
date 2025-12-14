@@ -5,6 +5,8 @@ from tortoise import Tortoise
 from tortoise.contrib.fastapi import register_tortoise
 from config import settings
 from auth import AuthManager
+from models.admin import User, Role, Permission, RolePermission, Menu
+from models.groupModel import Group, GroupMember
 
 
 # Tortoise ORM 配置
@@ -23,8 +25,6 @@ TORTOISE_ORM = {
 
 async def init_database():
     """初始化数据库"""
-    from models.admin import User, Role, Permission, RolePermission, Menu
-    from models.groupModel import Group, GroupMember
     # 创建超级管理员用户（如果不存在）
     admin_user = await User.filter(employee_id="a12345678").first()
     if not admin_user:
