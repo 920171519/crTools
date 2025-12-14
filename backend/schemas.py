@@ -309,7 +309,7 @@ class DeviceBase(BaseModel):
     ip: str = Field(..., description="设备IP地址")
     vpn_config_id: Optional[int] = Field(None, description="VPN配置ID")
     creator: str = Field(..., description="设备添加人")
-    need_vpn_login: bool = Field(False, description="登录是否需要VPN")
+    ftp_prefix: bool = Field(False, description="FTP连接是否需要输入前缀")
     support_queue: bool = Field(True, description="是否支持排队占用")
     owner: str = Field(..., description="设备归属人")
     admin_username: str = Field(..., description="管理员账号")
@@ -337,7 +337,7 @@ class DeviceUpdate(BaseModel):
     """更新设备模型"""
     name: Optional[str] = None
     vpn_config_id: Optional[int] = None
-    need_vpn_login: Optional[bool] = None
+    ftp_prefix: Optional[bool] = None
     support_queue: Optional[bool] = None
     owner: Optional[str] = None
     admin_username: Optional[str] = None
@@ -367,7 +367,7 @@ class DeviceResponse(BaseModel):
     vpn_network: Optional[str] = None
     vpn_display_name: Optional[str] = None
     creator: str
-    need_vpn_login: bool
+    ftp_prefix: bool
     support_queue: bool
     owner: str
     admin_username: str

@@ -598,8 +598,8 @@
           </el-select>
         </el-form-item>
         
-        <el-form-item label="FTP连接需VPN">
-          <el-switch v-model="addForm.need_vpn_login" />
+        <el-form-item label="FTP需要前缀">
+          <el-switch v-model="addForm.ftp_prefix" />
         </el-form-item>
         
         <el-form-item label="支持排队">
@@ -725,8 +725,8 @@
           </el-select>
         </el-form-item>
         
-        <el-form-item label="FTP连接需VPN">
-          <el-switch v-model="editForm.need_vpn_login" />
+        <el-form-item label="FTP需要前缀">
+          <el-switch v-model="editForm.ftp_prefix" />
         </el-form-item>
         
         <el-form-item label="支持排队">
@@ -943,9 +943,9 @@
                 </el-button>
               </div>
               <div class="info-item">
-                <label>登录需VPN：</label>
-                <el-tag :type="deviceDetail.need_vpn_login ? 'warning' : 'success'" size="small">
-                  {{ deviceDetail.need_vpn_login ? '是' : '否' }}
+                <label>FTP需要前缀：</label>
+                <el-tag :type="deviceDetail.ftp_prefix ? 'warning' : 'success'" size="small">
+                  {{ deviceDetail.ftp_prefix ? '是' : '否' }}
                 </el-tag>
               </div>
               <div class="info-item">
@@ -1776,7 +1776,7 @@ const addForm = reactive({
   admin_password: 'Root@123',
   device_type: 'test',
   form_type: '',
-  need_vpn_login: false,
+  ftp_prefix: false,
   support_queue: true,
   remarks: '',
   group_ids: [] as number[]
@@ -1848,7 +1848,7 @@ const editForm = reactive({
   admin_password: '',
   device_type: '',
   form_type: '',
-  need_vpn_login: false,
+  ftp_prefix: false,
   support_queue: true,
   remarks: '',
   group_ids: [] as number[]
@@ -2503,7 +2503,7 @@ const handleAddDevice = async () => {
       admin_password: addForm.admin_password,
       device_type: addForm.device_type,
       form_type: addForm.form_type,
-      need_vpn_login: addForm.need_vpn_login,
+      ftp_prefix: addForm.ftp_prefix,
       support_queue: addForm.support_queue,
       remarks: addForm.remarks,
       group_ids: addForm.group_ids,
@@ -2578,7 +2578,7 @@ const openEditDialog = () => {
   editForm.admin_password = deviceDetail.value.admin_password
   editForm.device_type = deviceDetail.value.device_type
   editForm.form_type = deviceDetail.value.form_type
-  editForm.need_vpn_login = deviceDetail.value.need_vpn_login
+  editForm.ftp_prefix = deviceDetail.value.ftp_prefix
   editForm.support_queue = deviceDetail.value.support_queue
   editForm.remarks = deviceDetail.value.remarks || ''
   editForm.group_ids = (deviceDetail.value.groups || []).map((group: any) => group.id)
@@ -2611,7 +2611,7 @@ const handleEditDevice = async () => {
       admin_password: editForm.admin_password,
       device_type: editForm.device_type,
       form_type: editForm.form_type,
-      need_vpn_login: editForm.need_vpn_login,
+      ftp_prefix: editForm.ftp_prefix,
       support_queue: editForm.support_queue,
       remarks: editForm.remarks,
       group_ids: editForm.group_ids

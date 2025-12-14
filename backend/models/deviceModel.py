@@ -48,7 +48,7 @@ class Device(Model):
     # 保留原字段作为显示备用，当VPN配置被删除时使用
     required_vpn_display = fields.CharField(max_length=100, null=True, description="VPN显示名称")
     creator = fields.CharField(max_length=50, description="设备添加人")
-    need_vpn_login = fields.BooleanField(default=False, description="登录是否需要VPN")
+    ftp_prefix = fields.BooleanField(default=False, description="连接FTP时是否需要输入前缀")
     support_queue = fields.BooleanField(default=True, description="是否支持排队占用")
     owner = fields.CharField(max_length=50, description="设备归属人")
     admin_username = fields.CharField(max_length=50, description="管理员账号")

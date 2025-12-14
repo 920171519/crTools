@@ -13,7 +13,7 @@ export interface Device {
   vpn_network?: string
   vpn_display_name?: string
   creator: string
-  need_vpn_login: boolean
+  ftp_prefix: boolean
   support_queue: boolean
   owner: string
   device_type: string
@@ -60,7 +60,7 @@ export interface DeviceCreateRequest {
   ip: string
   vpn_config_id?: number
   creator: string
-  need_vpn_login: boolean
+  ftp_prefix: boolean
   support_queue: boolean
   owner: string
   device_type: string
