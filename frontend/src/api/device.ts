@@ -95,21 +95,18 @@ export interface DeviceCancelQueueRequest {
 export interface DevicePreemptRequest {
   device_id: number
   user: string
-  expected_duration?: number
   purpose?: string
 }
 
 export interface DevicePriorityQueueRequest {
   device_id: number
   user: string
-  expected_duration?: number
   purpose?: string
 }
 
 export interface DeviceUnifiedQueueRequest {
   device_id: number
   user: string
-  expected_duration?: number
   purpose?: string
 }
 
@@ -135,7 +132,6 @@ export interface DeviceUsageDetail {
   device_id: number
   current_user?: string
   start_time?: string | null
-  expected_duration: number
   is_long_term: boolean
   long_term_purpose?: string | null
   end_date?: string | null

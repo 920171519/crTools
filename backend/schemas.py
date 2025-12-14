@@ -389,7 +389,6 @@ class DeviceResponse(BaseModel):
 class DeviceUsageBase(BaseModel):
     """设备使用情况基础模型"""
     current_user: Optional[str] = None
-    expected_duration: int = Field(0, description="预计占用时间(分钟)")
     is_long_term: bool = Field(False, description="是否为长时间占用")
     long_term_purpose: Optional[str] = None
     status: str = Field("available", description="设备状态")
@@ -398,7 +397,6 @@ class DeviceUsageBase(BaseModel):
 class DeviceUsageUpdate(BaseModel):
     """更新设备使用情况"""
     current_user: Optional[str] = None
-    expected_duration: Optional[int] = None
     is_long_term: Optional[bool] = None
     long_term_purpose: Optional[str] = None
     status: Optional[str] = None
@@ -481,7 +479,6 @@ class DevicePreemptRequest(BaseModel):
     """抢占设备请求模型"""
     device_id: int
     user: str
-    expected_duration: int = Field(60, description="预计使用时间(分钟)")
     purpose: Optional[str] = None
 
 
@@ -489,7 +486,6 @@ class DevicePriorityQueueRequest(BaseModel):
     """优先排队请求模型"""
     device_id: int
     user: str
-    expected_duration: int = Field(60, description="预计使用时间(分钟)")
     purpose: Optional[str] = None
 
 
@@ -497,7 +493,6 @@ class DeviceUnifiedQueueRequest(BaseModel):
     """统一排队请求模型"""
     device_id: int
     user: str
-    expected_duration: int = Field(60, description="预计使用时间(分钟)")
     purpose: Optional[str] = None
 
 

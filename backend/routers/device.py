@@ -798,7 +798,6 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
                     normalized_next = normalize_employee_id(next_user)
                     usage_info.current_user = normalized_next
                     usage_info.start_time = get_current_time()
-                    usage_info.expected_duration = 60
                     await usage_info.save()
                     try:
                         await clear_role_access(device, role="occupant")
@@ -818,7 +817,6 @@ async def update_device(device_id: int, device_data: DeviceUpdate, current_user:
                 else:
                     usage_info.current_user = None
                     usage_info.start_time = None
-                    usage_info.expected_duration = 0
                     usage_info.status = DeviceStatusEnum.AVAILABLE
                     await usage_info.save()
                     try:
@@ -987,7 +985,6 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
     await revoke_shared_access(device, current_user, "device_used")
     usage_info.current_user = normalized_request_user
     usage_info.start_time = get_current_time()
-    usage_info.expected_duration = 60  # 默认60分钟
     usage_info.status = DeviceStatusEnum.OCCUPIED
     usage_info.is_long_term = False
     usage_info.long_term_purpose = None
@@ -1066,7 +1063,6 @@ async def long_term_use_device(request: DeviceLongTermUseRequest, current_user: 
     await revoke_shared_access(device, current_user, "device_long_term_use")
     usage_info.current_user = normalized_request_user
     usage_info.start_time = get_current_time()
-    usage_info.expected_duration = 0  # 长时间占用不设置预计时长
     usage_info.status = DeviceStatusEnum.LONG_TERM_OCCUPIED
     usage_info.is_long_term = True
     usage_info.long_term_purpose = request.purpose
@@ -1215,7 +1211,6 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         normalized_next_user = normalize_employee_id(next_user) or next_user
         usage_info.current_user = normalized_next_user
         usage_info.start_time = get_current_time()
-        usage_info.expected_duration = 60  # 默认60分钟
         await usage_info.save()
         
         # 创建新的使用历史记录
@@ -1269,7 +1264,6 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         # 没有排队，设备变为可用
         usage_info.current_user = None
         usage_info.start_time = None
-        usage_info.expected_duration = 0
         usage_info.status = DeviceStatusEnum.AVAILABLE
         await usage_info.save()
 
@@ -1398,7 +1392,6 @@ async def get_device_usage(device_id: int, current_user: User = Depends(AuthMana
         "device_id": device.id,
         "current_user": usage_info.current_user,
         "start_time": usage_info.start_time.isoformat() if usage_info.start_time else None,
-        "expected_duration": usage_info.expected_duration,
         "is_long_term": usage_info.is_long_term,
         "long_term_purpose": usage_info.long_term_purpose,
         "end_date": usage_info.end_date.isoformat() if usage_info.end_date else None,
@@ -1485,7 +1478,6 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
         await revoke_shared_access(device, current_user, "device_preempt")
         usage_info.current_user = requested_user
         usage_info.start_time = get_current_time()
-        usage_info.expected_duration = request.expected_duration
         usage_info.status = DeviceStatusEnum.OCCUPIED
         await usage_info.save()
         
@@ -1542,7 +1534,6 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
         await revoke_shared_access(device, current_user, "device_preempt")
         usage_info.current_user = requested_user
         usage_info.start_time = get_current_time()
-        usage_info.expected_duration = request.expected_duration
         await usage_info.save()
         
         # 创建使用历史记录
@@ -1614,7 +1605,6 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
         await revoke_shared_access(device, current_user, "device_priority_queue_use")
         usage_info.current_user = normalized_request_user
         usage_info.start_time = get_current_time()
-        usage_info.expected_duration = request.expected_duration
         usage_info.status = DeviceStatusEnum.OCCUPIED
         await usage_info.save()
         
@@ -1703,7 +1693,6 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
         await revoke_shared_access(device, current_user, "device_unified_queue_use")
         usage_info.current_user = normalized_request_user
         usage_info.start_time = get_current_time()
-        usage_info.expected_duration = request.expected_duration
         usage_info.status = DeviceStatusEnum.OCCUPIED
         await usage_info.save()
         
@@ -2146,7 +2135,6 @@ async def batch_release_my_devices(current_user: User = Depends(AuthManager.get_
                 # 释放设备
                 usage_info.current_user = None
                 usage_info.start_time = None
-                usage_info.expected_duration = 0  # 设置为0而不是None
                 usage_info.purpose = None
                 usage_info.status = DeviceStatusEnum.AVAILABLE
                 usage_info.is_long_term = False

@@ -347,7 +347,6 @@ async def update_user_vpn_config(
                             next_user = usage.queue_users.pop(0)
                             usage.current_user = next_user.lower()
                             usage.start_time = get_current_time()
-                            usage.expected_duration = 60
                             await usage.save()
                             # 更新占用人访问IP
                             next_user_obj = await User.filter(employee_id__iexact=usage.current_user).first()
@@ -357,7 +356,6 @@ async def update_user_vpn_config(
                         else:
                             usage.current_user = None
                             usage.start_time = None
-                            usage.expected_duration = 0
                             usage.status = DeviceStatusEnum.AVAILABLE
                             await usage.save()
                             # 清理访问IP

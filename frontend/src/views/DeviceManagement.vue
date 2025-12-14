@@ -2245,7 +2245,6 @@ const joinQueue = async (device) => {
     const response = await deviceApi.unifiedQueue({
       device_id: device.id,
       user: currentUserEmployeeId.value,
-      expected_duration: 60,
       purpose: '普通排队'
     })
 
@@ -2317,7 +2316,6 @@ const unifiedQueueAction = async (device) => {
     const response = await deviceApi.unifiedQueue({
       device_id: device.id,
       user: currentUserEmployeeId.value,
-      expected_duration: 60,
       purpose: '使用设备'
     })
     
@@ -2362,7 +2360,6 @@ const preemptDevice = async (device) => {
     const response = await deviceApi.preemptDevice({
       device_id: device.id,
       user: currentUserEmployeeId.value,
-      expected_duration: 60,
       purpose: '抢占使用'
     })
     
@@ -2394,7 +2391,6 @@ const priorityQueue = async (device) => {
     const response = await deviceApi.priorityQueue({
       device_id: device.id,
       user: currentUserEmployeeId.value,
-      expected_duration: 60,
       purpose: '优先排队'
     })
     

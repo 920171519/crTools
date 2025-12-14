@@ -156,7 +156,6 @@ class DeviceScheduler:
                 usage.current_user = next_emp
                 usage.start_time = now
                 usage.status = DeviceStatusEnum.OCCUPIED
-                usage.expected_duration = device.max_occupy_minutes or usage.expected_duration
                 usage.queue_users = queue
                 await usage.save()
 
@@ -218,7 +217,6 @@ class DeviceScheduler:
                     # 清理占用状态
                     usage_info.current_user = None
                     usage_info.start_time = None
-                    usage_info.expected_duration = 0  # 设置为0而不是None
                     usage_info.status = DeviceStatusEnum.AVAILABLE
                     usage_info.is_long_term = False
                     usage_info.long_term_purpose = None

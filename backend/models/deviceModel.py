@@ -92,7 +92,6 @@ class DeviceUsage(Model):
     device = fields.OneToOneField("models.Device", related_name="usage_info", description="设备")
     current_user = fields.CharField(max_length=50, null=True, description="当前占用人")
     start_time = fields.DatetimeField(null=True, description="开始占用时间")
-    expected_duration = fields.IntField(default=0, description="预计占用时间(分钟)")
     is_long_term = fields.BooleanField(default=False, description="是否为长时间占用")
     long_term_purpose = fields.TextField(null=True, description="长时间占用的用途备注")
     end_date = fields.DatetimeField(null=True, description="长时间占用截至时间")
