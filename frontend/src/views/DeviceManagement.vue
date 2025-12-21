@@ -466,6 +466,16 @@
               </el-button>
 
               <span v-if="showShareControls(row)" class="share-controls">
+                <el-button
+                  v-if="canForceShare(row)"
+                  type="danger"
+                  size="small"
+                  plain
+                  @click="forceShare(row)"
+                  :loading="forceShareLoading[row.id]"
+                >
+                  强制使用
+                </el-button>
                 <template v-if="canApplyShare(row)">
                   <el-button
                     type="primary"
@@ -1085,6 +1095,9 @@
                   <el-tag type="success" size="small">
                     {{ user.username }} ({{ user.employee_id }})
                   </el-tag>
+                  <span class="shared-reason" v-if="user.request_message">
+                    申请原因：{{ user.request_message }}
+                  </span>
                   <span class="shared-time" v-if="user.approved_at">
                     于 {{ formatDateTime(user.approved_at) }} 获批
                   </span>
@@ -1458,6 +1471,7 @@ const userInfoLoaded = ref(false)
 const deleteLoading = ref(false)
 const groupOptions = ref<{ id: number; name: string }[]>([])
 const shareRequestLoading = reactive<Record<number, boolean>>({})
+const forceShareLoading = reactive<Record<number, boolean>>({})
 const detailShareLoading = ref(false)
 const usageSummaryLoading = ref(false)
 const usageSummary = reactive<{ occupied: any[]; shared: any[] }>({
@@ -1616,6 +1630,11 @@ const showShareControls = (device) => {
 const canApplyShare = (device) => {
   if (!device) return false
   return showShareControls(device) && !device.has_pending_share_request && !device.is_shared_user && !device.share_request_id
+}
+
+const canForceShare = (device) => {
+  if (!device) return false
+  return showShareControls(device) && !device.is_shared_user
 }
 
 const getShareStatusText = (status?: string) => {
@@ -2017,6 +2036,43 @@ const stopConnectivityTimer = () => {
   if (connectivityTimer.value) {
     clearInterval(connectivityTimer.value)
     connectivityTimer.value = null
+  }
+}
+
+const forceShare = async (device) => {
+  if (!device) return
+  if (!showShareControls(device)) {
+    ElMessage.warning('当前无需强制使用')
+    return
+  }
+  if (forceShareLoading[device.id]) return
+
+  try {
+    const { value, action } = await ElMessageBox.prompt('请输入强制共用的备注信息（可为空）', '强制使用', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputType: 'textarea',
+      inputPlaceholder: '请输入备注信息'
+    })
+    if (action !== 'confirm') return
+
+    forceShareLoading[device.id] = true
+    await deviceApi.forceShare(device.id, { message: value })
+    ElMessage.success('已强制加入共用')
+    await loadDevices()
+    await loadUsageSummary()
+    if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
+      await viewDetails(device)
+    }
+  } catch (error: any) {
+    if (error === 'cancel') return
+    if (error?.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('强制使用失败')
+    }
+  } finally {
+    forceShareLoading[device.id] = false
   }
 }
 
@@ -3306,6 +3362,12 @@ watch(activeDetailTab, (newTab) => {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.shared-reason {
+  color: #606266;
+  font-size: 12px;
 }
 
 .shared-time {

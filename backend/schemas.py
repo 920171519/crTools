@@ -502,6 +502,11 @@ class DeviceShareRequestCreate(BaseModel):
     message: Optional[str] = Field(None, description="申请备注信息")
 
 
+class DeviceForceShareRequest(BaseModel):
+    """强制共用设备"""
+    message: Optional[str] = Field(None, description="强制共用备注信息")
+
+
 class DeviceShareDecision(BaseModel):
     """共用申请处理请求"""
     approve: bool = Field(..., description="是否通过")

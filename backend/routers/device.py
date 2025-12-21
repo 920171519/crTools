@@ -38,6 +38,7 @@ from schemas import (
     DeviceConfigUpdate,
     DeviceConfigResponse,
     DeviceShareRequestCreate,
+    DeviceForceShareRequest,
     DeviceShareDecision,
     DeviceShareRequestResponse,
     MyUsageSummaryResponse,
@@ -149,9 +150,80 @@ async def get_device_shared_users(device: Device):
             "share_request_id": share.id,
             "employee_id": share.requester_employee_id,
             "username": share.requester_username,
-            "approved_at": approved_at
+            "approved_at": approved_at,
+            "request_message": share.request_message
         })
     return result
+
+
+@router.post("/{device_id:int}/force-share", response_model=BaseResponse, summary="强制加入共用")
+async def force_share_device(
+    device_id: int,
+    payload: DeviceForceShareRequest,
+    current_user: User = Depends(AuthManager.get_current_user),
+):
+    """将当前用户强制加入设备共用列表，并记录备注信息"""
+    device = await Device.filter(id=device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="设备不存在")
+    await ensure_device_access(device, current_user)
+    await ensure_user_vpn_ip(device, current_user)
+
+    usage_info = await DeviceUsage.filter(device=device).first()
+    if not usage_info or usage_info.status not in [DeviceStatusEnum.OCCUPIED, DeviceStatusEnum.LONG_TERM_OCCUPIED]:
+        raise HTTPException(status_code=400, detail="设备当前未被占用，无需强制共用")
+
+    normalized_employee = normalize_employee_id(current_user.employee_id)
+    if usage_info.current_user and normalize_employee_id(usage_info.current_user) == normalized_employee:
+        raise HTTPException(status_code=400, detail="您已是当前占用人，无需强制共用")
+
+    # 若已存在待处理/已通过记录，则直接更新为已通过并写入备注
+    share_request = await DeviceShareRequest.filter(
+        device=device,
+        requester_employee_id__iexact=normalized_employee,
+        status__in=["pending", "approved"]
+    ).first()
+
+    now = get_current_time()
+    if share_request:
+        share_request.status = "approved"
+        share_request.request_message = payload.message
+        share_request.processed_by = current_user.employee_id
+        share_request.processed_at = now
+        share_request.decision_reason = "强制共用"
+        await share_request.save()
+    else:
+        share_request = await DeviceShareRequest.create(
+            device=device,
+            requester_employee_id=normalized_employee,
+            requester_username=current_user.username,
+            status="approved",
+            request_message=payload.message,
+            processed_by=current_user.employee_id,
+            processed_at=now,
+            decision_reason="强制共用"
+        )
+
+    # 同步访问IP记录（共用用户）
+    try:
+        await upsert_device_access_ip(device, current_user, role="shared")
+    except Exception as e:
+        print(f"强制共用同步访问IP失败: {e}")
+
+    await OperationLog.create_log(
+        user=current_user,
+        operation_type="device_force_share",
+        operation_result="success",
+        device_name=device.name,
+        description=f"强制共用设备 {device.name}",
+        device_ip=device.ip
+    )
+
+    return BaseResponse(
+        code=200,
+        message="已强制加入共用",
+        data=serialize_share_request_record(share_request)
+    )
 
 
 async def get_user_vpn_ip_for_device(user: User, device: Device) -> str | None:

@@ -125,6 +125,7 @@ export interface DeviceSharedUser {
   employee_id: string
   username: string
   approved_at?: string | null
+  request_message?: string | null
 }
 
 export interface DeviceUsageDetail {
@@ -200,6 +201,10 @@ export interface DeviceGroupSummary {
 
 export interface DeviceShareRequestPayload {
   device_id: number
+  message?: string
+}
+
+export interface DeviceForceSharePayload {
   message?: string
 }
 
@@ -384,6 +389,11 @@ export const deviceApi = {
   // 占用人/管理员剔除共用用户
   revokeSharedUser: (requestId: number) => {
     return api.post<DeviceShareRequestItem>(`/devices/share-requests/${requestId}/revoke`)
+  },
+
+  // 管理员强制加入共用
+  forceShare: (deviceId: number, data: DeviceForceSharePayload) => {
+    return api.post<DeviceShareRequestItem>(`/devices/${deviceId}/force-share`, data)
   },
 
   // 获取我的环境使用情况
