@@ -96,6 +96,10 @@ async def import_commands(
     """上传xlsx文件并导入命令行数据
     预期列：视图(link)、cli(command_text)、描述(description)、注意事项(notice)、参数范围(param_ranges)、备注(remarks)
     """
+    is_admin = current_user.is_superuser or (await current_user.has_role("管理员"))
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="权限不足，只有管理员才能导入命令行")
+
     # 校验扩展名
     filename = file.filename or ''
     if not filename.lower().endswith('.xlsx'):

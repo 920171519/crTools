@@ -278,6 +278,49 @@ async def add_group_members(
     )
 
 
+@router.delete("/groups/{group_id}/members", response_model=BaseResponse, summary="从分组移除用户")
+async def remove_group_members(
+    group_id: int,
+    member_request: GroupMembersAddRequest,
+    current_user: User = require_active_user,
+    _: bool = require_user_update
+):
+    """从指定分组移除用户（可批量）"""
+    group = await Group.filter(id=group_id).first()
+    if not group:
+        raise HTTPException(status_code=404, detail="分组不存在")
+
+    user_ids = set(member_request.user_ids or [])
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="用户ID列表不能为空")
+
+    removed_count = await GroupMember.filter(group_id=group_id, user_id__in=user_ids).delete()
+
+    members_data = []
+    members = await GroupMember.filter(group_id=group_id).prefetch_related("user__role")
+    for member in members:
+        if member.user:
+            role_name = await member.user.get_role_name()
+            members_data.append({
+                "id": member.user.id,
+                "employee_id": member.user.employee_id,
+                "username": member.user.username,
+                "is_superuser": member.user.is_superuser,
+                "role": role_name
+            })
+
+    return BaseResponse(
+        code=200,
+        message="分组成员已移除",
+        data={
+            "group_id": group.id,
+            "removed_count": removed_count,
+            "member_count": len(members_data),
+            "members": members_data
+        }
+    )
+
+
 
 @router.put("/{user_id}/role", response_model=BaseResponse, summary="更新用户主要角色")
 async def update_user_role(

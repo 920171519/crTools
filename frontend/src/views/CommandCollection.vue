@@ -49,7 +49,7 @@
 
     <!-- 操作栏 -->
     <div class="action-bar">
-      <el-button type="primary" icon="Plus" @click="openImportDialog">
+      <el-button v-if="canImport" type="primary" icon="Plus" @click="openImportDialog">
         导入
       </el-button>
       <el-button icon="Refresh" @click="loadCommands">
@@ -103,7 +103,7 @@
     </el-card>
 
     <!-- 导入对话框 -->
-    <el-dialog v-model="showImportDialog" title="导入命令行（xlsx）" width="500px">
+    <el-dialog v-if="canImport" v-model="showImportDialog" title="导入命令行（xlsx）" width="500px">
       <div>
         <el-upload
           class="upload-block"
@@ -257,6 +257,7 @@ const currentUser = computed(() => userStore.userInfo?.username || '')
 const currentUserEmployeeId = computed(() => userStore.userInfo?.employee_id?.toLowerCase() || '')
 const isAdmin = computed(() => userStore.userInfo?.is_superuser || false)
 const isAdminRole = computed(() => userStore.userInfo?.role === '管理员')
+const canImport = computed(() => userStore.isAdminUser)
 
 // 判断是否可以删除
 const canDelete = (command: CommandListItem) => {
@@ -319,6 +320,10 @@ const handleCurrentChange = (val: number) => {
 
 // 打开添加对话框
 const openImportDialog = () => {
+  if (!canImport.value) {
+    ElMessage.error('只有管理员才能导入')
+    return
+  }
   importFile.value = null
   showImportDialog.value = true
 }
@@ -371,6 +376,10 @@ const viewDetails = async (command: CommandListItem) => {
 }
 
 const handleImport = async () => {
+  if (!canImport.value) {
+    ElMessage.error('只有管理员才能导入')
+    return
+  }
   if (!importFile.value) {
     ElMessage.warning('请先选择文件')
     return

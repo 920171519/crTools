@@ -187,15 +187,35 @@
               <div class="group-body">
                 <p class="group-description" v-if="group.description">{{ group.description }}</p>
                 <div v-if="group.members?.length" class="group-members">
-                  <el-tag
-                    v-for="member in group.members"
-                    :key="member.id"
-                    type="info"
+                  <div class="group-members-toolbar" v-if="userStore.hasPermission('user:update')">
+                    <el-button
+                      type="danger"
+                      size="small"
+                      :disabled="!(selectedGroupMemberIds[group.id]?.length)"
+                      :loading="!!removingGroupMembers[group.id]"
+                      @click.stop="confirmRemoveMembers(group)"
+                    >
+                      删除成员
+                    </el-button>
+                  </div>
+                  <el-table
+                    :data="group.members"
+                    stripe
                     size="small"
-                    class="group-member"
+                    class="group-members-table"
+                    @selection-change="(selection:any[]) => onGroupMemberSelectionChange(group.id, selection)"
                   >
-                    {{ member.username }} ({{ member.employee_id }})
-                  </el-tag>
+                    <el-table-column type="selection" width="44" />
+                    <el-table-column prop="username" label="姓名" min-width="120" />
+                    <el-table-column prop="employee_id" label="工号" min-width="120" />
+                    <el-table-column label="角色" min-width="120">
+                      <template #default="{ row }">
+                        <el-tag :type="getRoleTagType(row.role)" size="small">
+                          {{ row.role }}
+                        </el-tag>
+                      </template>
+                    </el-table-column>
+                  </el-table>
                 </div>
                 <el-empty v-else description="暂无成员" />
               </div>
@@ -351,7 +371,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
-import { getUserList, updateUserRole, deleteUser, ROLE_OPTIONS, getRoleTagType, getGroupList, createGroup, updateGroup, deleteGroup, updateUserGroups, addGroupMembers, type GroupItem } from '@/api/user'
+import { getUserList, updateUserRole, deleteUser, ROLE_OPTIONS, getRoleTagType, getGroupList, createGroup, updateGroup, deleteGroup, updateUserGroups, addGroupMembers, removeGroupMembers, type GroupItem } from '@/api/user'
 
 const userStore = useUserStore()
 
@@ -410,6 +430,8 @@ const groupMemberSelection = ref<number[]>([])
 const userOptions = ref<any[]>([])
 const userOptionsLoading = ref(false)
 const addingGroupMembers = ref(false)
+const selectedGroupMemberIds = reactive<Record<number, number[]>>({})
+const removingGroupMembers = reactive<Record<number, boolean>>({})
 
 // 获取用户列表
 const fetchUserList = async () => {
@@ -681,6 +703,44 @@ const handleSaveUserGroups = async () => {
   }
 }
 
+const onGroupMemberSelectionChange = (groupId: number, selection: any[]) => {
+  selectedGroupMemberIds[groupId] = (selection || []).map(member => member.id)
+}
+
+const confirmRemoveMembers = async (group: GroupItem) => {
+  const userIds = selectedGroupMemberIds[group.id] || []
+  if (!userIds.length) return
+
+  try {
+    await ElMessageBox.confirm(
+      `确定要从分组「${group.name}」移除选中的 ${userIds.length} 个成员吗？`,
+      '删除成员',
+      {
+        type: 'warning',
+        confirmButtonText: '删除',
+        cancelButtonText: '取消'
+      }
+    )
+
+    removingGroupMembers[group.id] = true
+    await removeGroupMembers(group.id, userIds)
+    ElMessage.success('成员已移除')
+    selectedGroupMemberIds[group.id] = []
+    await fetchGroupList()
+    await fetchUserList()
+  } catch (error: any) {
+    if (error === 'cancel') return
+    console.error('删除分组成员失败:', error)
+    if (error.response?.data?.detail) {
+      ElMessage.error(error.response.data.detail)
+    } else {
+      ElMessage.error('删除分组成员失败')
+    }
+  } finally {
+    removingGroupMembers[group.id] = false
+  }
+}
+
 // 新增用户（待实现）
 const handleAdd = () => {
   ElMessage.info('新增用户功能待实现')
@@ -776,11 +836,16 @@ onMounted(() => {
 
 .group-members {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.group-member {
-  margin-bottom: 4px;
+.group-members-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.group-members-table {
+  width: 100%;
 }
 </style> 

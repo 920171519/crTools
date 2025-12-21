@@ -111,3 +111,9 @@ export const addGroupMembers = (groupId: number, userIds: number[]) => {
     user_ids: userIds
   })
 }
+
+export const removeGroupMembers = (groupId: number, userIds: number[]) => {
+  return api.delete(`/users/groups/${groupId}/members`, {
+    data: { user_ids: userIds }
+  })
+}
