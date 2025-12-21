@@ -225,7 +225,7 @@ async def delete_vpn_config(
                 message="VPN配置不存在",
                 data=None
             )
-        
+
         # 检查是否有用户配置使用此VPN
         user_configs_count = await UserVPNConfig.filter(vpn_config=config).count()
         if user_configs_count > 0:
@@ -234,10 +234,10 @@ async def delete_vpn_config(
                 message=f"无法删除，还有 {user_configs_count} 个用户配置使用此VPN",
                 data=None
             )
-        
+
         # 删除VPN配置
         await config.delete()
-        
+
         return BaseResponse(
             code=200,
             message="删除VPN配置成功",
@@ -278,7 +278,7 @@ async def get_user_vpn_configs(
                 vpn_network=vpn_config.network,
                 ip_address=user_config.ip_address if user_config else None
             ))
-        
+
         return BaseResponse(
             code=200,
             message="获取用户VPN配置成功",
@@ -323,7 +323,7 @@ async def update_user_vpn_config(
                 user=current_user,
                 vpn_config=vpn_config,
                 ip_address=config_data.ip_address
-        )
+            )
 
         # 同步设备访问IP记录：更新当前用户在该VPN下的所有设备的访问IP
         try:

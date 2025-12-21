@@ -134,6 +134,8 @@ async def import_commands(
     except Exception as e:
         print(f"保存固定示例命令失败: {e}")
         raise HTTPException(status_code=500, detail="导入失败")
+
+
 @router.post("/", response_model=BaseResponse, summary="创建命令行")
 async def create_command(
     command_data: CommandCreate,
@@ -288,7 +290,7 @@ async def update_command(
     if update_data:
         for key, value in update_data.items():
             setattr(command, key, value)
-        
+
         # 更新最后编辑人
         command.last_editor = current_user.employee_id
         await command.save()
@@ -313,7 +315,7 @@ async def update_command(
 
     # 重新获取命令行信息
     command = await Command.filter(id=command_id).first()
-    
+
     command_response = {
         "id": command.id,
         "command_text": command.command_text,
@@ -341,20 +343,20 @@ async def delete_command(
     command = await Command.filter(id=command_id).first()
     if not command:
         raise HTTPException(status_code=404, detail="命令行不存在")
-    
+
     # 权限检查：只有创建人或管理员可以删除
     is_creator = command.creator == current_user.employee_id
     is_admin = current_user.is_superuser or (await current_user.has_role("管理员"))
-    
+
     if not (is_creator or is_admin):
         raise HTTPException(
             status_code=403,
             detail="权限不足，只有创建人或管理员可以删除命令行"
         )
-    
+
     # 删除命令行
     await command.delete()
-    
+
     return BaseResponse(
         code=200,
         message="命令行删除成功",

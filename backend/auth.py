@@ -22,20 +22,22 @@ security = HTTPBearer()
 
 class AuthManager:
     """认证管理器"""
-    
+
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         """验证密码"""
         plain_password = plain_password.encode('utf-8')
-        hashed_password = hashed_password.encode('utf-8') # 和get_password_hash对应,此处得到str
+        hashed_password = hashed_password.encode(
+            'utf-8')  # 和get_password_hash对应,此处得到str
         return bcrypt.checkpw(plain_password, hashed_password)
-    
+
     @staticmethod
     def get_password_hash(password: str) -> str:
         """生成密码哈希"""
         password = password.encode('utf-8')
         hashPassword = bcrypt.hashpw(password, bcrypt.gensalt())
-        return hashPassword.decode('utf-8') # 这里虽然是返回给数据库存储, 但是它貌似只能存str, 不能存bytes, 因此先decode
+        # 这里虽然是返回给数据库存储, 但是它貌似只能存str, 不能存bytes, 因此先decode
+        return hashPassword.decode('utf-8')
 
     @staticmethod
     def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -45,16 +47,18 @@ class AuthManager:
             expire = datetime.utcnow() + expires_delta
         else:
             expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        
+
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        encoded_jwt = jwt.encode(
+            to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         return encoded_jwt
-    
+
     @staticmethod
     def verify_token(token: str) -> Optional[TokenData]:
         """验证令牌"""
         try:
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+            payload = jwt.decode(token, settings.SECRET_KEY,
+                                 algorithms=[settings.ALGORITHM])
             employee_id: str = payload.get("sub")
             if employee_id is None:
                 return None
@@ -62,7 +66,7 @@ class AuthManager:
             return token_data
         except JWTError:
             return None
-    
+
     @staticmethod
     async def authenticate_user(employee_id: str, password: str) -> Optional[User]:
         """认证用户"""
@@ -70,11 +74,11 @@ class AuthManager:
         user = await User.filter(employee_id=employee_id).first()
         if not user:
             return None
-        
+
         # 验证密码
         if not AuthManager.verify_password(password, user.hashed_password):
             return None
-        
+
         return user
         # if not AuthManager.verify_password(password, "$2b$12$JOsHHibB7dQ.7NeM9RAJ9u/W8K0l.6vAvfHX7SYw23PEHncSceOue"):
         #     return None
@@ -88,16 +92,16 @@ class AuthManager:
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-        
+
         token_data = AuthManager.verify_token(credentials.credentials)
         if token_data is None:
             raise credentials_exception
         user = await User.filter(employee_id=token_data.employee_id).first()
         if user is None:
             raise credentials_exception
-        
+
         return user
-    
+
     @staticmethod
     async def get_current_user_from_query(token: str = Query(..., description="认证令牌")) -> User:
         """从查询参数获取当前用户（用于SSE等不支持自定义header的场景）"""
@@ -105,14 +109,14 @@ class AuthManager:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
         )
-        
+
         token_data = AuthManager.verify_token(token)
         if token_data is None:
             raise credentials_exception
         user = await User.filter(employee_id=token_data.employee_id).first()
         if user is None:
             raise credentials_exception
-        
+
         return user
 
     @staticmethod
@@ -120,7 +124,7 @@ class AuthManager:
         """获取当前超级用户（仅超级用户可访问）"""
         # 先获取当前用户
         current_user = await AuthManager.get_current_user(credentials)
-        
+
         if not current_user.is_superuser:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -131,27 +135,27 @@ class AuthManager:
 
 class PermissionChecker:
     """权限检查器"""
-    
+
     def __init__(self, required_permission: str):
         self.required_permission = required_permission
-    
+
     async def __call__(self, current_user: User = Depends(AuthManager.get_current_user)) -> bool:
         """检查用户是否有指定权限"""
         # 超级用户拥有所有权限
         if current_user.is_superuser:
             return True
-        
+
         # 查询用户权限
         user_permissions = await self._get_user_permissions(current_user.id)
-        
+
         if self.required_permission not in user_permissions:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Permission denied: {self.required_permission}"
             )
-        
+
         return True
-    
+
     async def _get_user_permissions(self, user_id: int) -> list:
         """获取用户权限列表"""
 
@@ -170,7 +174,7 @@ class PermissionChecker:
 
 class LoginManager:
     """登录管理器"""
-    
+
     @staticmethod
     async def record_login_attempt(
         user: Optional[User],
@@ -199,7 +203,7 @@ class LoginManager:
             login_result=False,  # False表示登出
             failure_reason="用户主动登出"
         )
-    
+
     @staticmethod
     def get_client_ip(request) -> str:
         """获取客户端IP地址"""
@@ -207,15 +211,15 @@ class LoginManager:
         forwarded = request.headers.get("X-Forwarded-For")
         if forwarded:
             return forwarded.split(",")[0].strip()
-        
+
         # 尝试从X-Real-IP头获取
         real_ip = request.headers.get("X-Real-IP")
         if real_ip:
             return real_ip
-        
+
         # 返回直接连接的IP
         return request.client.host
-    
+
     @staticmethod
     def validate_ip_address(ip: str) -> bool:
         """验证IP地址格式"""
@@ -237,6 +241,8 @@ require_superuser = Depends(AuthManager.get_current_superuser)
 require_active_user = Depends(AuthManager.get_current_user)
 
 # 常见权限定义
+
+
 class Permissions:
     """权限常量定义"""
     # 用户管理
@@ -244,25 +250,25 @@ class Permissions:
     USER_READ = "user:read"
     USER_UPDATE = "user:update"
     USER_DELETE = "user:delete"
-    
+
     # 角色管理
     ROLE_CREATE = "role:create"
     ROLE_READ = "role:read"
     ROLE_UPDATE = "role:update"
     ROLE_DELETE = "role:delete"
-    
+
     # 权限管理
     PERMISSION_CREATE = "permission:create"
     PERMISSION_READ = "permission:read"
     PERMISSION_UPDATE = "permission:update"
     PERMISSION_DELETE = "permission:delete"
-    
+
     # 菜单管理
     MENU_CREATE = "menu:create"
     MENU_READ = "menu:read"
     MENU_UPDATE = "menu:update"
     MENU_DELETE = "menu:delete"
-    
+
     # 系统管理
     SYSTEM_CONFIG = "system:config"
-    SYSTEM_LOG = "system:log" 
+    SYSTEM_LOG = "system:log"

@@ -10,11 +10,15 @@
       <template #header>
         <div class="summary-header">
           <div class="summary-title">
-            <el-icon><Monitor /></el-icon>
+            <el-icon>
+              <Monitor />
+            </el-icon>
             <span>当前使用的环境</span>
           </div>
           <el-button text size="small" @click="loadUsageSummary">
-            <el-icon><Refresh /></el-icon>
+            <el-icon>
+              <Refresh />
+            </el-icon>
             刷新
           </el-button>
         </div>
@@ -25,7 +29,9 @@
           <el-table-column label="环境名称" min-width="180">
             <template #default="{ row }">
               <div class="device-name">
-                <el-icon class="device-icon"><Monitor /></el-icon>
+                <el-icon class="device-icon">
+                  <Monitor />
+                </el-icon>
                 <span class="name-text">{{ row.name }}</span>
               </div>
             </template>
@@ -37,21 +43,24 @@
           </el-table-column>
           <el-table-column label="已使用时长" width="140">
             <template #default="{ row }">
-              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration) }}</span>
+              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration)
+              }}</span>
               <span v-else>-</span>
             </template>
           </el-table-column>
           <el-table-column label="所属分组" min-width="200">
             <template #default="{ row }">
               <template v-if="row.groups?.length">
-                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name }}</el-tag>
+                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name
+                }}</el-tag>
               </template>
               <span v-else>-</span>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="160">
             <template #default="{ row }">
-              <el-button type="danger" size="small" @click="releaseFromUsage(row)" :loading="row.__releasing">释放</el-button>
+              <el-button type="danger" size="small" @click="releaseFromUsage(row)"
+                :loading="row.__releasing">释放</el-button>
             </template>
           </el-table-column>
           <el-table-column label="详情" width="120">
@@ -67,7 +76,9 @@
           <el-table-column label="环境名称" min-width="180">
             <template #default="{ row }">
               <div class="device-name">
-                <el-icon class="device-icon"><Monitor /></el-icon>
+                <el-icon class="device-icon">
+                  <Monitor />
+                </el-icon>
                 <span class="name-text">{{ row.name }}</span>
               </div>
             </template>
@@ -79,21 +90,24 @@
           </el-table-column>
           <el-table-column label="已使用时长" width="140">
             <template #default="{ row }">
-              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration) }}</span>
+              <span v-if="row.occupied_duration && row.occupied_duration >= 1">{{ formatDuration(row.occupied_duration)
+              }}</span>
               <span v-else>-</span>
             </template>
           </el-table-column>
           <el-table-column label="所属分组" min-width="200">
             <template #default="{ row }">
               <template v-if="row.groups?.length">
-                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name }}</el-tag>
+                <el-tag v-for="g in row.groups" :key="g.id" size="small" type="info" style="margin-right:4px">{{ g.name
+                }}</el-tag>
               </template>
               <span v-else>-</span>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="200">
             <template #default="{ row }">
-              <el-button type="danger" size="small" plain @click="cancelShareFromUsage(row)" :disabled="!row.share_request_id" :loading="row.__canceling">取消共用</el-button>
+              <el-button type="danger" size="small" plain @click="cancelShareFromUsage(row)"
+                :disabled="!row.share_request_id" :loading="row.__canceling">取消共用</el-button>
             </template>
           </el-table-column>
           <el-table-column label="详情" width="120">
@@ -138,12 +152,7 @@
             <el-input v-model="searchForm.config_value" placeholder="请输入配置关键词" clearable />
           </el-form-item>
           <el-form-item label="环境状态">
-            <el-select
-              v-model="searchForm.status"
-              placeholder="请选择状态"
-              clearable
-              style="width: 130px"
-            >
+            <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 130px">
               <el-option label="可用" value="available" />
               <el-option label="占用中" value="occupied" />
               <el-option label="长时间占用" value="long_term_occupied" />
@@ -153,11 +162,15 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" @click="handleSearch">
-              <el-icon><Search /></el-icon>
+              <el-icon>
+                <Search />
+              </el-icon>
               搜索
             </el-button>
             <el-button @click="handleReset">
-              <el-icon><Refresh /></el-icon>
+              <el-icon>
+                <Refresh />
+              </el-icon>
               重置
             </el-button>
           </el-form-item>
@@ -169,11 +182,15 @@
     <div class="action-bar">
       <!-- 批量操作按钮 -->
       <el-button type="warning" @click="releaseAllMyDevices" :loading="batchLoading.release">
-        <el-icon><VideoPlay /></el-icon>
+        <el-icon>
+          <VideoPlay />
+        </el-icon>
         一键释放所有占用设备
       </el-button>
       <el-button type="info" @click="cancelAllMyQueues" :loading="batchLoading.cancel">
-        <el-icon><VideoPause /></el-icon>
+        <el-icon>
+          <VideoPause />
+        </el-icon>
         一键取消所有排队
       </el-button>
 
@@ -190,7 +207,7 @@
     <el-card shadow="never">
       <el-table :data="devices" stripe style="width: 100%" v-loading="loading">
         <!-- <el-table-column prop="name" label="环境名称" width="150"> -->
-        <el-table-column prop="name" label="环境名称" >
+        <el-table-column prop="name" label="环境名称">
           <template #default="{ row }">
             <div class="device-name">
               <el-icon class="device-icon">
@@ -200,53 +217,50 @@
             </div>
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="ip" label="环境IP">
           <template #default="{ row }">
             <el-tag type="info" size="small">{{ row.ip }}</el-tag>
           </template>
         </el-table-column>
-        
 
-        
+
+
         <el-table-column prop="current_user" label="当前使用人">
           <template #default="{ row }">
             <span v-if="row.current_user" class="current-user">
-              <el-icon><User /></el-icon>
+              <el-icon>
+                <User />
+              </el-icon>
               {{ row.current_user }}
             </span>
             <span v-else class="no-user">-</span>
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="occupied_duration" label="已使用时长" width="120">
           <template #default="{ row }">
-            <span v-if="(row.status === 'occupied' || row.status === 'long_term_occupied') && row.occupied_duration >= 1" class="duration">
+            <span
+              v-if="(row.status === 'occupied' || row.status === 'long_term_occupied') && row.occupied_duration >= 1"
+              class="duration">
               {{ formatDuration(row.occupied_duration) }}
             </span>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="queue_count" label="排队人数" width="100">
           <template #default="{ row }">
-            <el-tag 
-              v-if="row.queue_count > 0" 
-              type="warning" 
-              size="small"
-            >
+            <el-tag v-if="row.queue_count > 0" type="warning" size="small">
               {{ row.queue_count }}人
             </el-tag>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        
+
         <el-table-column prop="status" label="环境状态" width="100">
           <template #default="{ row }">
-            <el-tag
-              :type="getStatusTag(row.status)"
-              size="small"
-            >
+            <el-tag :type="getStatusTag(row.status)" size="small">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
@@ -255,11 +269,7 @@
         <el-table-column label="连通性" width="80">
           <template #default="{ row }">
             <div class="connectivity-status">
-              <el-icon
-                :class="getConnectivityClass(row.id)"
-                :title="getConnectivityTitle(row.id)"
-                size="16"
-              >
+              <el-icon :class="getConnectivityClass(row.id)" :title="getConnectivityTitle(row.id)" size="16">
                 <SuccessFilled v-if="getConnectivityStatus(row.id)" />
                 <WarningFilled v-else />
               </el-icon>
@@ -270,13 +280,7 @@
         <el-table-column label="所属分组" min-width="160">
           <template #default="{ row }">
             <div v-if="row.groups?.length" class="group-tags">
-              <el-tag
-                v-for="group in row.groups"
-                :key="group.id"
-                size="small"
-                type="info"
-                class="group-tag"
-              >
+              <el-tag v-for="group in row.groups" :key="group.id" size="small" type="info" class="group-tag">
                 {{ group.name }}
               </el-tag>
             </div>
@@ -289,25 +293,13 @@
             <div class="action-buttons">
               <!-- 设备可用时：所有用户都可以使用 -->
               <template v-if="row.status === 'available'">
-                <el-button
-                  type="primary"
-                  size="small"
-                  @click="useDevice(row)"
-                  :loading="useLoading[row.id]"
-                  :disabled="!row.support_queue || !!useLoading[row.id]"
-                  :title="!row.support_queue ? '该设备未开放使用' : ''"
-                >
+                <el-button type="primary" size="small" @click="useDevice(row)" :loading="useLoading[row.id]"
+                  :disabled="!row.support_queue || !!useLoading[row.id]" :title="!row.support_queue ? '该设备未开放使用' : ''">
                   使用
                 </el-button>
-                <el-button
-                  v-if="showLongTermUseButton"
-                  type="warning"
-                  size="small"
-                  @click="openLongTermUseDialog(row)"
-                  :loading="useLoading[row.id]"
-                  :disabled="!row.support_queue || !!useLoading[row.id]"
-                  :title="!row.support_queue ? '该设备未开放使用' : ''"
-                >
+                <el-button v-if="showLongTermUseButton" type="warning" size="small" @click="openLongTermUseDialog(row)"
+                  :loading="useLoading[row.id]" :disabled="!row.support_queue || !!useLoading[row.id]"
+                  :title="!row.support_queue ? '该设备未开放使用' : ''">
                   申请长时间占用
                 </el-button>
               </template>
@@ -315,13 +307,8 @@
               <!-- 设备被占用时的操作 -->
               <template v-if="row.status === 'occupied'">
                 <!-- 当前用户占用的设备：显示释放按钮 -->
-                <el-button
-                  v-if="row.current_user === currentUserEmployeeId"
-                  type="danger"
-                  size="small"
-                  @click="releaseDevice(row)"
-                  :loading="releaseLoading[row.id]"
-                >
+                <el-button v-if="row.current_user === currentUserEmployeeId" type="danger" size="small"
+                  @click="releaseDevice(row)" :loading="releaseLoading[row.id]">
                   释放
                 </el-button>
 
@@ -344,86 +331,67 @@
                     <!-- 基于角色和排队状态的动态按钮逻辑 -->
                     <template v-if="currentUserRole === '管理员' || userStore.userInfo?.is_superuser">
                       <!-- 管理员/超级管理员按钮 -->
-                      <el-button type="danger" size="small" @click="preemptDevice(row)" :loading="useLoading[row.id]">抢占</el-button>
+                      <el-button type="danger" size="small" @click="preemptDevice(row)"
+                        :loading="useLoading[row.id]">抢占</el-button>
 
                       <!-- 根据排队状态显示不同按钮 -->
                       <template v-if="!row.is_current_user_in_queue">
-                        <el-button
-                          type="success"
-                          size="small"
-                          @click="priorityQueue(row)"
-                          :loading="useLoading[row.id]"
+                        <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]"
                           :disabled="!row.support_queue || !!useLoading[row.id]"
-                          :title="!row.support_queue ? '该设备未开放排队' : ''"
-                        >
+                          :title="!row.support_queue ? '该设备未开放排队' : ''">
                           优先排队
                         </el-button>
-                        <el-button
-                          type="warning"
-                          size="small"
-                          @click="joinQueue(row)"
-                          :loading="useLoading[row.id]"
+                        <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]"
                           :disabled="!row.support_queue || !!useLoading[row.id]"
-                          :title="!row.support_queue ? '该设备未开放排队' : ''"
-                        >
+                          :title="!row.support_queue ? '该设备未开放排队' : ''">
                           普通排队
                         </el-button>
                       </template>
                       <template v-else>
-                        <el-button type="info" size="small" @click="cancelQueue(row)" :loading="useLoading[row.id]">取消排队</el-button>
+                        <el-button type="info" size="small" @click="cancelQueue(row)"
+                          :loading="useLoading[row.id]">取消排队</el-button>
                       </template>
 
-                      <el-button type="danger" size="small" @click="adminReleaseDevice(row)" :loading="releaseLoading[row.id]">强制释放</el-button>
+                      <el-button type="danger" size="small" @click="adminReleaseDevice(row)"
+                        :loading="releaseLoading[row.id]">强制释放</el-button>
                     </template>
 
                     <template v-else-if="currentUserRole === '高级用户'">
                       <!-- 高级用户按钮：可以选择抢占、优先排队或普通排队 -->
-                      <el-button type="danger" size="small" @click="preemptDevice(row)" :loading="useLoading[row.id]">抢占</el-button>
+                      <el-button type="danger" size="small" @click="preemptDevice(row)"
+                        :loading="useLoading[row.id]">抢占</el-button>
 
                       <!-- 根据排队状态显示不同按钮 -->
                       <template v-if="!row.is_current_user_in_queue">
-                        <el-button
-                          type="success"
-                          size="small"
-                          @click="priorityQueue(row)"
-                          :loading="useLoading[row.id]"
+                        <el-button type="success" size="small" @click="priorityQueue(row)" :loading="useLoading[row.id]"
                           :disabled="!row.support_queue || !!useLoading[row.id]"
-                          :title="!row.support_queue ? '该设备未开放排队' : ''"
-                        >
+                          :title="!row.support_queue ? '该设备未开放排队' : ''">
                           优先排队
                         </el-button>
-                        <el-button
-                          type="warning"
-                          size="small"
-                          @click="joinQueue(row)"
-                          :loading="useLoading[row.id]"
+                        <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]"
                           :disabled="!row.support_queue || !!useLoading[row.id]"
-                          :title="!row.support_queue ? '该设备未开放排队' : ''"
-                        >
+                          :title="!row.support_queue ? '该设备未开放排队' : ''">
                           普通排队
                         </el-button>
                       </template>
                       <template v-else>
-                        <el-button type="info" size="small" @click="cancelQueue(row)" :loading="useLoading[row.id]">取消排队</el-button>
+                        <el-button type="info" size="small" @click="cancelQueue(row)"
+                          :loading="useLoading[row.id]">取消排队</el-button>
                       </template>
                     </template>
 
                     <template v-else>
                       <!-- 普通用户按钮：根据排队状态显示排队或取消排队 -->
                       <template v-if="!row.is_current_user_in_queue">
-                        <el-button
-                          type="warning"
-                          size="small"
-                          @click="joinQueue(row)"
-                          :loading="useLoading[row.id]"
+                        <el-button type="warning" size="small" @click="joinQueue(row)" :loading="useLoading[row.id]"
                           :disabled="!row.support_queue || !!useLoading[row.id]"
-                          :title="!row.support_queue ? '该设备未开放排队' : ''"
-                        >
+                          :title="!row.support_queue ? '该设备未开放排队' : ''">
                           排队
                         </el-button>
                       </template>
                       <template v-else>
-                        <el-button type="info" size="small" @click="cancelQueue(row)" :loading="useLoading[row.id]">取消排队</el-button>
+                        <el-button type="info" size="small" @click="cancelQueue(row)"
+                          :loading="useLoading[row.id]">取消排队</el-button>
                       </template>
                     </template>
                   </template>
@@ -433,68 +401,39 @@
               <!-- 设备长时间占用时的操作 -->
               <template v-if="row.status === 'long_term_occupied'">
                 <!-- 当前用户占用的设备：显示释放按钮 -->
-                <el-button
-                  v-if="row.current_user === currentUserEmployeeId"
-                  type="danger"
-                  size="small"
-                  @click="releaseDevice(row)"
-                  :loading="releaseLoading[row.id]"
-                >
+                <el-button v-if="row.current_user === currentUserEmployeeId" type="danger" size="small"
+                  @click="releaseDevice(row)" :loading="releaseLoading[row.id]">
                   释放
                 </el-button>
 
                 <!-- 管理员/超级管理员按钮 -->
                 <template v-if="currentUserRole === '管理员' || userStore.userInfo?.is_superuser">
-                  <el-button
-                    type="danger"
-                    size="small"
-                    @click="adminReleaseDevice(row)"
-                    :loading="releaseLoading[row.id]"
-                  >
+                  <el-button type="danger" size="small" @click="adminReleaseDevice(row)"
+                    :loading="releaseLoading[row.id]">
                     强制释放
                   </el-button>
                 </template>
               </template>
 
               <!-- 详情按钮 - 所有用户都显示 -->
-              <el-button 
-                type="info" 
-                size="small" 
-                @click="viewDetails(row)"
-              >
+              <el-button type="info" size="small" @click="viewDetails(row)">
                 详情
               </el-button>
 
               <span v-if="showShareControls(row)" class="share-controls">
-                <el-button
-                  v-if="canForceShare(row)"
-                  type="danger"
-                  size="small"
-                  plain
-                  @click="forceShare(row)"
-                  :loading="forceShareLoading[row.id]"
-                >
+                <el-button v-if="canForceShare(row)" type="danger" size="small" plain @click="forceShare(row)"
+                  :loading="forceShareLoading[row.id]">
                   强制使用
                 </el-button>
                 <template v-if="canApplyShare(row)">
-                  <el-button
-                    type="primary"
-                    size="small"
-                    plain
-                    @click="requestShare(row)"
-                    :loading="shareRequestLoading[row.id]"
-                  >
+                  <el-button type="primary" size="small" plain @click="requestShare(row)"
+                    :loading="shareRequestLoading[row.id]">
                     申请共用
                   </el-button>
                 </template>
                 <template v-else-if="row.share_request_id">
-                  <el-button
-                    type="danger"
-                    size="small"
-                    plain
-                    @click="cancelShare(row)"
-                    :loading="shareRequestLoading[row.id]"
-                  >
+                  <el-button type="danger" size="small" plain @click="cancelShare(row)"
+                    :loading="shareRequestLoading[row.id]">
                     {{ row.is_shared_user ? '取消共用' : '取消申请' }}
                   </el-button>
                 </template>
@@ -512,74 +451,37 @@
 
       <!-- 分页 -->
       <div class="pagination">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.page_size"
-          :page-sizes="[10, 20, 50, 100]"
-          :small="false"
-          :disabled="false"
-          :background="false"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="pagination.total"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
+        <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.page_size"
+          :page-sizes="[10, 20, 50, 100]" :small="false" :disabled="false" :background="false"
+          layout="total, sizes, prev, pager, next, jumper" :total="pagination.total" @size-change="handleSizeChange"
+          @current-change="handleCurrentChange" />
       </div>
     </el-card>
 
     <!-- 添加设备对话框 -->
-    <el-dialog 
-      v-model="showAddDialog" 
-      title="添加设备" 
-      width="600px"
-      :before-close="handleAddDialogClose"
-    >
-      <el-form 
-        ref="addFormRef" 
-        :model="addForm" 
-        :rules="addFormRules" 
-        label-width="120px"
-      >
+    <el-dialog v-model="showAddDialog" title="添加设备" width="600px" :before-close="handleAddDialogClose">
+      <el-form ref="addFormRef" :model="addForm" :rules="addFormRules" label-width="120px">
         <el-form-item label="设备名称" prop="name">
           <el-input v-model="addForm.name" placeholder="请输入设备名称" />
         </el-form-item>
-        
+
         <el-form-item label="设备IP" prop="ip">
           <el-input v-model="addForm.ip" placeholder="请输入设备IP地址" />
         </el-form-item>
-        
+
         <el-form-item label="VPN域段" prop="vpn_region">
-          <el-select
-            v-model="addForm.vpn_region"
-            placeholder="请选择域段"
-            @change="onAddFormRegionChange"
-            clearable
-          >
-            <el-option
-              v-for="region in availableRegions"
-              :key="region"
-              :label="region"
-              :value="region"
-            />
+          <el-select v-model="addForm.vpn_region" placeholder="请选择域段" @change="onAddFormRegionChange" clearable>
+            <el-option v-for="region in availableRegions" :key="region" :label="region" :value="region" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="* VPN网段" prop="vpn_config_id">
-          <el-select
-            v-model="addForm.vpn_config_id"
-            placeholder="请选择网段"
-            :disabled="!addForm.vpn_region"
-            clearable
-          >
-            <el-option
-              v-for="config in filteredNetworksForAdd"
-              :key="config.id"
-              :label="config.network"
-              :value="config.id"
-            />
+          <el-select v-model="addForm.vpn_config_id" placeholder="请选择网段" :disabled="!addForm.vpn_region" clearable>
+            <el-option v-for="config in filteredNetworksForAdd" :key="config.id" :label="config.network"
+              :value="config.id" />
           </el-select>
         </el-form-item>
-        
+
         <el-form-item label="归属人" prop="owner">
           <el-input v-model="addForm.owner" placeholder="请输入归属人" />
         </el-form-item>
@@ -607,51 +509,30 @@
             <el-option label="未知" value="未知" />
           </el-select>
         </el-form-item>
-        
+
         <el-form-item label="FTP需要前缀">
           <el-switch v-model="addForm.ftp_prefix" />
         </el-form-item>
         <el-form-item label="最长占用(分钟)">
-          <el-input-number
-            v-model="addForm.max_occupy_minutes"
-            :min="1"
-            :max="1440"
-            placeholder="留空表示不限制"
-            style="width: 100%"
-          />
+          <el-input-number v-model="addForm.max_occupy_minutes" :min="1" :max="1440" placeholder="留空表示不限制"
+            style="width: 100%" />
         </el-form-item>
-        
+
         <el-form-item label="支持排队">
           <el-switch v-model="addForm.support_queue" />
         </el-form-item>
 
         <el-form-item label="所属分组">
-          <el-select
-            v-model="addForm.group_ids"
-            multiple
-            filterable
-            placeholder="请选择分组"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="group in groupOptions"
-              :key="group.id"
-              :label="group.name"
-              :value="group.id"
-            />
+          <el-select v-model="addForm.group_ids" multiple filterable placeholder="请选择分组" style="width: 100%">
+            <el-option v-for="group in groupOptions" :key="group.id" :label="group.name" :value="group.id" />
           </el-select>
         </el-form-item>
-        
+
         <el-form-item label="备注信息">
-          <el-input 
-            v-model="addForm.remarks" 
-            type="textarea" 
-            :rows="3"
-            placeholder="请输入备注信息"
-          />
+          <el-input v-model="addForm.remarks" type="textarea" :rows="3" placeholder="请输入备注信息" />
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showAddDialog = false">取消</el-button>
@@ -663,59 +544,31 @@
     </el-dialog>
 
     <!-- 编辑设备对话框 -->
-    <el-dialog 
-      v-model="showEditDialog" 
-      title="编辑设备信息" 
-      width="600px"
-      :before-close="handleEditDialogClose"
-    >
-      <el-form 
-        ref="editFormRef" 
-        :model="editForm" 
-        :rules="addFormRules" 
-        label-width="120px"
-      >
+    <el-dialog v-model="showEditDialog" title="编辑设备信息" width="600px" :before-close="handleEditDialogClose">
+      <el-form ref="editFormRef" :model="editForm" :rules="addFormRules" label-width="120px">
         <el-form-item label="设备名称" prop="name">
           <el-input v-model="editForm.name" placeholder="请输入设备名称" />
         </el-form-item>
-        
+
         <el-form-item label="设备IP" prop="ip">
           <el-input :value="deviceDetail?.ip" disabled placeholder="IP地址不可修改" />
         </el-form-item>
-        
+
         <el-form-item label="VPN域段" prop="vpn_region">
-          <el-select
-            v-model="editForm.vpn_region"
-            placeholder="请选择域段"
-            @change="onEditFormRegionChange"
-            clearable
-            :disabled="!canEditDevice"
-          >
-            <el-option
-              v-for="region in availableRegions"
-              :key="region"
-              :label="region"
-              :value="region"
-            />
+          <el-select v-model="editForm.vpn_region" placeholder="请选择域段" @change="onEditFormRegionChange" clearable
+            :disabled="!canEditDevice">
+            <el-option v-for="region in availableRegions" :key="region" :label="region" :value="region" />
           </el-select>
         </el-form-item>
 
         <el-form-item label="* VPN网段" prop="vpn_config_id">
-          <el-select
-            v-model="editForm.vpn_config_id"
-            placeholder="请选择网段"
-            :disabled="!editForm.vpn_region || !canEditDevice"
-            clearable
-          >
-            <el-option
-              v-for="config in filteredNetworksForEdit"
-              :key="config.id"
-              :label="config.network"
-              :value="config.id"
-            />
+          <el-select v-model="editForm.vpn_config_id" placeholder="请选择网段"
+            :disabled="!editForm.vpn_region || !canEditDevice" clearable>
+            <el-option v-for="config in filteredNetworksForEdit" :key="config.id" :label="config.network"
+              :value="config.id" />
           </el-select>
         </el-form-item>
-        
+
         <el-form-item label="归属人" prop="owner">
           <el-input v-model="editForm.owner" placeholder="请输入归属人" />
         </el-form-item>
@@ -743,51 +596,30 @@
             <el-option label="未知" value="未知" />
           </el-select>
         </el-form-item>
-        
+
         <el-form-item label="FTP需要前缀">
           <el-switch v-model="editForm.ftp_prefix" />
         </el-form-item>
         <el-form-item label="最长占用(分钟)">
-          <el-input-number
-            v-model="editForm.max_occupy_minutes"
-            :min="1"
-            :max="1440"
-            placeholder="留空表示不限制"
-            style="width: 100%"
-          />
+          <el-input-number v-model="editForm.max_occupy_minutes" :min="1" :max="1440" placeholder="留空表示不限制"
+            style="width: 100%" />
         </el-form-item>
-        
+
         <el-form-item label="支持排队">
           <el-switch v-model="editForm.support_queue" />
         </el-form-item>
 
         <el-form-item label="所属分组">
-          <el-select
-            v-model="editForm.group_ids"
-            multiple
-            filterable
-            placeholder="请选择分组"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="group in groupOptions"
-              :key="group.id"
-              :label="group.name"
-              :value="group.id"
-            />
+          <el-select v-model="editForm.group_ids" multiple filterable placeholder="请选择分组" style="width: 100%">
+            <el-option v-for="group in groupOptions" :key="group.id" :label="group.name" :value="group.id" />
           </el-select>
         </el-form-item>
-        
+
         <el-form-item label="备注信息">
-          <el-input 
-            v-model="editForm.remarks" 
-            type="textarea" 
-            :rows="3"
-            placeholder="请输入备注信息"
-          />
+          <el-input v-model="editForm.remarks" type="textarea" :rows="3" placeholder="请输入备注信息" />
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <span class="dialog-footer">
           <el-button @click="showEditDialog = false">取消</el-button>
@@ -799,17 +631,8 @@
     </el-dialog>
 
     <!-- 长时间占用设备对话框 -->
-    <el-dialog
-      v-model="showLongTermUseDialog"
-      title="申请长时间占用设备"
-      width="500px"
-    >
-      <el-form
-        ref="longTermUseFormRef"
-        :model="longTermUseForm"
-        :rules="longTermUseFormRules"
-        label-width="120px"
-      >
+    <el-dialog v-model="showLongTermUseDialog" title="申请长时间占用设备" width="500px">
+      <el-form ref="longTermUseFormRef" :model="longTermUseForm" :rules="longTermUseFormRules" label-width="120px">
         <el-form-item label="设备名称">
           <el-input :value="selectedDevice?.name" disabled />
         </el-form-item>
@@ -819,24 +642,13 @@
         </el-form-item>
 
         <el-form-item label="截至时间" prop="end_date">
-          <el-date-picker
-            v-model="longTermUseForm.end_date"
-            type="datetime"
-            placeholder="选择截至时间"
-            :disabled-date="disabledDate"
-            format="YYYY-MM-DD HH:mm"
-            value-format="YYYY-MM-DD HH:mm"
-            style="width: 100%"
-          />
+          <el-date-picker v-model="longTermUseForm.end_date" type="datetime" placeholder="选择截至时间"
+            :disabled-date="disabledDate" format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm"
+            style="width: 100%" />
         </el-form-item>
 
         <el-form-item label="使用目的" prop="purpose">
-          <el-input
-            v-model="longTermUseForm.purpose"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入使用目的"
-          />
+          <el-input v-model="longTermUseForm.purpose" type="textarea" :rows="3" placeholder="请输入使用目的" />
         </el-form-item>
       </el-form>
 
@@ -851,13 +663,8 @@
     </el-dialog>
 
     <!-- 设备详情抽屉 -->
-    <el-drawer
-      v-model="showDetailDrawer"
-      title="设备详情"
-      direction="rtl"
-      size="600px"
-      :before-close="handleDetailDrawerClose"
-    >
+    <el-drawer v-model="showDetailDrawer" title="设备详情" direction="rtl" size="600px"
+      :before-close="handleDetailDrawerClose">
       <div v-loading="detailLoading" class="device-detail">
         <template v-if="deviceDetail">
           <!-- Tab页面结构 -->
@@ -865,426 +672,368 @@
             <!-- 基本信息Tab -->
             <el-tab-pane label="基本信息" name="basic">
               <div class="detail-section">
-            <h3 class="section-title">
-              <div class="section-title__info">
-                <el-icon><InfoFilled /></el-icon>
-                基本信息
-              </div>
-              <div class="section-actions">
-                <el-button
-                  type="primary"
-                  size="small"
-                  plain
-                  class="copy-button"
-                  @click="copyDeviceInfo"
-                >
-                  <el-icon><DocumentCopy /></el-icon>
-                  一键复制
-                </el-button>
-                <!-- 编辑按钮 - 环境归属人或管理员可见 -->
-                <el-button
-                  v-if="canEditDevice"
-                  type="primary"
-                  size="small"
-                  plain
-                  @click="openEditDialog"
-                  class="edit-button"
-                >
-                  <el-icon><Edit /></el-icon>
-                  编辑
-                </el-button>
-              </div>
-            </h3>
-            <div class="info-grid">
-              <div class="info-item">
-                <label>设备名称：</label>
-                <span>{{ deviceDetail.name }}</span>
-              </div>
-              <div class="info-item">
-                <label>设备IP：</label>
-                <el-tag type="info" size="small">{{ deviceDetail.ip }}</el-tag>
-              </div>
-              <div class="info-item">
-                <label>设备类型：</label>
-                <el-tag 
-                  :type="getDeviceTypeTag(deviceDetail.device_type)"
-                  size="small"
-                >
-                  {{ getDeviceTypeText(deviceDetail.device_type) }}
-                </el-tag>
-              </div>
-              <div class="info-item">
-                <label>设备形态：</label>
-                <el-tag size="small">{{ deviceDetail.form_type }}</el-tag>
-              </div>
-              <div class="info-item">
-                <label>所需VPN：</label>
-                <span v-if="deviceDetail.vpn_display_name">{{ deviceDetail.vpn_display_name }}</span>
-                <span v-else class="no-vpn">未配置VPN</span>
-              </div>
-              <div class="info-item">
-                <label>添加人：</label>
-                <span>{{ deviceDetail.creator }}</span>
-              </div>
-              <div class="info-item">
-                <label>归属人：</label>
-                <span>{{ deviceDetail.owner }}</span>
-              </div>
-              <div class="info-item">
-                <label>所属分组：</label>
-                <div v-if="deviceDetail.groups?.length" class="group-tags">
-                  <el-tag
-                    v-for="group in deviceDetail.groups"
-                    :key="group.id"
-                    size="small"
-                    type="info"
-                    class="group-tag"
-                  >
-                    {{ group.name }}
-                  </el-tag>
-                </div>
-                <span v-else>-</span>
-              </div>
-              <!-- 管理员账号密码 - 只有归属人和管理员可见 -->
-              <div v-if="canEditDevice" class="info-item">
-                <label>管理员账号：</label>
-                <span>{{ deviceDetail.admin_username }}</span>
-              </div>
-              <div v-if="canEditDevice" class="info-item">
-                <label>管理员密码：</label>
-                <span>{{ deviceDetail.admin_password }}</span>
-              </div>
-              <div v-if="shouldShowCurrentCredentials" class="info-item">
-                <label>当前账号：</label>
-                <span>{{ deviceDetail.admin_username }}</span>
-              </div>
-              <div v-if="shouldShowCurrentCredentials" class="info-item copyable">
-                <label>当前密码：</label>
-                <span>{{ deviceDetail.admin_password }}</span>
-                <el-button
-                  text
-                  size="small"
-                  type="primary"
-                  @click="copyCredential(deviceDetail.admin_password)"
-                >
-                  复制
-                </el-button>
-              </div>
-              <div class="info-item">
-                <label>FTP需要前缀：</label>
-                <el-tag :type="deviceDetail.ftp_prefix ? 'warning' : 'success'" size="small">
-                  {{ deviceDetail.ftp_prefix ? '是' : '否' }}
-                </el-tag>
-              </div>
-              <div class="info-item">
-                <label>最长占用(分钟)：</label>
-                <span>{{ deviceDetail.max_occupy_minutes ?? '未限制' }}</span>
-              </div>
-              <div class="info-item">
-                <label>支持排队：</label>
-                <el-tag :type="deviceDetail.support_queue ? 'success' : 'info'" size="small">
-                  {{ deviceDetail.support_queue ? '是' : '否' }}
-                </el-tag>
-              </div>
-              <div class="info-item full-width" v-if="deviceDetail.remarks">
-                <label>备注信息：</label>
-                <div class="remarks">{{ deviceDetail.remarks }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 使用状态 -->
-          <div class="detail-section">
-            <h3 class="section-title">
-              <el-icon><Clock /></el-icon>
-              使用状态
-            </h3>
-            <div class="usage-info">
-              <div class="usage-item">
-                <label>当前状态：</label>
-                <el-tag 
-                  :type="getStatusTag(usageDetail?.status || 'available')"
-                  size="small"
-                >
-                  {{ getStatusText(usageDetail?.status || 'available') }}
-                </el-tag>
-              </div>
-              <div class="usage-item" v-if="usageDetail?.current_user">
-                <label>当前使用人：</label>
-                <span class="current-user">
-                  <el-icon><User /></el-icon>
-                  {{ usageDetail.current_user }}
-                </span>
-              </div>
-              <div class="usage-item">
-                <label>开始时间：</label>
-                <span>{{ usageDetail?.start_time ? formatDateTime(usageDetail.start_time) : '-' }}</span>
-              </div>
-              <div class="usage-item">
-                <label>截至时间：</label>
-                <span>{{ usageDetail?.end_date ? formatDateTime(usageDetail.end_date) : '-' }}</span>
-              </div>
-              <div class="usage-item">
-                <label>已使用时长：</label>
-                <span class="duration" v-if="usageDetail?.occupied_duration >= 1">
-                  {{ formatDuration(usageDetail.occupied_duration) }}
-                </span>
-                <span v-else>-</span>
-              </div>
-              <div class="usage-item">
-                <label>长时间占用：</label>
-                <span>{{ usageDetail?.is_long_term ? '是' : '否' }}</span>
-              </div>
-              <div class="usage-item full-width">
-                <label>占用目的：</label>
-                <div class="purpose">{{ usageDetail?.long_term_purpose || '-' }}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 排队信息 -->
-          <div class="detail-section">
-            <h3 class="section-title">
-              <el-icon><UserFilled /></el-icon>
-              排队信息
-              <el-tag 
-                v-if="usageDetail?.queue_count > 0" 
-                type="warning" 
-                size="small"
-                style="margin-left: 8px;"
-              >
-                {{ usageDetail.queue_count }}人排队
-              </el-tag>
-            </h3>
-            <div class="queue-info">
-              <template v-if="usageDetail?.queue_users && usageDetail.queue_users.length > 0">
-                <div 
-                  v-for="(user, index) in usageDetail.queue_users" 
-                  :key="index"
-                  class="queue-item"
-                >
-                  <div class="queue-position">{{ index + 1 }}</div>
-                  <div class="queue-user">
-                    <el-icon><User /></el-icon>
-                    {{ user }}
+                <h3 class="section-title">
+                  <div class="section-title__info">
+                    <el-icon>
+                      <InfoFilled />
+                    </el-icon>
+                    基本信息
                   </div>
-                  <div class="queue-time">等待中</div>
+                  <div class="section-actions">
+                    <el-button type="primary" size="small" plain class="copy-button" @click="copyDeviceInfo">
+                      <el-icon>
+                        <DocumentCopy />
+                      </el-icon>
+                      一键复制
+                    </el-button>
+                    <!-- 编辑按钮 - 环境归属人或管理员可见 -->
+                    <el-button v-if="canEditDevice" type="primary" size="small" plain @click="openEditDialog"
+                      class="edit-button">
+                      <el-icon>
+                        <Edit />
+                      </el-icon>
+                      编辑
+                    </el-button>
+                  </div>
+                </h3>
+                <div class="info-grid">
+                  <div class="info-item">
+                    <label>设备名称：</label>
+                    <span>{{ deviceDetail.name }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label>设备IP：</label>
+                    <el-tag type="info" size="small">{{ deviceDetail.ip }}</el-tag>
+                  </div>
+                  <div class="info-item">
+                    <label>设备类型：</label>
+                    <el-tag :type="getDeviceTypeTag(deviceDetail.device_type)" size="small">
+                      {{ getDeviceTypeText(deviceDetail.device_type) }}
+                    </el-tag>
+                  </div>
+                  <div class="info-item">
+                    <label>设备形态：</label>
+                    <el-tag size="small">{{ deviceDetail.form_type }}</el-tag>
+                  </div>
+                  <div class="info-item">
+                    <label>所需VPN：</label>
+                    <span v-if="deviceDetail.vpn_display_name">{{ deviceDetail.vpn_display_name }}</span>
+                    <span v-else class="no-vpn">未配置VPN</span>
+                  </div>
+                  <div class="info-item">
+                    <label>添加人：</label>
+                    <span>{{ deviceDetail.creator }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label>归属人：</label>
+                    <span>{{ deviceDetail.owner }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label>所属分组：</label>
+                    <div v-if="deviceDetail.groups?.length" class="group-tags">
+                      <el-tag v-for="group in deviceDetail.groups" :key="group.id" size="small" type="info"
+                        class="group-tag">
+                        {{ group.name }}
+                      </el-tag>
+                    </div>
+                    <span v-else>-</span>
+                  </div>
+                  <!-- 管理员账号密码 - 只有归属人和管理员可见 -->
+                  <div v-if="canEditDevice" class="info-item">
+                    <label>管理员账号：</label>
+                    <span>{{ deviceDetail.admin_username }}</span>
+                  </div>
+                  <div v-if="canEditDevice" class="info-item">
+                    <label>管理员密码：</label>
+                    <span>{{ deviceDetail.admin_password }}</span>
+                  </div>
+                  <div v-if="shouldShowCurrentCredentials" class="info-item">
+                    <label>当前账号：</label>
+                    <span>{{ deviceDetail.admin_username }}</span>
+                  </div>
+                  <div v-if="shouldShowCurrentCredentials" class="info-item copyable">
+                    <label>当前密码：</label>
+                    <span>{{ deviceDetail.admin_password }}</span>
+                    <el-button text size="small" type="primary" @click="copyCredential(deviceDetail.admin_password)">
+                      复制
+                    </el-button>
+                  </div>
+                  <div class="info-item">
+                    <label>FTP需要前缀：</label>
+                    <el-tag :type="deviceDetail.ftp_prefix ? 'warning' : 'success'" size="small">
+                      {{ deviceDetail.ftp_prefix ? '是' : '否' }}
+                    </el-tag>
+                  </div>
+                  <div class="info-item">
+                    <label>最长占用(分钟)：</label>
+                    <span>{{ deviceDetail.max_occupy_minutes ?? '未限制' }}</span>
+                  </div>
+                  <div class="info-item">
+                    <label>支持排队：</label>
+                    <el-tag :type="deviceDetail.support_queue ? 'success' : 'info'" size="small">
+                      {{ deviceDetail.support_queue ? '是' : '否' }}
+                    </el-tag>
+                  </div>
+                  <div class="info-item full-width" v-if="deviceDetail.remarks">
+                    <label>备注信息：</label>
+                    <div class="remarks">{{ deviceDetail.remarks }}</div>
+                  </div>
                 </div>
-              </template>
-              <div v-else class="no-queue">
-                <el-empty description="暂无排队用户" :image-size="80" />
               </div>
-            </div>
-          </div>
 
-          <div
-            class="detail-section"
-            v-if="usageDetail && (usageDetail.shared_users?.length || usageDetail.has_pending_share_request || isCurrentUserOccupant)"
-          >
-            <h3 class="section-title">
-              <el-icon><UserFilled /></el-icon>
-              共用信息
-            </h3>
-            <div class="shared-users-info">
-              <div v-if="usageDetail?.shared_users?.length" class="shared-users-list">
-                <div
-                  v-for="user in usageDetail.shared_users"
-                  :key="user.employee_id"
-                  class="shared-user-item"
-                >
-                  <el-tag type="success" size="small">
-                    {{ user.username }} ({{ user.employee_id }})
+              <!-- 使用状态 -->
+              <div class="detail-section">
+                <h3 class="section-title">
+                  <el-icon>
+                    <Clock />
+                  </el-icon>
+                  使用状态
+                </h3>
+                <div class="usage-info">
+                  <div class="usage-item">
+                    <label>当前状态：</label>
+                    <el-tag :type="getStatusTag(usageDetail?.status || 'available')" size="small">
+                      {{ getStatusText(usageDetail?.status || 'available') }}
+                    </el-tag>
+                  </div>
+                  <div class="usage-item" v-if="usageDetail?.current_user">
+                    <label>当前使用人：</label>
+                    <span class="current-user">
+                      <el-icon>
+                        <User />
+                      </el-icon>
+                      {{ usageDetail.current_user }}
+                    </span>
+                  </div>
+                  <div class="usage-item">
+                    <label>开始时间：</label>
+                    <span>{{ usageDetail?.start_time ? formatDateTime(usageDetail.start_time) : '-' }}</span>
+                  </div>
+                  <div class="usage-item">
+                    <label>截至时间：</label>
+                    <span>{{ usageDetail?.end_date ? formatDateTime(usageDetail.end_date) : '-' }}</span>
+                  </div>
+                  <div class="usage-item">
+                    <label>已使用时长：</label>
+                    <span class="duration" v-if="usageDetail?.occupied_duration >= 1">
+                      {{ formatDuration(usageDetail.occupied_duration) }}
+                    </span>
+                    <span v-else>-</span>
+                  </div>
+                  <div class="usage-item">
+                    <label>长时间占用：</label>
+                    <span>{{ usageDetail?.is_long_term ? '是' : '否' }}</span>
+                  </div>
+                  <div class="usage-item full-width">
+                    <label>占用目的：</label>
+                    <div class="purpose">{{ usageDetail?.long_term_purpose || '-' }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 排队信息 -->
+              <div class="detail-section">
+                <h3 class="section-title">
+                  <el-icon>
+                    <UserFilled />
+                  </el-icon>
+                  排队信息
+                  <el-tag v-if="usageDetail?.queue_count > 0" type="warning" size="small" style="margin-left: 8px;">
+                    {{ usageDetail.queue_count }}人排队
                   </el-tag>
-                  <span class="shared-reason" v-if="user.request_message">
-                    申请原因：{{ user.request_message }}
-                  </span>
-                  <span class="shared-time" v-if="user.approved_at">
-                    于 {{ formatDateTime(user.approved_at) }} 获批
-                  </span>
-                  <el-button
-                    v-if="isCurrentUserOccupant || isAdmin"
-                    type="danger"
-                    size="small"
-                    plain
-                    @click="revokeSharedUser(user)"
-                    :loading="detailShareLoading"
-                    style="margin-left: 8px;"
-                  >
-                    剔除
-                  </el-button>
+                </h3>
+                <div class="queue-info">
+                  <template v-if="usageDetail?.queue_users && usageDetail.queue_users.length > 0">
+                    <div v-for="(user, index) in usageDetail.queue_users" :key="index" class="queue-item">
+                      <div class="queue-position">{{ index + 1 }}</div>
+                      <div class="queue-user">
+                        <el-icon>
+                          <User />
+                        </el-icon>
+                        {{ user }}
+                      </div>
+                      <div class="queue-time">等待中</div>
+                    </div>
+                  </template>
+                  <div v-else class="no-queue">
+                    <el-empty description="暂无排队用户" :image-size="80" />
+                  </div>
                 </div>
               </div>
-              <div v-else class="no-data">暂无共用用户</div>
-              <div v-if="usageDetail?.share_status" class="share-status">
-                当前状态：{{ getShareStatusText(usageDetail.share_status) }}
-              </div>
-              <div
-                class="pending-tip"
-                v-if="usageDetail?.has_pending_share_request && !isCurrentUserOccupant && !isSharedUser"
-              >
-                您的共用申请正在等待占用人处理
-              </div>
-              <div
-                class="shared-actions"
-                v-if="usageDetail?.share_request_id && (usageDetail?.has_pending_share_request || usageDetail?.is_shared_user)"
-              >
-                <el-button
-                  type="danger"
-                  size="small"
-                  plain
-                  @click="cancelShareFromDetail"
-                  :loading="detailShareLoading"
-                >
-                  {{ usageDetail?.is_shared_user ? '取消共用' : '取消申请' }}
-                </el-button>
-              </div>
-            </div>
-          </div>
 
-          <!-- 访问IP信息 -->
-          <div class="detail-section" v-if="usageDetail?.can_view_access_ips">
-            <h3 class="section-title">
-              <el-icon><InfoFilled /></el-icon>
-              访问IP
-            </h3>
-            <el-table :data="usageDetail?.access_ips || []" size="small" style="width: 100%">
-              <el-table-column label="人员" min-width="200">
-                <template #default="{ row }">
-                  {{ row.username }} ({{ row.employee_id }})
-                </template>
-              </el-table-column>
-              <el-table-column prop="role" label="身份" width="120" />
-              <el-table-column label="访问IP" min-width="180">
-                <template #default="{ row }">
-                  <span>{{ row.vpn_ip || '-' }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="更新时间" width="180">
-                <template #default="{ row }">
-                  <span>{{ row.updated_at ? formatDateTime(row.updated_at) : '-' }}</span>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
+              <div class="detail-section"
+                v-if="usageDetail && (usageDetail.shared_users?.length || usageDetail.has_pending_share_request || isCurrentUserOccupant)">
+                <h3 class="section-title">
+                  <el-icon>
+                    <UserFilled />
+                  </el-icon>
+                  共用信息
+                </h3>
+                <div class="shared-users-info">
+                  <div v-if="usageDetail?.shared_users?.length" class="shared-users-list">
+                    <div v-for="user in usageDetail.shared_users" :key="user.employee_id" class="shared-user-item">
+                      <el-tag type="success" size="small">
+                        {{ user.username }} ({{ user.employee_id }})
+                      </el-tag>
+                      <span class="shared-reason" v-if="user.request_message">
+                        申请原因：{{ user.request_message }}
+                      </span>
+                      <span class="shared-time" v-if="user.approved_at">
+                        于 {{ formatDateTime(user.approved_at) }} 获批
+                      </span>
+                      <el-button v-if="isCurrentUserOccupant || isAdmin" type="danger" size="small" plain
+                        @click="revokeSharedUser(user)" :loading="detailShareLoading" style="margin-left: 8px;">
+                        剔除
+                      </el-button>
+                    </div>
+                  </div>
+                  <div v-else class="no-data">暂无共用用户</div>
+                  <div v-if="usageDetail?.share_status" class="share-status">
+                    当前状态：{{ getShareStatusText(usageDetail.share_status) }}
+                  </div>
+                  <div class="pending-tip"
+                    v-if="usageDetail?.has_pending_share_request && !isCurrentUserOccupant && !isSharedUser">
+                    您的共用申请正在等待占用人处理
+                  </div>
+                  <div class="shared-actions"
+                    v-if="usageDetail?.share_request_id && (usageDetail?.has_pending_share_request || usageDetail?.is_shared_user)">
+                    <el-button type="danger" size="small" plain @click="cancelShareFromDetail"
+                      :loading="detailShareLoading">
+                      {{ usageDetail?.is_shared_user ? '取消共用' : '取消申请' }}
+                    </el-button>
+                  </div>
+                </div>
+              </div>
 
-          <!-- 操作按钮 -->
-          <div class="detail-actions">
-            <!-- 普通用户按钮逻辑 -->
-            <template v-if="!(isAdvancedUser || isAdminUser || isAdmin)">
-              <!-- 设备可用：显示使用按钮 -->
-              <el-button 
-                v-if="usageDetail?.status === 'available'"
-                type="primary" 
-                @click="useDeviceFromDetail"
-                :loading="useLoading[deviceDetail.id]"
-              >
-                <el-icon><VideoPlay /></el-icon>
-                使用设备
-              </el-button>
-              
-              <!-- 设备被自己占用：显示释放按钮 -->
-              <el-button
-                v-else-if="(usageDetail?.status === 'occupied' || usageDetail?.status === 'long_term_occupied') && usageDetail?.current_user === currentUserEmployeeId"
-                type="danger"
-                @click="releaseDeviceFromDetail"
-                :loading="releaseLoading[deviceDetail.id]"
-              >
-                <el-icon><VideoPause /></el-icon>
-                释放设备
-              </el-button>
-              
-              <!-- 设备被他人占用且未排队：显示排队按钮 -->
-              <el-button 
-                v-else-if="usageDetail?.status === 'occupied' && usageDetail?.current_user !== currentUserEmployeeId && !isCurrentUserInQueue"
-                type="warning" 
-                @click="joinQueueFromDetail"
-                :loading="useLoading[deviceDetail.id]"
-              >
-                <el-icon><Clock /></el-icon>
-                排队
-              </el-button>
-              
-              <!-- 设备被他人占用且已排队：显示取消排队按钮 -->
-              <el-button 
-                v-else-if="usageDetail?.status === 'occupied' && usageDetail?.current_user !== currentUserEmployeeId && isCurrentUserInQueue"
-                type="info" 
-                @click="cancelQueueFromDetail"
-                :loading="useLoading[deviceDetail.id]"
-              >
-                <el-icon><Clock /></el-icon>
-                取消排队
-              </el-button>
-            </template>
-            
-            <!-- 高级用户/管理员按钮逻辑 -->
-            <template v-else>
-              <el-button 
-                v-if="usageDetail?.status === 'available'"
-                type="primary" 
-                @click="useDeviceFromDetail"
-                :loading="useLoading[deviceDetail.id]"
-              >
-                <el-icon><VideoPlay /></el-icon>
-                使用设备
-              </el-button>
-              
-              <!-- 高级用户专用按钮 -->
-              <template v-if="usageDetail?.status === 'occupied' || usageDetail?.status === 'long_term_occupied'">
+              <!-- 访问IP信息 -->
+              <div class="detail-section" v-if="usageDetail?.can_view_access_ips">
+                <h3 class="section-title">
+                  <el-icon>
+                    <InfoFilled />
+                  </el-icon>
+                  访问IP
+                </h3>
+                <el-table :data="usageDetail?.access_ips || []" size="small" style="width: 100%">
+                  <el-table-column label="人员" min-width="200">
+                    <template #default="{ row }">
+                      {{ row.username }} ({{ row.employee_id }})
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="role" label="身份" width="120" />
+                  <el-table-column label="访问IP" min-width="180">
+                    <template #default="{ row }">
+                      <span>{{ row.vpn_ip || '-' }}</span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="更新时间" width="180">
+                    <template #default="{ row }">
+                      <span>{{ row.updated_at ? formatDateTime(row.updated_at) : '-' }}</span>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+
+              <!-- 操作按钮 -->
+              <div class="detail-actions">
+                <!-- 普通用户按钮逻辑 -->
+                <template v-if="!(isAdvancedUser || isAdminUser || isAdmin)">
+                  <!-- 设备可用：显示使用按钮 -->
+                  <el-button v-if="usageDetail?.status === 'available'" type="primary" @click="useDeviceFromDetail"
+                    :loading="useLoading[deviceDetail.id]">
+                    <el-icon>
+                      <VideoPlay />
+                    </el-icon>
+                    使用设备
+                  </el-button>
+
+                  <!-- 设备被自己占用：显示释放按钮 -->
+                  <el-button
+                    v-else-if="(usageDetail?.status === 'occupied' || usageDetail?.status === 'long_term_occupied') && usageDetail?.current_user === currentUserEmployeeId"
+                    type="danger" @click="releaseDeviceFromDetail" :loading="releaseLoading[deviceDetail.id]">
+                    <el-icon>
+                      <VideoPause />
+                    </el-icon>
+                    释放设备
+                  </el-button>
+
+                  <!-- 设备被他人占用且未排队：显示排队按钮 -->
+                  <el-button
+                    v-else-if="usageDetail?.status === 'occupied' && usageDetail?.current_user !== currentUserEmployeeId && !isCurrentUserInQueue"
+                    type="warning" @click="joinQueueFromDetail" :loading="useLoading[deviceDetail.id]">
+                    <el-icon>
+                      <Clock />
+                    </el-icon>
+                    排队
+                  </el-button>
+
+                  <!-- 设备被他人占用且已排队：显示取消排队按钮 -->
+                  <el-button
+                    v-else-if="usageDetail?.status === 'occupied' && usageDetail?.current_user !== currentUserEmployeeId && isCurrentUserInQueue"
+                    type="info" @click="cancelQueueFromDetail" :loading="useLoading[deviceDetail.id]">
+                    <el-icon>
+                      <Clock />
+                    </el-icon>
+                    取消排队
+                  </el-button>
+                </template>
+
+                <!-- 高级用户/管理员按钮逻辑 -->
+                <template v-else>
+                  <el-button v-if="usageDetail?.status === 'available'" type="primary" @click="useDeviceFromDetail"
+                    :loading="useLoading[deviceDetail.id]">
+                    <el-icon>
+                      <VideoPlay />
+                    </el-icon>
+                    使用设备
+                  </el-button>
+
+                  <!-- 高级用户专用按钮 -->
+                  <template v-if="usageDetail?.status === 'occupied' || usageDetail?.status === 'long_term_occupied'">
+                    <el-button v-if="usageDetail?.status === 'occupied'" type="danger" @click="preemptDeviceFromDetail"
+                      :loading="useLoading[deviceDetail.id]">
+                      <el-icon>
+                        <VideoPlay />
+                      </el-icon>
+                      抢占设备
+                    </el-button>
+
+                    <el-button v-if="!isCurrentUserInQueue" type="success" @click="priorityQueueFromDetail"
+                      :loading="useLoading[deviceDetail.id]">
+                      <el-icon>
+                        <Clock />
+                      </el-icon>
+                      优先排队
+                    </el-button>
+
+                    <el-button v-if="isCurrentUserInQueue" type="info" @click="cancelQueueFromDetail"
+                      :loading="useLoading[deviceDetail.id]">
+                      <el-icon>
+                        <Clock />
+                      </el-icon>
+                      取消排队
+                    </el-button>
+
+                    <!-- 释放设备按钮 -->
+                    <el-button v-if="usageDetail?.current_user === currentUserEmployeeId || isAdmin" type="danger"
+                      @click="releaseDeviceFromDetail" :loading="releaseLoading[deviceDetail.id]">
+                      <el-icon>
+                        <VideoPause />
+                      </el-icon>
+                      {{ isAdmin && usageDetail?.current_user !== currentUserEmployeeId ? '强制释放' : '释放设备' }}
+                    </el-button>
+                  </template>
+                </template>
+
+                <!-- 删除设备按钮 - 只有设备归属人或管理员才能看到 -->
                 <el-button
-                  v-if="usageDetail?.status === 'occupied'"
-                  type="danger"
-                  @click="preemptDeviceFromDetail"
-                  :loading="useLoading[deviceDetail.id]"
-                >
-                  <el-icon><VideoPlay /></el-icon>
-                  抢占设备
+                  v-if="deviceDetail.owner === currentUserEmployeeId || deviceDetail.owner === currentUser || isAdmin"
+                  type="danger" plain @click="deleteDeviceFromDetail" :loading="deleteLoading">
+                  <el-icon>
+                    <Delete />
+                  </el-icon>
+                  删除设备
                 </el-button>
-                
-                <el-button 
-                  v-if="!isCurrentUserInQueue"
-                  type="success" 
-                  @click="priorityQueueFromDetail"
-                  :loading="useLoading[deviceDetail.id]"
-                >
-                  <el-icon><Clock /></el-icon>
-                  优先排队
-                </el-button>
-                
-                <el-button 
-                  v-if="isCurrentUserInQueue"
-                  type="info" 
-                  @click="cancelQueueFromDetail"
-                  :loading="useLoading[deviceDetail.id]"
-                >
-                  <el-icon><Clock /></el-icon>
-                  取消排队
-                </el-button>
-                
-                <!-- 释放设备按钮 -->
-                <el-button
-                  v-if="usageDetail?.current_user === currentUserEmployeeId || isAdmin"
-                  type="danger"
-                  @click="releaseDeviceFromDetail"
-                  :loading="releaseLoading[deviceDetail.id]"
-                >
-                  <el-icon><VideoPause /></el-icon>
-                  {{ isAdmin && usageDetail?.current_user !== currentUserEmployeeId ? '强制释放' : '释放设备' }}
-                </el-button>
-              </template>
-            </template>
-            
-            <!-- 删除设备按钮 - 只有设备归属人或管理员才能看到 -->
-            <el-button 
-              v-if="deviceDetail.owner === currentUserEmployeeId || deviceDetail.owner === currentUser || isAdmin"
-              type="danger" 
-              plain
-              @click="deleteDeviceFromDetail"
-              :loading="deleteLoading"
-            >
-              <el-icon><Delete /></el-icon>
-              删除设备
-            </el-button>
-          </div>
+              </div>
             </el-tab-pane>
 
             <!-- 配置管理Tab -->
@@ -1293,83 +1042,51 @@
                 <div class="config-header">
                   <h3>设备配置</h3>
                   <div class="config-actions">
-                    <el-button
-                      v-if="canEditDevice"
-                      type="primary"
-                      size="small"
-                      plain
-                      :loading="configImportLoading"
-                      @click="triggerImportConfigs"
-                    >
-                      <el-icon><UploadFilled /></el-icon>
+                    <el-button v-if="canEditDevice" type="primary" size="small" plain :loading="configImportLoading"
+                      @click="triggerImportConfigs">
+                      <el-icon>
+                        <UploadFilled />
+                      </el-icon>
                       一键导入
                     </el-button>
-                    <el-button
-                      v-if="canEditDevice"
-                      type="primary"
-                      size="small"
-                      @click="openConfigDialog"
-                      icon="Plus"
-                    >
+                    <el-button v-if="canEditDevice" type="primary" size="small" @click="openConfigDialog" icon="Plus">
                       添加配置
                     </el-button>
                   </div>
                 </div>
-                
-                <el-table 
-                  :data="deviceConfigs" 
-                  stripe 
-                  style="width: 100%" 
-                  v-loading="configLoading"
-                  empty-text="暂无配置数据"
-                >
+
+                <el-table :data="deviceConfigs" stripe style="width: 100%" v-loading="configLoading"
+                  empty-text="暂无配置数据">
                   <el-table-column prop="config_param1" label="配置参数1" width="100">
                     <template #default="{ row }">
                       <el-tag size="small">{{ row.config_param1 }}</el-tag>
                     </template>
                   </el-table-column>
-                  
+
                   <el-table-column prop="config_param2" label="配置参数2" width="100">
                     <template #default="{ row }">
                       <el-tag size="small">{{ row.config_param2 }}</el-tag>
                     </template>
                   </el-table-column>
-                  
+
                   <el-table-column prop="config_value" label="配置值">
                     <template #default="{ row }">
                       <span>{{ row.config_value }}</span>
                     </template>
                   </el-table-column>
-                  
+
                   <el-table-column prop="created_at" label="创建时间" width="160">
                     <template #default="{ row }">
                       {{ formatDateTime(row.created_at) }}
                     </template>
                   </el-table-column>
-                  
-                  <el-table-column 
-                    v-if="canEditDevice" 
-                    label="操作" 
-                    width="120"
-                    fixed="right"
-                  >
+
+                  <el-table-column v-if="canEditDevice" label="操作" width="120" fixed="right">
                     <template #default="{ row }">
-                      <el-button
-                        type="primary"
-                        size="small"
-                        text
-                        @click="editConfig(row)"
-                        icon="Edit"
-                      >
+                      <el-button type="primary" size="small" text @click="editConfig(row)" icon="Edit">
                         编辑
                       </el-button>
-                      <el-button
-                        type="danger"
-                        size="small"
-                        text
-                        @click="deleteConfig(row)"
-                        icon="Delete"
-                      >
+                      <el-button type="danger" size="small" text @click="deleteConfig(row)" icon="Delete">
                         删除
                       </el-button>
                     </template>
@@ -1383,58 +1100,30 @@
     </el-drawer>
 
     <!-- 配置管理对话框 -->
-    <el-dialog
-      v-model="configDialogVisible"
-      :title="isEditingConfig ? '编辑配置' : '添加配置'"
-      width="450px"
-      :before-close="handleConfigDialogClose"
-    >
-      <el-form
-        ref="configFormRef"
-        :model="configForm"
-        :rules="configRules"
-        label-width="100px"
-      >
+    <el-dialog v-model="configDialogVisible" :title="isEditingConfig ? '编辑配置' : '添加配置'" width="450px"
+      :before-close="handleConfigDialogClose">
+      <el-form ref="configFormRef" :model="configForm" :rules="configRules" label-width="100px">
         <el-form-item label="配置参数1" prop="config_param1">
-          <el-input-number
-            v-model="configForm.config_param1"
-            :min="1"
-            :max="deviceDetail?.form_type === '单' ? 1 : 8"
-            :disabled="deviceDetail?.form_type === '单'"
-            style="width: 100%"
-          />
+          <el-input-number v-model="configForm.config_param1" :min="1" :max="deviceDetail?.form_type === '单' ? 1 : 8"
+            :disabled="deviceDetail?.form_type === '单'" style="width: 100%" />
           <div v-if="deviceDetail?.form_type === '单'" style="color: #909399; font-size: 12px; margin-top: 4px;">
             形态为"单"时，参数1固定为1
           </div>
         </el-form-item>
-        
+
         <el-form-item label="配置参数2" prop="config_param2">
-          <el-input-number
-            v-model="configForm.config_param2"
-            :min="1"
-            :max="40"
-            style="width: 100%"
-          />
+          <el-input-number v-model="configForm.config_param2" :min="1" :max="40" style="width: 100%" />
         </el-form-item>
-        
+
         <el-form-item label="配置值" prop="config_value">
-          <el-input
-            v-model="configForm.config_value"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入配置值"
-          />
+          <el-input v-model="configForm.config_value" type="textarea" :rows="3" placeholder="请输入配置值" />
         </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="handleConfigDialogClose">取消</el-button>
-          <el-button
-            type="primary"
-            @click="saveConfig"
-            :loading="configSaveLoading"
-          >
+          <el-button type="primary" @click="saveConfig" :loading="configSaveLoading">
             {{ isEditingConfig ? '更新' : '添加' }}
           </el-button>
         </div>
@@ -2338,15 +2027,15 @@ const cancelQueue = async (device) => {
         type: 'warning',
       }
     )
-    
+
     useLoading[device.id] = true
     await deviceApi.cancelQueue({
       device_id: device.id
     })
-    
+
     ElMessage.success('已取消排队')
     await loadDevices()
-    
+
     // 如果详情抽屉打开，刷新详情数据
     if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
       await viewDetails(device)
@@ -2374,15 +2063,15 @@ const unifiedQueueAction = async (device) => {
       user: currentUserEmployeeId.value,
       purpose: '使用设备'
     })
-    
+
     if (response.data.action === 'use') {
       ElMessage.success('设备使用成功')
     } else {
       ElMessage.success(`已加入排队，排队位置：${response.data.queue_position}`)
     }
-    
+
     await loadDevices()
-    
+
     // 如果详情抽屉打开，刷新详情数据
     if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
       await viewDetails(device)
@@ -2411,17 +2100,17 @@ const preemptDevice = async (device) => {
         type: 'warning',
       }
     )
-    
+
     useLoading[device.id] = true
     const response = await deviceApi.preemptDevice({
       device_id: device.id,
       user: currentUserEmployeeId.value,
       purpose: '抢占使用'
     })
-    
+
     ElMessage.success(response.data?.message || '操作成功')
     await loadDevices()
-    
+
     // 如果详情抽屉打开，刷新详情数据
     if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
       await viewDetails(device)
@@ -2449,10 +2138,10 @@ const priorityQueue = async (device) => {
       user: currentUserEmployeeId.value,
       purpose: '优先排队'
     })
-    
+
     ElMessage.success(response.data?.message || '操作成功')
     await loadDevices()
-    
+
     // 如果详情抽屉打开，刷新详情数据
     if (showDetailDrawer.value && deviceDetail.value?.id === device.id) {
       await viewDetails(device)
@@ -2479,13 +2168,13 @@ const releaseDevice = async (device) => {
         type: 'warning',
       }
     )
-    
+
     releaseLoading[device.id] = true
     const response = await deviceApi.releaseDevice({
       device_id: device.id,
       user: currentUserEmployeeId.value
     })
-    
+
     // 显示后端返回的消息
     ElMessage.success(response.data?.message || '操作成功')
     await loadDevices()
@@ -2545,13 +2234,13 @@ const viewDetails = async (device) => {
   try {
     detailLoading.value = true
     showDetailDrawer.value = true
-    
+
     // 获取设备详情
     const [deviceResponse, usageResponse] = await Promise.all([
       deviceApi.getDevice(device.id),
       deviceApi.getDeviceUsage(device.id)
     ])
-    
+
     deviceDetail.value = deviceResponse.data
     usageDetail.value = usageResponse.data
   } catch (error) {
@@ -2564,11 +2253,11 @@ const viewDetails = async (device) => {
 
 const handleAddDevice = async () => {
   if (!addFormRef.value) return
-  
+
   try {
     await addFormRef.value.validate()
     addLoading.value = true
-    
+
     // 创建设备数据，添加creator字段，确保工号为小写
     const deviceData = {
       name: addForm.name,
@@ -2586,7 +2275,7 @@ const handleAddDevice = async () => {
       group_ids: addForm.group_ids,
       creator: userStore.userInfo?.employee_id?.toLowerCase() || userStore.userInfo?.username || ''
     }
-    
+
     await deviceApi.createDevice(deviceData)
     ElMessage.success('设备添加成功')
     showAddDialog.value = false
@@ -2676,11 +2365,11 @@ const openEditDialog = () => {
 
 const handleEditDevice = async () => {
   if (!editFormRef.value || !deviceDetail.value) return
-  
+
   try {
     await editFormRef.value.validate()
     editLoading.value = true
-    
+
     // 确保owner字段为小写，移除vpn_region字段
     const updateData = {
       name: editForm.name,
@@ -2696,11 +2385,11 @@ const handleEditDevice = async () => {
       remarks: editForm.remarks,
       group_ids: editForm.group_ids
     }
-    
+
     await deviceApi.updateDevice(deviceDetail.value.id, updateData)
     ElMessage.success('设备信息更新成功')
     showEditDialog.value = false
-    
+
     // 刷新设备详情和列表
     await viewDetails(deviceDetail.value)
     await loadDevices()
@@ -2852,7 +2541,7 @@ const cancelQueueFromDetail = async () => {
 // 删除设备
 const deleteDeviceFromDetail = async () => {
   if (!deviceDetail.value) return
-  
+
   try {
     await ElMessageBox.confirm(
       `确定要删除设备 "${deviceDetail.value.name}" 吗？此操作不可恢复！`,
@@ -2864,7 +2553,7 @@ const deleteDeviceFromDetail = async () => {
         dangerouslyUseHTMLString: false
       }
     )
-    
+
     deleteLoading.value = true
     await deviceApi.deleteDevice(deviceDetail.value.id)
     ElMessage.success('设备删除成功')
@@ -2874,7 +2563,7 @@ const deleteDeviceFromDetail = async () => {
     if (error === 'cancel') {
       return
     }
-    
+
     if (error.response?.data?.detail) {
       ElMessage.error(error.response.data.detail)
     } else {
@@ -2994,7 +2683,7 @@ const handleCurrentChange = (val: number) => {
 // 加载设备配置列表
 const loadDeviceConfigs = async (deviceId: number) => {
   if (!deviceId) return
-  
+
   try {
     configLoading.value = true
     const response = await deviceApi.getDeviceConfigs(deviceId)
@@ -3044,7 +2733,7 @@ const deleteConfig = async (config: DeviceConfig) => {
         type: 'warning',
       }
     )
-    
+
     const response = await deviceApi.deleteDeviceConfig(config.device_id, config.id) as any
     if (response.code === 200) {
       ElMessage.success('配置删除成功')
@@ -3063,17 +2752,17 @@ const deleteConfig = async (config: DeviceConfig) => {
 // 保存配置
 const saveConfig = async () => {
   if (!configFormRef.value) return
-  
+
   try {
     await configFormRef.value.validate()
-    
+
     if (!deviceDetail.value) {
       ElMessage.error('设备信息不存在')
       return
     }
-    
+
     configSaveLoading.value = true
-    
+
     if (isEditingConfig.value && currentConfigId.value) {
       // 编辑现有配置
       const response = await deviceApi.updateDeviceConfig(
@@ -3085,7 +2774,7 @@ const saveConfig = async () => {
           config_value: configForm.config_value
         }
       ) as any
-      
+
       if (response.code === 200) {
         ElMessage.success('配置更新成功')
         handleConfigDialogClose()
@@ -3103,7 +2792,7 @@ const saveConfig = async () => {
           config_value: configForm.config_value
         }
       ) as any
-      
+
       if (response.code === 200) {
         ElMessage.success('配置添加成功')
         handleConfigDialogClose()
@@ -3396,7 +3085,8 @@ watch(activeDetailTab, (newTab) => {
   min-width: 80px;
 }
 
-.remarks, .purpose {
+.remarks,
+.purpose {
   background: white;
   padding: 12px;
   border-radius: 4px;
@@ -3494,25 +3184,25 @@ watch(activeDetailTab, (newTab) => {
   .device-management {
     padding: 10px;
   }
-  
+
   .action-buttons {
     flex-direction: column;
     gap: 4px;
   }
-  
+
   .action-buttons .el-button {
     margin-left: 0 !important;
     margin-right: 0 !important;
   }
-  
+
   .info-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .device-detail {
     padding: 15px;
   }
-  
+
   .detail-section {
     padding: 15px;
   }
@@ -3560,15 +3250,18 @@ watch(activeDetailTab, (newTab) => {
 }
 
 .connectivity-online {
-  color: #67c23a; /* 绿色 */
+  color: #67c23a;
+  /* 绿色 */
 }
 
 .connectivity-offline {
-  color: #f56c6c; /* 红色 */
+  color: #f56c6c;
+  /* 红色 */
 }
 
 .connectivity-unknown {
-  color: #909399; /* 灰色 */
+  color: #909399;
+  /* 灰色 */
 }
 
 .group-tags {

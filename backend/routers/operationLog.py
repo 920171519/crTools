@@ -9,6 +9,7 @@ from auth import AuthManager
 
 router = APIRouter(prefix="/api/operation-logs", tags=["操作日志"])
 
+
 @router.get("", summary="获取操作日志列表")
 async def get_operation_logs(
     page: int = Query(1, ge=1, description="页码"),
@@ -24,14 +25,16 @@ async def get_operation_logs(
         # 处理操作类型过滤
         if operation_type:
             # 支持逗号分隔的操作类型
-            operation_types = [t.strip() for t in operation_type.split(',') if t.strip()]
+            operation_types = [t.strip()
+                               for t in operation_type.split(',') if t.strip()]
             if any(t in ["login", "logout"] for t in operation_types):
                 # 查询登录日志
                 login_query = LoginLog.all()
 
                 if employee_id:
                     # 通过用户关联查询
-                    login_query = login_query.filter(user__employee_id__icontains=employee_id)
+                    login_query = login_query.filter(
+                        user__employee_id__icontains=employee_id)
 
                 # 获取所有登录日志用于过滤
                 all_login_logs = await login_query.prefetch_related('user')
@@ -98,18 +101,18 @@ async def get_operation_logs(
             if employee_id:
                 query = query.filter(employee_id__icontains=employee_id)
             query = query.exclude(operation_type__in=["login", "logout"])
-        
+
         # 日期范围过滤
         if start_date:
             query = query.filter(created_at__gte=start_date)
         if end_date:
             query = query.filter(created_at__lte=end_date)
-        
+
         # 分页
         total = await query.count()
         offset = (page - 1) * page_size
         logs = await query.offset(offset).limit(page_size).order_by('-created_at')
-        
+
         # 转换为字典格式
         items = []
         for log in logs:
@@ -124,7 +127,7 @@ async def get_operation_logs(
                 "ip_address": log.ip_address,
                 "created_at": log.created_at.isoformat() if log.created_at else None
             })
-        
+
         return BaseResponse(
             code=200,
             message="获取操作日志成功",
@@ -135,7 +138,7 @@ async def get_operation_logs(
                 "page_size": page_size
             }
         )
-        
+
     except Exception as e:
         print(f"获取操作日志失败: {e}")
         return BaseResponse(

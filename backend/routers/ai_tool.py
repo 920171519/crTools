@@ -28,12 +28,12 @@ async def generate_diagnosis_stream(
     connectivity_status: dict
 ) -> AsyncGenerator[str, None]:
     """生成诊断流式输出"""
-    
+
     try:
         # 发送开始信号
         yield f"data: {json.dumps({'type': 'start', 'message': '开始诊断...'}, ensure_ascii=False)}\n\n"
         await asyncio.sleep(0.5)
-        
+
         # 发送设备信息
         device_info = f"""# 诊断结果
 
@@ -45,11 +45,12 @@ async def generate_diagnosis_stream(
 """
         yield f"data: {json.dumps({'type': 'content', 'content': device_info}, ensure_ascii=False)}\n\n"
         await asyncio.sleep(0.5)
-        
+
         # 发送连通性检测结果
         last_ping = connectivity_status.get("last_ping")
-        last_ping_str = last_ping.strftime('%Y-%m-%d %H:%M:%S') if last_ping else "未知"
-        
+        last_ping_str = last_ping.strftime(
+            '%Y-%m-%d %H:%M:%S') if last_ping else "未知"
+
         connectivity_info = f"""
 ## 连通性检测
 ✅ **设备连通正常**
@@ -57,7 +58,7 @@ async def generate_diagnosis_stream(
 """
         yield f"data: {json.dumps({'type': 'content', 'content': connectivity_info}, ensure_ascii=False)}\n\n"
         await asyncio.sleep(0.5)
-        
+
         # 发送问题描述
         problem_info = f"""
 ## 问题描述
@@ -65,11 +66,11 @@ async def generate_diagnosis_stream(
 """
         yield f"data: {json.dumps({'type': 'content', 'content': problem_info}, ensure_ascii=False)}\n\n"
         await asyncio.sleep(0.5)
-        
+
         # 模拟 AI 分析过程
         yield f"data: {json.dumps({'type': 'content', 'content': '\n## AI 分析中...\n'}, ensure_ascii=False)}\n\n"
         await asyncio.sleep(1)
-        
+
         # 发送分析结果（这里预留 AI 调用的位置）
         analysis_result = """
 ## 初步分析
@@ -116,14 +117,14 @@ systemctl status
 systemctl --failed
 ```
 """
-        
+
         # 逐段发送分析结果
         lines = analysis_result.split('\n')
         for i, line in enumerate(lines):
             if line.strip():
                 yield f"data: {json.dumps({'type': 'content', 'content': line + '\\n'}, ensure_ascii=False)}\n\n"
                 await asyncio.sleep(0.1)
-        
+
         # 发送完成信号
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         footer = f"""
@@ -131,21 +132,22 @@ systemctl --failed
 *诊断时间: {current_time}*
 """
         yield f"data: {json.dumps({'type': 'content', 'content': footer}, ensure_ascii=False)}\n\n"
-        
+
         # 更新数据库记录
-        full_result = device_info + connectivity_info + problem_info + analysis_result + footer
+        full_result = device_info + connectivity_info + \
+            problem_info + analysis_result + footer
         await diagnosis_log.update_result(
             diagnosis_result=full_result,
             status="success",
             connectivity_status=True
         )
-        
+
         yield f"data: {json.dumps({'type': 'done', 'message': '诊断完成', 'log_id': diagnosis_log.id}, ensure_ascii=False)}\n\n"
-        
+
     except Exception as e:
         error_msg = f"诊断过程出错: {str(e)}"
         yield f"data: {json.dumps({'type': 'error', 'message': error_msg}, ensure_ascii=False)}\n\n"
-        
+
         # 更新数据库记录为失败
         await diagnosis_log.update_result(
             diagnosis_result=error_msg,
@@ -173,14 +175,14 @@ async def create_diagnosis_stream(
         device = await Device.filter(id=device_id).first()
         if not device:
             raise HTTPException(status_code=404, detail="设备不存在")
-        
+
         # 2. 检查设备连通性
         connectivity_status = await connectivity_manager.get_connectivity_status(device.id)
-        
+
         if not connectivity_status or not connectivity_status.get("status"):
             # 设备不可连通，返回错误
             raise HTTPException(status_code=400, detail="设备当前不可连通，无法进行诊断")
-        
+
         # 3. 创建诊断日志
         diagnosis_log = await AIDiagnosisLog.create_log(
             device_id=device.id,
@@ -190,10 +192,11 @@ async def create_diagnosis_stream(
             username=current_user.username,
             problem_description=problem_description
         )
-        
+
         # 4. 返回 SSE 流
         return StreamingResponse(
-            generate_diagnosis_stream(device, problem_description, diagnosis_log, connectivity_status),
+            generate_diagnosis_stream(
+                device, problem_description, diagnosis_log, connectivity_status),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -201,7 +204,7 @@ async def create_diagnosis_stream(
                 "X-Accel-Buffering": "no"
             }
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -226,7 +229,7 @@ async def create_diagnosis(
         device = await Device.filter(id=diagnosis_data.device_id).first()
         if not device:
             raise HTTPException(status_code=404, detail="设备不存在")
-        
+
         # 2. 创建诊断日志
         diagnosis_log = await AIDiagnosisLog.create_log(
             device_id=device.id,
@@ -236,10 +239,10 @@ async def create_diagnosis(
             username=current_user.username,
             problem_description=diagnosis_data.problem_description
         )
-        
+
         # 3. 检查设备连通性
         connectivity_status = await connectivity_manager.get_connectivity_status(device.id)
-        
+
         if not connectivity_status or not connectivity_status.get("status"):
             # 设备不可连通
             result = f"""# 诊断结果
@@ -267,7 +270,7 @@ async def create_diagnosis(
                 connectivity_status=False,
                 error_message="设备不可连通"
             )
-            
+
             return BaseResponse(
                 code=200,
                 message="诊断完成，设备不可连通",
@@ -278,11 +281,12 @@ async def create_diagnosis(
                     "diagnosis_result": result
                 }
             )
-        
+
         # 4. 设备可连通，返回初步诊断结果
         last_ping = connectivity_status.get("last_ping")
-        last_ping_str = last_ping.strftime('%Y-%m-%d %H:%M:%S') if last_ping else "未知"
-        
+        last_ping_str = last_ping.strftime(
+            '%Y-%m-%d %H:%M:%S') if last_ping else "未知"
+
         result = f"""# 诊断结果
 
 ## 设备信息
@@ -313,13 +317,13 @@ async def create_diagnosis(
 ---
 *诊断时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*
 """
-        
+
         await diagnosis_log.update_result(
             diagnosis_result=result,
             status="success",
             connectivity_status=True
         )
-        
+
         return BaseResponse(
             code=200,
             message="诊断完成",
@@ -330,7 +334,7 @@ async def create_diagnosis(
                 "diagnosis_result": result
             }
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -350,20 +354,20 @@ async def get_diagnosis_history(
     try:
         # 构建查询条件
         query = AIDiagnosisLog.all()
-        
+
         # 筛选条件
         if device_ip:
             query = query.filter(device_ip__icontains=device_ip)
         if status:
             query = query.filter(status=status)
-        
+
         # 获取总数
         total = await query.count()
-        
+
         # 分页查询
         offset = (page - 1) * page_size
         logs = await query.offset(offset).limit(page_size).order_by('-created_at')
-        
+
         # 构建返回数据
         items = []
         for log in logs:
@@ -377,7 +381,7 @@ async def get_diagnosis_history(
                 created_at=log.created_at,
                 completed_at=log.completed_at
             ))
-        
+
         return BaseResponse(
             code=200,
             message="获取诊断历史成功",
@@ -388,7 +392,7 @@ async def get_diagnosis_history(
                 "page_size": page_size
             }
         )
-        
+
     except Exception as e:
         print(f"获取诊断历史失败: {e}")
         raise HTTPException(status_code=500, detail="获取诊断历史失败")
@@ -404,7 +408,7 @@ async def get_diagnosis_detail(
         diagnosis = await AIDiagnosisLog.filter(id=diagnosis_id).first()
         if not diagnosis:
             raise HTTPException(status_code=404, detail="诊断记录不存在")
-        
+
         diagnosis_data = AIDiagnosisResponse(
             id=diagnosis.id,
             device_id=diagnosis.device_id,
@@ -420,13 +424,13 @@ async def get_diagnosis_detail(
             created_at=diagnosis.created_at,
             completed_at=diagnosis.completed_at
         )
-        
+
         return BaseResponse(
             code=200,
             message="获取诊断详情成功",
             data=diagnosis_data
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -444,7 +448,7 @@ async def export_diagnosis(
         diagnosis = await AIDiagnosisLog.filter(id=diagnosis_id).first()
         if not diagnosis:
             raise HTTPException(status_code=404, detail="诊断记录不存在")
-        
+
         # 构建导出内容
         content = f"""# AI 诊断报告
 
@@ -459,10 +463,10 @@ async def export_diagnosis(
 
 {diagnosis.diagnosis_result or '暂无诊断结果'}
 """
-        
+
         # 生成文件名
         filename = f"diagnosis_{diagnosis.id}_{diagnosis.device_ip}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-        
+
         # 返回文件流
         return StreamingResponse(
             iter([content.encode('utf-8')]),
@@ -471,7 +475,7 @@ async def export_diagnosis(
                 "Content-Disposition": f"attachment; filename={filename}"
             }
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -489,28 +493,27 @@ async def delete_diagnosis(
         diagnosis = await AIDiagnosisLog.filter(id=diagnosis_id).first()
         if not diagnosis:
             raise HTTPException(status_code=404, detail="诊断记录不存在")
-        
+
         # 权限检查：只有创建人或管理员可以删除
         is_creator = diagnosis.user_id == current_user.id
         is_admin = current_user.is_superuser or (await current_user.has_role("管理员"))
-        
+
         if not (is_creator or is_admin):
             raise HTTPException(
                 status_code=403,
                 detail="权限不足，只有创建人或管理员可以删除诊断记录"
             )
-        
+
         await diagnosis.delete()
-        
+
         return BaseResponse(
             code=200,
             message="诊断记录删除成功",
             data=None
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         print(f"删除诊断记录失败: {e}")
         raise HTTPException(status_code=500, detail="删除诊断记录失败")
-

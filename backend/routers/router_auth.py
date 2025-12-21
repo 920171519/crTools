@@ -12,7 +12,7 @@ from models.admin import Permission, RolePermission
 from models.admin import Menu, Permission
 from models.groupModel import Group, GroupMember
 from schemas import (
-    UserRegister, UserLogin, UserResponse, Token, 
+    UserRegister, UserLogin, UserResponse, Token,
     BaseResponse, PasswordChange
 )
 from auth import AuthManager, LoginManager, require_active_user
@@ -50,7 +50,7 @@ async def register(user_data: UserRegister):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="该工号已被注册"
         )
-    
+
     # 检查姓名是否已存在
     existing_username = await User.filter(username=user_data.username).first()
     if existing_username:
@@ -58,7 +58,7 @@ async def register(user_data: UserRegister):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="姓名已被使用"
         )
-    
+
     # 创建用户
     hashed_password = AuthManager.get_password_hash(user_data.password)
     user = await User.create(
@@ -67,7 +67,7 @@ async def register(user_data: UserRegister):
         hashed_password=hashed_password,
         is_superuser=False  # 新用户默认不是超级用户
     )
-    
+
     # 为新用户分配默认角色
     default_role = await Role.filter(name="普通用户").first()
     if default_role:
@@ -78,7 +78,7 @@ async def register(user_data: UserRegister):
     default_group = await Group.filter(name="公共组").first()
     if default_group:
         await GroupMember.get_or_create(group=default_group, user=user)
-    
+
     return BaseResponse(
         code=200,
         message="注册成功",
@@ -99,7 +99,7 @@ async def login(request: Request, login_data: UserLogin):
 
     # 认证用户
     user = await AuthManager.authenticate_user(
-        login_data.employee_id, 
+        login_data.employee_id,
         login_data.password
     )
     if not user:
@@ -111,31 +111,32 @@ async def login(request: Request, login_data: UserLogin):
             success=False,
             failure_reason="姓名或密码错误"
         )
-        
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="姓名或密码错误"
         )
-    
+
     # 创建访问令牌
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(
+        minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = AuthManager.create_access_token(
-        data={"sub": user.employee_id}, 
+        data={"sub": user.employee_id},
         expires_delta=access_token_expires
     )
-    
+
     # 记录成功的登录
     await LoginManager.record_login_attempt(
         user=user,
         ip_address=ip_address,
         success=True
     )
-    
+
     # 获取用户角色与分组
     await user.fetch_related('group_memberships__group', 'role')
     role_name = await user.get_role_name()
     group_data = serialize_user_groups(user)
-    
+
     return BaseResponse(
         code=200,
         message="登录成功",
@@ -186,7 +187,7 @@ async def get_current_user_info(current_user: User = require_active_user):
     await current_user.fetch_related('group_memberships__group', 'role')
     # 获取用户角色
     role_name = await current_user.get_role_name()
-    
+
     return BaseResponse(
         code=200,
         message="获取用户信息成功",
@@ -215,11 +216,12 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="原密码错误"
         )
-    
+
     # 更新密码
-    current_user.hashed_password = AuthManager.get_password_hash(password_data.new_password)
+    current_user.hashed_password = AuthManager.get_password_hash(
+        password_data.new_password)
     await current_user.save()
-    
+
     return BaseResponse(
         code=200,
         message="密码修改成功"
@@ -231,7 +233,7 @@ async def get_user_permissions(current_user: User = require_active_user):
     """
     获取当前用户的权限列表
     """
-    
+
     if current_user.is_superuser:
         # 超级用户拥有所有权限
         all_permissions = await Permission.all().values('code', 'name', 'description')
@@ -240,7 +242,7 @@ async def get_user_permissions(current_user: User = require_active_user):
             message="获取权限成功",
             data={"permissions": list(all_permissions)}
         )
-    
+
     # 普通用户通过角色获取权限
     if current_user.role:
         permissions = await Permission.filter(
@@ -248,7 +250,7 @@ async def get_user_permissions(current_user: User = require_active_user):
         ).values('code', 'name', 'description')
     else:
         permissions = []
-    
+
     return BaseResponse(
         code=200,
         message="获取权限成功",
@@ -261,7 +263,7 @@ async def get_user_menus(current_user: User = require_active_user):
     """
     获取当前用户可访问的菜单列表
     """
-    
+
     # 获取用户权限代码列表
     if current_user.is_superuser:
         # 超级用户看到所有菜单
@@ -274,19 +276,19 @@ async def get_user_menus(current_user: User = require_active_user):
             ).values_list('code', flat=True)
         else:
             user_permissions = []
-        
+
         # 获取有权限的菜单或无权限要求的菜单
         menus = await Menu.filter(
             is_visible=True
         ).filter(
-            Q(permission_code__in=user_permissions) | 
+            Q(permission_code__in=user_permissions) |
             Q(permission_code__isnull=True)
         ).order_by('sort_order')
-    
+
     # 构建菜单树
     menu_dict = {}
     root_menus = []
-    
+
     for menu in menus:
         menu_data = {
             "id": menu.id,
@@ -299,17 +301,17 @@ async def get_user_menus(current_user: User = require_active_user):
             "children": []
         }
         menu_dict[menu.id] = menu_data
-        
+
         if menu.parent_id is None:
             root_menus.append(menu_data)
-    
+
     # 构建树形结构
     for menu_id, menu_data in menu_dict.items():
         if menu_data["parent_id"] is not None:
             parent = menu_dict.get(menu_data["parent_id"])
             if parent:
                 parent["children"].append(menu_data)
-    
+
     # 过滤掉没有子菜单的父菜单（如果父菜单本身没有component）
     filtered_root_menus = []
     for menu in root_menus:
@@ -320,9 +322,9 @@ async def get_user_menus(current_user: User = require_active_user):
             # 没有组件的菜单（父菜单）只有在有可访问的子菜单时才显示
             if menu["children"]:
                 filtered_root_menus.append(menu)
-    
+
     return BaseResponse(
         code=200,
         message="获取菜单成功",
         data={"menus": filtered_root_menus}
-    ) 
+    )

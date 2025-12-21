@@ -29,13 +29,13 @@ async def init_database():
     admin_user = await User.filter(employee_id="a12345678").first()
     if not admin_user:
         admin_user = await User.create(
-            employee_id = "a12345678",
-            username = "超级管理员",
-            hashed_password = AuthManager.get_password_hash("admin123"),
-            is_superuser = True,
+            employee_id="a12345678",
+            username="超级管理员",
+            hashed_password=AuthManager.get_password_hash("admin123"),
+            is_superuser=True,
         )
         print("✅ 创建默认超级管理员账号: a12345678 / admin123")
-    
+
     # 创建默认角色
     roles_data = [
         {"name": "超级管理员", "description": "系统超级管理员，拥有所有权限", "priority": 100},
@@ -43,46 +43,60 @@ async def init_database():
         {"name": "高级用户", "description": "高级用户，拥有较多权限", "priority": 60},
         {"name": "普通用户", "description": "普通用户，拥有基本权限", "priority": 40}
     ]
-    
+
     for role_data in roles_data:
         role = await Role.filter(name=role_data["name"]).first()
         if not role:
             role = await Role.create(**role_data)
             print(f"✅ 创建角色: {role.name}")
-    
+
     # 创建默认权限
     permissions_data = [
         # 用户管理权限
-        {"name": "用户查看", "code": "user:read", "resource": "user", "action": "read", "description": "查看用户信息"},
-        {"name": "用户创建", "code": "user:create", "resource": "user", "action": "create", "description": "创建用户"},
-        {"name": "用户更新", "code": "user:update", "resource": "user", "action": "update", "description": "更新用户信息"},
-        {"name": "用户删除", "code": "user:delete", "resource": "user", "action": "delete", "description": "删除用户"},
-        
+        {"name": "用户查看", "code": "user:read", "resource": "user",
+            "action": "read", "description": "查看用户信息"},
+        {"name": "用户创建", "code": "user:create", "resource": "user",
+            "action": "create", "description": "创建用户"},
+        {"name": "用户更新", "code": "user:update", "resource": "user",
+            "action": "update", "description": "更新用户信息"},
+        {"name": "用户删除", "code": "user:delete", "resource": "user",
+            "action": "delete", "description": "删除用户"},
 
-        
+
+
         # 系统管理权限
-        {"name": "系统配置", "code": "system:config", "resource": "system", "action": "config", "description": "系统配置管理"},
-        {"name": "系统日志", "code": "system:log", "resource": "system", "action": "log", "description": "查看系统日志"},
-        
+        {"name": "系统配置", "code": "system:config", "resource": "system",
+            "action": "config", "description": "系统配置管理"},
+        {"name": "系统日志", "code": "system:log", "resource": "system",
+            "action": "log", "description": "查看系统日志"},
+
         # 设备管理权限
-        {"name": "设备查看", "code": "device:read", "resource": "device", "action": "read", "description": "查看设备信息"},
-        {"name": "设备创建", "code": "device:create", "resource": "device", "action": "create", "description": "创建设备"},
-        {"name": "设备更新", "code": "device:update", "resource": "device", "action": "update", "description": "更新设备信息"},
-        {"name": "设备删除", "code": "device:delete", "resource": "device", "action": "delete", "description": "删除设备"},
-        {"name": "设备使用", "code": "device:use", "resource": "device", "action": "use", "description": "使用设备"},
+        {"name": "设备查看", "code": "device:read", "resource": "device",
+            "action": "read", "description": "查看设备信息"},
+        {"name": "设备创建", "code": "device:create", "resource": "device",
+            "action": "create", "description": "创建设备"},
+        {"name": "设备更新", "code": "device:update", "resource": "device",
+            "action": "update", "description": "更新设备信息"},
+        {"name": "设备删除", "code": "device:delete", "resource": "device",
+            "action": "delete", "description": "删除设备"},
+        {"name": "设备使用", "code": "device:use", "resource": "device",
+            "action": "use", "description": "使用设备"},
 
         # 后台管理权限
-        {"name": "后台管理", "code": "admin:read", "resource": "admin", "action": "read", "description": "访问后台管理"},
-        {"name": "系统设置", "code": "admin:settings", "resource": "admin", "action": "settings", "description": "修改系统设置"},
-        {"name": "VPN配置管理", "code": "admin:vpn", "resource": "admin", "action": "vpn", "description": "管理VPN配置"},
+        {"name": "后台管理", "code": "admin:read", "resource": "admin",
+            "action": "read", "description": "访问后台管理"},
+        {"name": "系统设置", "code": "admin:settings", "resource": "admin",
+            "action": "settings", "description": "修改系统设置"},
+        {"name": "VPN配置管理", "code": "admin:vpn", "resource": "admin",
+            "action": "vpn", "description": "管理VPN配置"},
     ]
-    
+
     for perm_data in permissions_data:
         permission = await Permission.filter(code=perm_data["code"]).first()
         if not permission:
             permission = await Permission.create(**perm_data)
             print(f"✅ 创建权限: {permission.name}")
-    
+
     # 创建默认菜单
     menus_data = [
         {
@@ -148,7 +162,7 @@ async def init_database():
             "permission_code": "admin:read"
         }
     ]
-    
+
     # 创建所有菜单
     for menu_data in menus_data:
         menu = await Menu.filter(path=menu_data["path"]).first()
@@ -188,7 +202,7 @@ async def init_database():
             if not sub_menu:
                 sub_menu = await Menu.create(**sub_menu_data)
                 print(f"✅ 创建后台管理子菜单: {sub_menu.name}")
-    
+
     # 为超级管理员分配超级管理员角色
     super_admin_role = await Role.filter(name="超级管理员").first()
     if super_admin_role and admin_user and not admin_user.role:
@@ -210,9 +224,9 @@ async def init_database():
         _, member_created = await GroupMember.get_or_create(group=default_group, user=admin_user)
         if member_created:
             print("✅ 将超级管理员加入默认分组")
-    
+
     # 为各角色分配权限
-    
+
     # 为各角色分配权限
 
     # 普通用户权限
@@ -280,7 +294,7 @@ async def init_database():
             if not role_perm:
                 await RolePermission.create(role=super_admin_role, permission=permission)
                 print(f"✅ 为超级管理员角色分配权限: {permission.name}")
-    
+
     print("✅ 数据库初始化完成")
 
 
@@ -291,4 +305,4 @@ def setup_database(app):
         config=TORTOISE_ORM,
         generate_schemas=True,
         add_exception_handlers=True,
-    ) 
+    )

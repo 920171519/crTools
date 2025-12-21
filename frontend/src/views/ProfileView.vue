@@ -25,7 +25,9 @@
         <div class="card-header">
           <span>VPN配置</span>
           <el-button type="primary" size="small" @click="loadVPNConfigs">
-            <el-icon><Refresh /></el-icon>
+            <el-icon>
+              <Refresh />
+            </el-icon>
             刷新
           </el-button>
         </div>
@@ -37,42 +39,29 @@
           <el-table-column prop="ip_address" label="IP地址" min-width="200">
             <template #default="{ row }">
               <span v-if="!row.editing">{{ row.ip_address || '未配置' }}</span>
-              <el-input
-                v-else
-                v-model="row.editValue"
-                placeholder="请输入IP地址，如：192.168.1.100"
-                size="small"
-                @keyup.enter="saveVPNConfig(row)"
-                @blur="handleInputBlur(row)"
-              />
+              <el-input v-else v-model="row.editValue" placeholder="请输入IP地址，如：192.168.1.100" size="small"
+                @keyup.enter="saveVPNConfig(row)" @blur="handleInputBlur(row)" />
             </template>
           </el-table-column>
           <el-table-column label="操作" width="150" align="center">
             <template #default="{ row }">
-              <el-button
-                v-if="!row.editing"
-                type="primary"
-                size="small"
-                @click="startEdit(row)"
-              >
-                <el-icon><Edit /></el-icon>
+              <el-button v-if="!row.editing" type="primary" size="small" @click="startEdit(row)">
+                <el-icon>
+                  <Edit />
+                </el-icon>
                 编辑
               </el-button>
               <div v-else>
-                <el-button
-                  type="success"
-                  size="small"
-                  @click="saveVPNConfig(row)"
-                  :loading="row.saving"
-                >
-                  <el-icon><Check /></el-icon>
+                <el-button type="success" size="small" @click="saveVPNConfig(row)" :loading="row.saving">
+                  <el-icon>
+                    <Check />
+                  </el-icon>
                   保存
                 </el-button>
-                <el-button
-                  size="small"
-                  @click="cancelEdit(row)"
-                >
-                  <el-icon><Close /></el-icon>
+                <el-button size="small" @click="cancelEdit(row)">
+                  <el-icon>
+                    <Close />
+                  </el-icon>
                   取消
                 </el-button>
               </div>

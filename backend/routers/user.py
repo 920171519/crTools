@@ -57,27 +57,27 @@ async def get_users(
     """
     # 构建查询条件
     query = User.all().prefetch_related('role', 'group_memberships__group')
-    
+
     if employee_id:
         query = query.filter(employee_id__icontains=employee_id)
     if username:
         query = query.filter(username__icontains=username)
     if role_name:
         query = query.filter(role__name__icontains=role_name)
-    
+
     # 获取总数
     total = await query.count()
-    
+
     # 分页查询
     offset = (page - 1) * page_size
     users = await query.offset(offset).limit(page_size).distinct()
-    
+
     # 转换为响应格式
     user_list = []
     for user in users:
         # 获取用户角色
         role_name = await user.get_role_name()
-        
+
         user_data = {
             "id": user.id,
             "employee_id": user.employee_id,
@@ -108,7 +108,7 @@ async def get_available_roles(
     获取可用角色列表
     """
     roles = await Role.filter(name__in=["普通用户", "高级用户", "管理员"]).order_by('-priority')
-    
+
     role_list = []
     for role in roles:
         role_list.append({
@@ -117,7 +117,7 @@ async def get_available_roles(
             "description": role.description,
             "priority": role.priority
         })
-    
+
     return BaseResponse(
         code=200,
         message="获取角色列表成功",
@@ -243,7 +243,8 @@ async def add_group_members(
     found_ids = {user.id for user in users}
     missing = user_ids - found_ids
     if missing:
-        raise HTTPException(status_code=404, detail=f"以下用户不存在: {', '.join(map(str, missing))}")
+        raise HTTPException(
+            status_code=404, detail=f"以下用户不存在: {', '.join(map(str, missing))}")
 
     existing_user_ids = set(await GroupMember.filter(group_id=group_id).values_list('user_id', flat=True))
     created_count = 0
@@ -321,7 +322,6 @@ async def remove_group_members(
     )
 
 
-
 @router.put("/{user_id}/role", response_model=BaseResponse, summary="更新用户主要角色")
 async def update_user_role(
     user_id: int,
@@ -342,14 +342,14 @@ async def update_user_role(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"无效的角色类型，只能设置为：{', '.join(valid_roles)}"
         )
-    
+
     # 检查权限：只有管理员或超级用户可以修改
     if not (current_user.is_superuser or await current_user.has_role("管理员")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="只有管理员可以修改用户角色"
         )
-    
+
     # 获取目标用户
     target_user = await User.filter(id=user_id).first()
     if not target_user:
@@ -357,21 +357,21 @@ async def update_user_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在"
         )
-    
+
     # 不能修改超级用户的角色
     if target_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="不能修改超级用户的角色"
         )
-    
+
     # 不能修改自己的角色
     if target_user.id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="不能修改自己的角色"
         )
-    
+
     # 获取新角色
     new_role = await Role.filter(name=new_role_name).first()
     if not new_role:
@@ -379,7 +379,7 @@ async def update_user_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="指定的角色不存在"
         )
-    
+
     # 获取当前角色名称
     old_role_name = await target_user.get_role_name()
 
@@ -393,7 +393,7 @@ async def update_user_role(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="更新用户角色失败，请稍后重试"
         )
-    
+
     return BaseResponse(
         code=200,
         message=f"用户角色已从{old_role_name}更新为{new_role_name}",
@@ -420,7 +420,7 @@ async def get_user_detail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在"
         )
-    
+
     # 获取用户角色
     await user.fetch_related('role')
     role_name = await user.get_role_name()
@@ -457,29 +457,30 @@ async def delete_user(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在"
         )
-    
+
     # 不能删除超级用户
     if target_user.is_superuser:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="不能删除超级用户"
         )
-    
+
     # 不能删除自己
     if target_user.id == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="不能删除自己"
         )
-    
+
     # 删除用户（角色关联会自动处理）
     await target_user.delete()
-    
+
     return BaseResponse(
         code=200,
         message="用户删除成功",
         data={"deleted_user_id": user_id}
     )
+
 
 @router.put("/{user_id}/groups", response_model=BaseResponse, summary="更新用户分组")
 async def update_user_groups(
@@ -499,7 +500,8 @@ async def update_user_groups(
         found_ids = {group.id for group in groups}
         missing = target_ids - found_ids
         if missing:
-            raise HTTPException(status_code=404, detail=f"以下分组不存在: {', '.join(map(str, missing))}")
+            raise HTTPException(
+                status_code=404, detail=f"以下分组不存在: {', '.join(map(str, missing))}")
     else:
         groups = []
 

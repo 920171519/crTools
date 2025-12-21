@@ -21,26 +21,14 @@
             <el-form :model="diagnosisForm" :rules="formRules" ref="formRef" label-width="100px">
               <!-- 设备选择 -->
               <el-form-item label="选择设备" prop="device_id">
-                <el-select
-                  v-model="diagnosisForm.device_id"
-                  placeholder="请选择要诊断的设备"
-                  filterable
-                  style="width: 100%"
-                  @change="handleDeviceChange"
-                >
-                  <el-option
-                    v-for="device in devices"
-                    :key="device.id"
-                    :label="`${device.name} (${device.ip})`"
-                    :value="device.id"
-                  >
+                <el-select v-model="diagnosisForm.device_id" placeholder="请选择要诊断的设备" filterable style="width: 100%"
+                  @change="handleDeviceChange">
+                  <el-option v-for="device in devices" :key="device.id" :label="`${device.name} (${device.ip})`"
+                    :value="device.id">
                     <div class="device-option">
                       <span class="device-name">{{ device.name }}</span>
                       <span class="device-ip">{{ device.ip }}</span>
-                      <el-tag
-                        :type="device.connectivity_status ? 'success' : 'danger'"
-                        size="small"
-                      >
+                      <el-tag :type="device.connectivity_status ? 'success' : 'danger'" size="small">
                         {{ device.connectivity_status ? '在线' : '离线' }}
                       </el-tag>
                     </div>
@@ -61,10 +49,7 @@
                   </div>
                   <div class="info-item">
                     <span class="label">连通状态:</span>
-                    <el-tag
-                      :type="selectedDevice.connectivity_status ? 'success' : 'danger'"
-                      size="small"
-                    >
+                    <el-tag :type="selectedDevice.connectivity_status ? 'success' : 'danger'" size="small">
                       {{ selectedDevice.connectivity_status ? '连通' : '不连通' }}
                     </el-tag>
                   </div>
@@ -73,29 +58,24 @@
 
               <!-- 问题描述 -->
               <el-form-item label="问题描述" prop="problem_description">
-                <el-input
-                  v-model="diagnosisForm.problem_description"
-                  type="textarea"
-                  :rows="6"
-                  placeholder="请详细描述遇到的问题，例如：&#10;- 系统运行缓慢&#10;- 磁盘空间不足&#10;- 网络连接异常&#10;- 服务启动失败等"
-                  maxlength="5000"
-                  show-word-limit
-                />
+                <el-input v-model="diagnosisForm.problem_description" type="textarea" :rows="6"
+                  placeholder="请详细描述遇到的问题，例如：&#10;- 系统运行缓慢&#10;- 磁盘空间不足&#10;- 网络连接异常&#10;- 服务启动失败等" maxlength="5000"
+                  show-word-limit />
               </el-form-item>
 
               <!-- 操作按钮 -->
               <el-form-item>
-                <el-button
-                  type="primary"
-                  @click="handleStartDiagnosis"
-                  :loading="diagnosing"
-                  :disabled="!diagnosisForm.device_id"
-                >
-                  <el-icon><DocumentChecked /></el-icon>
+                <el-button type="primary" @click="handleStartDiagnosis" :loading="diagnosing"
+                  :disabled="!diagnosisForm.device_id">
+                  <el-icon>
+                    <DocumentChecked />
+                  </el-icon>
                   {{ diagnosing ? '诊断中...' : '开始诊断' }}
                 </el-button>
                 <el-button @click="handleReset">
-                  <el-icon><Refresh /></el-icon>
+                  <el-icon>
+                    <Refresh />
+                  </el-icon>
                   重置
                 </el-button>
               </el-form-item>
@@ -108,20 +88,16 @@
               <div class="card-header">
                 <span class="card-title">诊断结果</span>
                 <div class="header-actions">
-                  <el-button
-                    size="small"
-                    @click="handleCopyResult"
-                    :disabled="!diagnosisResult"
-                  >
-                    <el-icon><DocumentCopy /></el-icon>
+                  <el-button size="small" @click="handleCopyResult" :disabled="!diagnosisResult">
+                    <el-icon>
+                      <DocumentCopy />
+                    </el-icon>
                     复制
                   </el-button>
-                  <el-button
-                    size="small"
-                    @click="handleExportResult"
-                    :disabled="!currentDiagnosisId"
-                  >
-                    <el-icon><Download /></el-icon>
+                  <el-button size="small" @click="handleExportResult" :disabled="!currentDiagnosisId">
+                    <el-icon>
+                      <Download />
+                    </el-icon>
                     导出
                   </el-button>
                 </div>
@@ -143,20 +119,10 @@
           <div class="search-bar">
             <el-form :model="searchForm" inline>
               <el-form-item label="设备IP">
-                <el-input
-                  v-model="searchForm.device_ip"
-                  placeholder="请输入设备IP"
-                  clearable
-                  style="width: 200px"
-                />
+                <el-input v-model="searchForm.device_ip" placeholder="请输入设备IP" clearable style="width: 200px" />
               </el-form-item>
               <el-form-item label="状态">
-                <el-select
-                  v-model="searchForm.status"
-                  placeholder="请选择状态"
-                  clearable
-                  style="width: 150px"
-                >
+                <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 150px">
                   <el-option label="进行中" value="pending" />
                   <el-option label="成功" value="success" />
                   <el-option label="失败" value="failed" />
@@ -165,11 +131,15 @@
               </el-form-item>
               <el-form-item>
                 <el-button type="primary" @click="handleSearchHistory">
-                  <el-icon><Search /></el-icon>
+                  <el-icon>
+                    <Search />
+                  </el-icon>
                   搜索
                 </el-button>
                 <el-button @click="handleResetSearch">
-                  <el-icon><Refresh /></el-icon>
+                  <el-icon>
+                    <Refresh />
+                  </el-icon>
                   重置
                 </el-button>
               </el-form-item>
@@ -194,11 +164,8 @@
             </el-table-column>
             <el-table-column prop="connectivity_status" label="连通性" width="100">
               <template #default="{ row }">
-                <el-tag
-                  v-if="row.connectivity_status !== null"
-                  :type="row.connectivity_status ? 'success' : 'danger'"
-                  size="small"
-                >
+                <el-tag v-if="row.connectivity_status !== null" :type="row.connectivity_status ? 'success' : 'danger'"
+                  size="small">
                   {{ row.connectivity_status ? '连通' : '不连通' }}
                 </el-tag>
                 <span v-else class="no-data">-</span>
@@ -223,27 +190,16 @@
 
           <!-- 分页 -->
           <div class="pagination">
-            <el-pagination
-              v-model:current-page="pagination.page"
-              v-model:page-size="pagination.page_size"
-              :page-sizes="[10, 20, 50]"
-              layout="total, sizes, prev, pager, next, jumper"
-              :total="pagination.total"
-              @size-change="handleSizeChange"
-              @current-change="handleCurrentChange"
-            />
+            <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.page_size"
+              :page-sizes="[10, 20, 50]" layout="total, sizes, prev, pager, next, jumper" :total="pagination.total"
+              @size-change="handleSizeChange" @current-change="handleCurrentChange" />
           </div>
         </el-card>
       </el-tab-pane>
     </el-tabs>
 
     <!-- 历史详情抽屉 -->
-    <el-drawer
-      v-model="showHistoryDrawer"
-      title="诊断详情"
-      direction="rtl"
-      size="800px"
-    >
+    <el-drawer v-model="showHistoryDrawer" title="诊断详情" direction="rtl" size="800px">
       <div v-loading="loadingDetail" class="history-detail">
         <template v-if="historyDetail">
           <div class="detail-section">
@@ -269,11 +225,8 @@
               </div>
               <div class="info-item">
                 <label>连通状态:</label>
-                <el-tag
-                  v-if="historyDetail.connectivity_status !== null"
-                  :type="historyDetail.connectivity_status ? 'success' : 'danger'"
-                  size="small"
-                >
+                <el-tag v-if="historyDetail.connectivity_status !== null"
+                  :type="historyDetail.connectivity_status ? 'success' : 'danger'" size="small">
                   {{ historyDetail.connectivity_status ? '连通' : '不连通' }}
                 </el-tag>
                 <span v-else>-</span>
@@ -299,20 +252,21 @@
               <h3 class="section-title">诊断结果</h3>
               <div class="section-actions">
                 <el-button size="small" @click="handleCopyHistoryResult">
-                  <el-icon><DocumentCopy /></el-icon>
+                  <el-icon>
+                    <DocumentCopy />
+                  </el-icon>
                   复制
                 </el-button>
                 <el-button size="small" @click="handleExportHistoryResult">
-                  <el-icon><Download /></el-icon>
+                  <el-icon>
+                    <Download />
+                  </el-icon>
                   导出
                 </el-button>
               </div>
             </div>
-            <div
-              v-if="historyDetail.diagnosis_result"
-              class="markdown-body"
-              v-html="renderMarkdown(historyDetail.diagnosis_result)"
-            ></div>
+            <div v-if="historyDetail.diagnosis_result" class="markdown-body"
+              v-html="renderMarkdown(historyDetail.diagnosis_result)"></div>
             <el-empty v-else description="暂无诊断结果" />
           </div>
 
@@ -420,13 +374,13 @@ const handleStartDiagnosis = async () => {
 
   try {
     await formRef.value.validate()
-    
+
     // 关闭之前的连接
     if (eventSource) {
       eventSource.close()
       eventSource = null
     }
-    
+
     diagnosing.value = true
     showResult.value = true
     diagnosisResult.value = ''
@@ -445,31 +399,31 @@ const handleStartDiagnosis = async () => {
       device_id: diagnosisForm.device_id!.toString(),
       problem_description: diagnosisForm.problem_description
     })
-    
+
     // 创建 EventSource，使用 POST 需要通过 URL 参数传递
     // 注意：标准 EventSource 不支持 POST，这里使用 GET 方式
     const url = `${baseUrl}/api/ai-tool/diagnose-stream?${params.toString()}&token=${token}`
-    
+
     eventSource = new EventSource(url)
-    
+
     eventSource.onopen = () => {
       console.log('SSE 连接已建立')
     }
-    
+
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data)
-        
+
         switch (data.type) {
           case 'start':
             diagnosisResult.value = ''
             ElMessage.info(data.message)
             break
-            
+
           case 'content':
             diagnosisResult.value += data.content
             break
-            
+
           case 'done':
             ElMessage.success(data.message)
             currentDiagnosisId.value = data.log_id
@@ -479,7 +433,7 @@ const handleStartDiagnosis = async () => {
               eventSource = null
             }
             break
-            
+
           case 'error':
             ElMessage.error(data.message)
             diagnosing.value = false
@@ -493,7 +447,7 @@ const handleStartDiagnosis = async () => {
         console.error('解析 SSE 数据失败:', error)
       }
     }
-    
+
     eventSource.onerror = (error) => {
       console.error('SSE 连接错误:', error)
       ElMessage.error('诊断连接中断')
@@ -503,7 +457,7 @@ const handleStartDiagnosis = async () => {
         eventSource = null
       }
     }
-    
+
   } catch (error: any) {
     console.error('诊断失败:', error)
     if (error.response?.data?.detail) {
@@ -528,7 +482,7 @@ const handleReset = () => {
 
 const handleCopyResult = async () => {
   if (!diagnosisResult.value) return
-  
+
   try {
     await navigator.clipboard.writeText(diagnosisResult.value)
     ElMessage.success('已复制到剪贴板')
@@ -542,7 +496,7 @@ const handleExportResult = async () => {
 
   try {
     const response = await aiToolApi.exportDiagnosis(currentDiagnosisId.value)
-    
+
     // 创建下载链接
     const blob = new Blob([response.data], { type: 'text/markdown' })
     const url = window.URL.createObjectURL(blob)
@@ -553,7 +507,7 @@ const handleExportResult = async () => {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-    
+
     ElMessage.success('导出成功')
   } catch (error) {
     console.error('导出失败:', error)
@@ -605,7 +559,7 @@ const handleCurrentChange = () => {
 const viewHistoryDetail = async (row: AIDiagnosisListItem) => {
   showHistoryDrawer.value = true
   loadingDetail.value = true
-  
+
   try {
     const response = await aiToolApi.getDiagnosisDetail(row.id)
     historyDetail.value = response.data
@@ -634,7 +588,7 @@ const deleteHistory = async (row: AIDiagnosisListItem) => {
     await loadHistory()
   } catch (error: any) {
     if (error === 'cancel') return
-    
+
     if (error.response?.data?.detail) {
       ElMessage.error(error.response.data.detail)
     } else {
@@ -645,7 +599,7 @@ const deleteHistory = async (row: AIDiagnosisListItem) => {
 
 const handleCopyHistoryResult = async () => {
   if (!historyDetail.value?.diagnosis_result) return
-  
+
   try {
     await navigator.clipboard.writeText(historyDetail.value.diagnosis_result)
     ElMessage.success('已复制到剪贴板')
@@ -659,7 +613,7 @@ const handleExportHistoryResult = async () => {
 
   try {
     const response = await aiToolApi.exportDiagnosis(historyDetail.value.id)
-    
+
     const blob = new Blob([response.data], { type: 'text/markdown' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -669,7 +623,7 @@ const handleExportHistoryResult = async () => {
     link.click()
     document.body.removeChild(link)
     window.URL.revokeObjectURL(url)
-    
+
     ElMessage.success('导出成功')
   } catch (error) {
     console.error('导出失败:', error)

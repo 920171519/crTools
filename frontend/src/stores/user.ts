@@ -1,221 +1,227 @@
 /**
  * 用户状态管理
  */
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import * as authApi from '../api/auth'
-import type { UserGroupSummary } from '@/api/user'
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import * as authApi from "../api/auth";
+import type { UserGroupSummary } from "@/api/user";
 
 // 用户信息类型定义
 export interface UserInfo {
-  id: number
-  employee_id: string
-  username: string
-  is_superuser: boolean
-  role: string
-  groups?: UserGroupSummary[]
+  id: number;
+  employee_id: string;
+  username: string;
+  is_superuser: boolean;
+  role: string;
+  groups?: UserGroupSummary[];
 }
 
 // 菜单项类型定义
 export interface MenuItem {
-  id: number
-  name: string
-  path: string
-  component?: string
-  icon?: string
-  parent_id?: number
-  sort_order: number
-  children?: MenuItem[]
+  id: number;
+  name: string;
+  path: string;
+  component?: string;
+  icon?: string;
+  parent_id?: number;
+  sort_order: number;
+  children?: MenuItem[];
 }
 
-export const useUserStore = defineStore('user', () => {
+export const useUserStore = defineStore("user", () => {
   // 状态定义
-  const token = ref<string>('')
-  const userInfo = ref<UserInfo | null>(null)
-  const permissions = ref<string[]>([])
-  const menus = ref<MenuItem[]>([])
-  
+  const token = ref<string>("");
+  const userInfo = ref<UserInfo | null>(null);
+  const permissions = ref<string[]>([]);
+  const menus = ref<MenuItem[]>([]);
+
   // 计算属性
-  const isLoggedIn = computed(() => !!token.value && !!userInfo.value)
-  const isSuperUser = computed(() => userInfo.value?.is_superuser || false)
+  const isLoggedIn = computed(() => !!token.value && !!userInfo.value);
+  const isSuperUser = computed(() => userInfo.value?.is_superuser || false);
   const isAdvancedUser = computed(() => {
-    const role = userInfo.value?.role || ''
-    const isSuperUser = userInfo.value?.is_superuser
+    const role = userInfo.value?.role || "";
+    const isSuperUser = userInfo.value?.is_superuser;
     // 如果是超级用户，默认具有高级权限
-    if (isSuperUser) return true
-    return role === '高级用户' || role === '管理员'
-  })
+    if (isSuperUser) return true;
+    return role === "高级用户" || role === "管理员";
+  });
 
   const isAdminUser = computed(() => {
-    const role = userInfo.value?.role || ''
-    const isSuperUser = userInfo.value?.is_superuser
+    const role = userInfo.value?.role || "";
+    const isSuperUser = userInfo.value?.is_superuser;
     // 如果是超级用户，默认具有管理员权限
-    if (isSuperUser) return true
-    return role === '管理员'
-  })
-  
+    if (isSuperUser) return true;
+    return role === "管理员";
+  });
+
   // 用户登录
-  const loginAction = async (loginData: { employee_id: string; password: string }) => {
+  const loginAction = async (loginData: {
+    employee_id: string;
+    password: string;
+  }) => {
     try {
       const response = await authApi.login({
         employee_id: loginData.employee_id.toLowerCase(),
-        password: loginData.password
-      })
-      const { access_token, user } = response.data
-      
+        password: loginData.password,
+      });
+      const { access_token, user } = response.data;
+
       // 保存token和用户信息
-      token.value = access_token
-      userInfo.value = user
-      
+      token.value = access_token;
+      userInfo.value = user;
+
       // 保存到localStorage
-      localStorage.setItem('crtools_token', access_token)
-      localStorage.setItem('crtools_user', JSON.stringify(user))
-      
+      localStorage.setItem("crtools_token", access_token);
+      localStorage.setItem("crtools_user", JSON.stringify(user));
+
       // 获取用户权限和菜单
       try {
-        await fetchUserPermissions()
-        await fetchUserMenus()
+        await fetchUserPermissions();
+        await fetchUserMenus();
       } catch (error) {
-        console.warn('获取权限或菜单失败:', error)
+        console.warn("获取权限或菜单失败:", error);
       }
-      
-      return response
+
+      return response;
     } catch (error) {
-      console.error('登录失败:', error)
-      throw error
+      console.error("登录失败:", error);
+      throw error;
     }
-  }
-  
+  };
+
   // 用户注册
   const registerAction = async (userData: {
-    employee_id: string
-    username: string
-    password: string
+    employee_id: string;
+    username: string;
+    password: string;
   }) => {
     try {
       const response = await authApi.register({
         employee_id: userData.employee_id.toLowerCase(),
         username: userData.username,
-        password: userData.password
-      })
-      return response
+        password: userData.password,
+      });
+      return response;
     } catch (error) {
-      console.error('注册失败:', error)
-      throw error
+      console.error("注册失败:", error);
+      throw error;
     }
-  }
-  
+  };
+
   // 用户登出
   const logout = async () => {
     try {
       // 调用登出API
-      await authApi.logout()
+      await authApi.logout();
     } catch (error) {
-      console.error('登出请求失败:', error)
+      console.error("登出请求失败:", error);
     } finally {
       // 清除本地状态
-      token.value = ''
-      userInfo.value = null
-      permissions.value = []
-      menus.value = []
+      token.value = "";
+      userInfo.value = null;
+      permissions.value = [];
+      menus.value = [];
       // 清除localStorage
-      localStorage.removeItem('crtools_token')
-      localStorage.removeItem('crtools_user')
+      localStorage.removeItem("crtools_token");
+      localStorage.removeItem("crtools_user");
     }
-  }
-  
+  };
+
   // 获取用户信息
   const fetchUserInfo = async () => {
     try {
-      const response = await authApi.getCurrentUser()
-      userInfo.value = response.data
-      localStorage.setItem('crtools_user', JSON.stringify(response.data))
-      return response
+      const response = await authApi.getCurrentUser();
+      userInfo.value = response.data;
+      localStorage.setItem("crtools_user", JSON.stringify(response.data));
+      return response;
     } catch (error) {
-      console.error('获取用户信息失败:', error)
-      throw error
+      console.error("获取用户信息失败:", error);
+      throw error;
     }
-  }
-  
+  };
+
   // 获取用户权限
   const fetchUserPermissions = async () => {
     try {
-      const response = await authApi.getUserPermissions()
-      permissions.value = response.data.permissions.map((p: any) => p.code)
-      return response
+      const response = await authApi.getUserPermissions();
+      permissions.value = response.data.permissions.map((p: any) => p.code);
+      return response;
     } catch (error) {
-      console.error('获取用户权限失败:', error)
-      throw error
+      console.error("获取用户权限失败:", error);
+      throw error;
     }
-  }
-  
+  };
+
   // 获取用户菜单
   const fetchUserMenus = async () => {
     try {
-      const response = await authApi.getUserMenus()
-      menus.value = response.data.menus
-      return response
+      const response = await authApi.getUserMenus();
+      menus.value = response.data.menus;
+      return response;
     } catch (error) {
-      console.error('获取用户菜单失败:', error)
-      throw error
+      console.error("获取用户菜单失败:", error);
+      throw error;
     }
-  }
-  
+  };
+
   // 修改密码
-  const changePassword = async (passwordData: { old_password: string; new_password: string }) => {
+  const changePassword = async (passwordData: {
+    old_password: string;
+    new_password: string;
+  }) => {
     try {
-      const response = await authApi.changePassword(passwordData)
-      return response
+      const response = await authApi.changePassword(passwordData);
+      return response;
     } catch (error) {
-      console.error('修改密码失败:', error)
-      throw error
+      console.error("修改密码失败:", error);
+      throw error;
     }
-  }
-  
+  };
+
   // 检查权限
   const hasPermission = (permissionCode: string): boolean => {
-    return isSuperUser.value || permissions.value.includes(permissionCode)
-  }
-  
+    return isSuperUser.value || permissions.value.includes(permissionCode);
+  };
+
   // 从localStorage恢复状态
   const restoreFromStorage = async () => {
-    const savedToken = localStorage.getItem('crtools_token')
-    const savedUser = localStorage.getItem('crtools_user')
-    
+    const savedToken = localStorage.getItem("crtools_token");
+    const savedUser = localStorage.getItem("crtools_user");
+
     if (savedToken && savedUser) {
-      token.value = savedToken
+      token.value = savedToken;
       try {
-        userInfo.value = JSON.parse(savedUser)
+        userInfo.value = JSON.parse(savedUser);
         // 恢复状态后重新获取权限和菜单
         try {
-          await fetchUserPermissions()
-          await fetchUserMenus()
+          await fetchUserPermissions();
+          await fetchUserMenus();
         } catch (error) {
-          console.warn('恢复状态时获取权限或菜单失败:', error)
+          console.warn("恢复状态时获取权限或菜单失败:", error);
         }
       } catch (error) {
-        console.error('解析用户信息失败:', error)
-        localStorage.removeItem('crtools_user')
+        console.error("解析用户信息失败:", error);
+        localStorage.removeItem("crtools_user");
       }
     }
-  }
-  
+  };
+
   // 初始化时恢复状态
-  restoreFromStorage()
-  
+  restoreFromStorage();
+
   return {
     // 状态
     token,
     userInfo,
     permissions,
     menus,
-    
+
     // 计算属性
     isLoggedIn,
     isSuperUser,
     isAdvancedUser,
     isAdminUser,
-    
+
     // 方法
     loginAction,
     registerAction,
@@ -226,5 +232,5 @@ export const useUserStore = defineStore('user', () => {
     changePassword,
     hasPermission,
     restoreFromStorage,
-  }
-}) 
+  };
+});

@@ -10,11 +10,15 @@
       <template #header>
         <div class="section-header">
           <div class="header-title">
-            <el-icon><User /></el-icon>
+            <el-icon>
+              <User />
+            </el-icon>
             <span>用户登录退出日志</span>
           </div>
           <el-button @click="loadLoginLogs" :loading="loginLoading" size="small">
-            <el-icon><Refresh /></el-icon>
+            <el-icon>
+              <Refresh />
+            </el-icon>
             刷新
           </el-button>
         </div>
@@ -24,16 +28,12 @@
       <div class="search-bar">
         <el-form :model="loginSearchForm" inline>
           <el-form-item label="工号">
-            <el-input v-model="loginSearchForm.employee_id" placeholder="请输入工号" clearable size="small" style="width: 200px" />
+            <el-input v-model="loginSearchForm.employee_id" placeholder="请输入工号" clearable size="small"
+              style="width: 200px" />
           </el-form-item>
           <el-form-item label="操作">
-            <el-select
-              v-model="loginSearchForm.operation_type"
-              placeholder="请选择操作"
-              clearable
-              size="small"
-              style="width: 120px"
-            >
+            <el-select v-model="loginSearchForm.operation_type" placeholder="请选择操作" clearable size="small"
+              style="width: 120px">
               <el-option label="全部" value="" />
               <el-option label="登录" value="login" />
               <el-option label="退出" value="logout" />
@@ -41,11 +41,15 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" size="small" @click="handleLoginSearch">
-              <el-icon><Search /></el-icon>
+              <el-icon>
+                <Search />
+              </el-icon>
               搜索
             </el-button>
             <el-button size="small" @click="handleLoginReset">
-              <el-icon><Refresh /></el-icon>
+              <el-icon>
+                <Refresh />
+              </el-icon>
               重置
             </el-button>
           </el-form-item>
@@ -57,10 +61,7 @@
         <el-table-column prop="username" label="用户名" width="120" align="center" />
         <el-table-column prop="operation_type" label="操作" width="100" align="center">
           <template #default="{ row }">
-            <el-tag
-              :type="row.operation_type === 'logout' ? 'warning' : 'success'"
-              size="small"
-            >
+            <el-tag :type="row.operation_type === 'logout' ? 'warning' : 'success'" size="small">
               {{ getLoginOperationText(row.operation_type) }}
             </el-tag>
           </template>
@@ -75,15 +76,10 @@
 
       <!-- 分页 -->
       <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="loginPagination.page"
-          v-model:page-size="loginPagination.page_size"
-          :total="loginPagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleLoginSizeChange"
-          @current-change="handleLoginPageChange"
-        />
+        <el-pagination v-model:current-page="loginPagination.page" v-model:page-size="loginPagination.page_size"
+          :total="loginPagination.total" :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper" @size-change="handleLoginSizeChange"
+          @current-change="handleLoginPageChange" />
       </div>
     </el-card>
 
@@ -92,11 +88,15 @@
       <template #header>
         <div class="section-header">
           <div class="header-title">
-            <el-icon><Monitor /></el-icon>
+            <el-icon>
+              <Monitor />
+            </el-icon>
             <span>设备操作日志</span>
           </div>
           <el-button @click="loadDeviceLogs" :loading="deviceLoading" size="small">
-            <el-icon><Refresh /></el-icon>
+            <el-icon>
+              <Refresh />
+            </el-icon>
             刷新
           </el-button>
         </div>
@@ -106,16 +106,12 @@
       <div class="search-bar">
         <el-form :model="deviceSearchForm" inline>
           <el-form-item label="工号">
-            <el-input v-model="deviceSearchForm.employee_id" placeholder="请输入工号" clearable size="small" style="width: 200px" />
+            <el-input v-model="deviceSearchForm.employee_id" placeholder="请输入工号" clearable size="small"
+              style="width: 200px" />
           </el-form-item>
           <el-form-item label="操作">
-            <el-select
-              v-model="deviceSearchForm.operation_type"
-              placeholder="请选择操作"
-              clearable
-              size="small"
-              style="width: 160px"
-            >
+            <el-select v-model="deviceSearchForm.operation_type" placeholder="请选择操作" clearable size="small"
+              style="width: 160px">
               <el-option label="全部" value="" />
               <el-option label="使用" value="device_use" />
               <el-option label="释放" value="device_release" />
@@ -130,11 +126,15 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" size="small" @click="handleDeviceSearch">
-              <el-icon><Search /></el-icon>
+              <el-icon>
+                <Search />
+              </el-icon>
               搜索
             </el-button>
             <el-button size="small" @click="handleDeviceReset">
-              <el-icon><Refresh /></el-icon>
+              <el-icon>
+                <Refresh />
+              </el-icon>
               重置
             </el-button>
           </el-form-item>
@@ -148,20 +148,14 @@
         <el-table-column prop="ip_address" label="设备IP" width="150" align="center" />
         <el-table-column prop="operation_type" label="操作" width="120" align="center">
           <template #default="{ row }">
-            <el-tag
-              :type="getDeviceOperationTagType(row.operation_type)"
-              size="small"
-            >
+            <el-tag :type="getDeviceOperationTagType(row.operation_type)" size="small">
               {{ getDeviceOperationText(row.operation_type) }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="operation_result" label="结果" width="80" align="center">
           <template #default="{ row }">
-            <el-tag
-              :type="row.operation_result === 'success' ? 'success' : 'danger'"
-              size="small"
-            >
+            <el-tag :type="row.operation_result === 'success' ? 'success' : 'danger'" size="small">
               {{ row.operation_result === 'success' ? '成功' : '失败' }}
             </el-tag>
           </template>
@@ -175,15 +169,10 @@
 
       <!-- 分页 -->
       <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="devicePagination.page"
-          v-model:page-size="devicePagination.page_size"
-          :total="devicePagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleDeviceSizeChange"
-          @current-change="handleDevicePageChange"
-        />
+        <el-pagination v-model:current-page="devicePagination.page" v-model:page-size="devicePagination.page_size"
+          :total="devicePagination.total" :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper" @size-change="handleDeviceSizeChange"
+          @current-change="handleDevicePageChange" />
       </div>
     </el-card>
 
@@ -192,11 +181,15 @@
       <template #header>
         <div class="section-header">
           <div class="header-title">
-            <el-icon><DocumentChecked /></el-icon>
+            <el-icon>
+              <DocumentChecked />
+            </el-icon>
             <span>命令行修改记录日志</span>
           </div>
           <el-button @click="loadCommandLogs" :loading="commandLoading" size="small">
-            <el-icon><Refresh /></el-icon>
+            <el-icon>
+              <Refresh />
+            </el-icon>
             刷新
           </el-button>
         </div>
@@ -206,15 +199,20 @@
       <div class="search-bar">
         <el-form :model="commandSearchForm" inline>
           <el-form-item label="工号">
-            <el-input v-model="commandSearchForm.employee_id" placeholder="请输入工号" clearable size="small" style="width: 200px" />
+            <el-input v-model="commandSearchForm.employee_id" placeholder="请输入工号" clearable size="small"
+              style="width: 200px" />
           </el-form-item>
           <el-form-item>
             <el-button type="primary" size="small" @click="handleCommandSearch">
-              <el-icon><Search /></el-icon>
+              <el-icon>
+                <Search />
+              </el-icon>
               搜索
             </el-button>
             <el-button size="small" @click="handleCommandReset">
-              <el-icon><Refresh /></el-icon>
+              <el-icon>
+                <Refresh />
+              </el-icon>
               重置
             </el-button>
           </el-form-item>
@@ -228,10 +226,7 @@
         <el-table-column prop="description" label="操作描述" min-width="300" align="left" />
         <el-table-column prop="operation_result" label="结果" width="80" align="center">
           <template #default="{ row }">
-            <el-tag
-              :type="row.operation_result === 'success' ? 'success' : 'danger'"
-              size="small"
-            >
+            <el-tag :type="row.operation_result === 'success' ? 'success' : 'danger'" size="small">
               {{ row.operation_result === 'success' ? '成功' : '失败' }}
             </el-tag>
           </template>
@@ -245,15 +240,10 @@
 
       <!-- 分页 -->
       <div class="pagination-container">
-        <el-pagination
-          v-model:current-page="commandPagination.page"
-          v-model:page-size="commandPagination.page_size"
-          :total="commandPagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleCommandSizeChange"
-          @current-change="handleCommandPageChange"
-        />
+        <el-pagination v-model:current-page="commandPagination.page" v-model:page-size="commandPagination.page_size"
+          :total="commandPagination.total" :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper" @size-change="handleCommandSizeChange"
+          @current-change="handleCommandPageChange" />
       </div>
     </el-card>
   </div>

@@ -363,7 +363,8 @@ async def get_devices(
     - 支持按环境名称、IP、状态搜索
     """
     # 构建查询条件，预取分组信息
-    query = Device.all().prefetch_related("usage_info", "vpn_config", "group_links__group")
+    query = Device.all().prefetch_related(
+        "usage_info", "vpn_config", "group_links__group")
 
     if name:
         query = query.filter(name__icontains=name)
@@ -427,22 +428,25 @@ async def get_devices(
 
     result = []
     for device, usage_info in paged_devices:
-        
+
         # 计算占用时长（精确到秒，但以分钟为单位显示）
         occupied_duration = 0
         if usage_info.start_time and usage_info.current_user:
             # 统一使用naive datetime进行计算
             current_time = get_current_time()
             # 如果数据库中的时间是aware的，转换为naive
-            start_time = usage_info.start_time.replace(tzinfo=None) if usage_info.start_time.tzinfo else usage_info.start_time
+            start_time = usage_info.start_time.replace(
+                tzinfo=None) if usage_info.start_time.tzinfo else usage_info.start_time
             duration = current_time - start_time
             # 改为向上取整，确保即使不到1分钟也显示为1分钟
-            occupied_duration = max(1, int((duration.total_seconds() + 59) / 60))
-        
+            occupied_duration = max(
+                1, int((duration.total_seconds() + 59) / 60))
+
         # 检查当前用户是否在排队中
         is_current_user_in_queue = False
         if usage_info.queue_users:
-            normalized_queue = [normalize_employee_id(u) for u in usage_info.queue_users]
+            normalized_queue = [normalize_employee_id(
+                u) for u in usage_info.queue_users]
             if normalized_employee in normalized_queue:
                 is_current_user_in_queue = True
 
@@ -469,7 +473,8 @@ async def get_devices(
             vpn_network=vpn_network,
             vpn_display_name=vpn_display_name,
             current_user=usage_info.current_user,
-            queue_count=len(usage_info.queue_users) if usage_info.queue_users else 0,
+            queue_count=len(
+                usage_info.queue_users) if usage_info.queue_users else 0,
             status=usage_info.status,
             start_time=usage_info.start_time,
             occupied_duration=occupied_duration,
@@ -528,7 +533,8 @@ async def create_device(device_data: DeviceBase, current_user: User = Depends(Au
         print("准备设备数据...")
         device_dict = device_data.model_dump()
         group_ids = device_dict.pop('group_ids', None)
-        device_dict.pop('vpn_config_id', None)  # 移除vpn_config_id，因为我们要设置vpn_config对象
+        # 移除vpn_config_id，因为我们要设置vpn_config对象
+        device_dict.pop('vpn_config_id', None)
         print(f"设备数据: {device_dict}")
 
         # 创建设备
@@ -597,7 +603,8 @@ async def get_devices_connectivity_status(
     """
     try:
         # 解析设备ID列表
-        device_id_list = [int(id.strip()) for id in device_ids.split(',') if id.strip()]
+        device_id_list = [int(id.strip())
+                          for id in device_ids.split(',') if id.strip()]
 
         if not device_id_list:
             raise HTTPException(status_code=400, detail="设备ID列表不能为空")
@@ -608,7 +615,8 @@ async def get_devices_connectivity_status(
         accessible_device_ids = set()
         user_group_ids = await get_user_group_ids(current_user)
         for device in existing_devices:
-            device_group_ids = {link.group_id for link in getattr(device, "group_links", []) or [] if link.group_id}
+            device_group_ids = {link.group_id for link in getattr(
+                device, "group_links", []) or [] if link.group_id}
             if device_group_ids and user_group_ids is not None and not (device_group_ids & user_group_ids):
                 continue
             accessible_device_ids.add(device.id)
@@ -994,37 +1002,37 @@ async def delete_device(device_id: int, current_user: User = Depends(AuthManager
     device = await Device.filter(id=device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
+
     # 权限检查：只有设备归属人或管理员可以删除
     if not (device.owner == current_user.employee_id or current_user.is_superuser):
         raise HTTPException(
-            status_code=403, 
+            status_code=403,
             detail="权限不足，只有设备归属人或管理员可以删除设备"
         )
-    
+
     # 检查设备是否正在使用中
     usage_info = await DeviceUsage.filter(device=device).first()
     if usage_info and usage_info.status == DeviceStatusEnum.OCCUPIED:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail="设备正在使用中，无法删除"
         )
-    
+
     # 删除相关数据
     if usage_info:
         await usage_info.delete()
-    
+
     # 删除设备内部信息
     internal_info = await DeviceInternal.filter(device=device).first()
     if internal_info:
         await internal_info.delete()
-    
+
     # 删除使用历史记录
     await DeviceUsageHistory.filter(device=device).delete()
-    
+
     # 删除设备
     await device.delete()
-    
+
     return BaseResponse(
         code=200,
         message="设备删除成功",
@@ -1051,7 +1059,8 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
     if usage_info.status != DeviceStatusEnum.AVAILABLE:
         raise HTTPException(status_code=400, detail="设备当前不可用")
 
-    normalized_request_user = normalize_employee_id(request.user) or normalize_employee_id(current_user.employee_id)
+    normalized_request_user = normalize_employee_id(
+        request.user) or normalize_employee_id(current_user.employee_id)
 
     # 直接占用设备
     await revoke_shared_access(device, current_user, "device_used")
@@ -1095,7 +1104,7 @@ async def use_device(request: DeviceUseRequest, current_user: User = Depends(Aut
             "device_id": device.id,
         },
     )
-    
+
     # 更新访问IP记录（占用人）
     try:
         await current_user.fetch_related('role')
@@ -1184,7 +1193,7 @@ async def queue_device(request: DeviceUseRequest, current_user: User = Depends(A
         raise HTTPException(status_code=404, detail="设备不存在")
     await ensure_device_access(device, current_user)
     await ensure_user_vpn_ip(device, current_user)
-    
+
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
@@ -1196,16 +1205,17 @@ async def queue_device(request: DeviceUseRequest, current_user: User = Depends(A
         # 设备被占用，检查是否支持排队
         if not device.support_queue:
             raise HTTPException(status_code=400, detail="该设备不支持排队等待")
-        
+
         # 检查是否是当前使用者尝试排队
         if normalize_employee_id(usage_info.current_user) == requested_user:
             raise HTTPException(status_code=400, detail="您已经在使用此设备")
-        
+
         # 检查用户是否已在排队
-        existing_queue = [normalize_employee_id(u) for u in (usage_info.queue_users or [])]
+        existing_queue = [normalize_employee_id(
+            u) for u in (usage_info.queue_users or [])]
         if requested_user in existing_queue:
             raise HTTPException(status_code=400, detail="您已在排队中")
-        
+
         # 加入排队
         if not usage_info.queue_users:
             usage_info.queue_users = []
@@ -1231,7 +1241,7 @@ async def queue_device(request: DeviceUseRequest, current_user: User = Depends(A
                 "queue_position": len(usage_info.queue_users)
             }
         )
-    
+
     else:
         raise HTTPException(status_code=400, detail="设备当前不可用")
 
@@ -1249,9 +1259,10 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
 
     current_employee_id = normalize_employee_id(current_user.employee_id)
     # 检查权限：当前使用者、管理员或超级管理员才能释放设备
-    is_current_user = normalize_employee_id(usage_info.current_user) == current_employee_id
+    is_current_user = normalize_employee_id(
+        usage_info.current_user) == current_employee_id
     is_admin_or_super = (current_user.is_superuser or
-                        await current_user.has_role("管理员"))
+                         await current_user.has_role("管理员"))
 
     if not (is_current_user or is_admin_or_super):
         raise HTTPException(status_code=403, detail="只有当前使用者、管理员或超级管理员才能释放设备")
@@ -1284,7 +1295,7 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
         usage_info.current_user = normalized_next_user
         usage_info.start_time = get_current_time()
         await usage_info.save()
-        
+
         # 创建新的使用历史记录
         await DeviceUsageHistory.create(
             device=device,
@@ -1368,8 +1379,8 @@ async def release_device(request: DeviceReleaseRequest, current_user: User = Dep
 
         return BaseResponse(
             code=200,
-            message = "设备已释放",
-            data= {
+            message="设备已释放",
+            data={
                 "device_id": device.id,
                 "status": "available"
             }
@@ -1387,11 +1398,11 @@ async def cancel_queue(request: DeviceCancelQueueRequest, current_user: User = D
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
+
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         raise HTTPException(status_code=404, detail="设备使用信息不存在")
-    
+
     normalized_employee = normalize_employee_id(current_user.employee_id)
     queue_users = usage_info.queue_users or []
     normalized_queue = [normalize_employee_id(u) for u in queue_users]
@@ -1399,7 +1410,7 @@ async def cancel_queue(request: DeviceCancelQueueRequest, current_user: User = D
     # 检查用户是否在排队中
     if normalized_employee not in normalized_queue:
         raise HTTPException(status_code=400, detail="您当前不在排队中")
-    
+
     # 从排队列表中移除用户（保持原顺序）
     new_queue = []
     removed = False
@@ -1443,22 +1454,23 @@ async def get_device_usage(device_id: int, current_user: User = Depends(AuthMana
         await device.fetch_related("vpn_config")
     except Exception:
         pass
-    
+
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
-    
+
     # 计算占用时长（精确到秒，但以分钟为单位显示）
     occupied_duration = 0
     if usage_info.start_time and usage_info.current_user:
         # 统一使用naive datetime进行计算
         current_time = get_current_time()
         # 如果数据库中的时间是aware的，转换为naive
-        start_time = usage_info.start_time.replace(tzinfo=None) if usage_info.start_time.tzinfo else usage_info.start_time
+        start_time = usage_info.start_time.replace(
+            tzinfo=None) if usage_info.start_time.tzinfo else usage_info.start_time
         duration = current_time - start_time
         # 改为向上取整，确保即使不到1分钟也显示为1分钟
         occupied_duration = max(1, int((duration.total_seconds() + 59) / 60))
-    
+
     usage_data = {
         "id": usage_info.id,
         "device_id": device.id,
@@ -1509,11 +1521,13 @@ async def get_device_usage(device_id: int, current_user: User = Depends(AuthMana
 
     # 可见性：占用人、共用用户、管理员/超级管理员可见
     is_admin_or_super = current_user.is_superuser or (await current_user.has_role("管理员"))
-    is_occupant = usage_info.current_user and normalize_employee_id(usage_info.current_user) == normalized_employee
+    is_occupant = usage_info.current_user and normalize_employee_id(
+        usage_info.current_user) == normalized_employee
     is_shared = usage_data.get("is_shared_user", False)
-    usage_data["can_view_access_ips"] = bool(is_admin_or_super or is_occupant or is_shared)
+    usage_data["can_view_access_ips"] = bool(
+        is_admin_or_super or is_occupant or is_shared)
     usage_data["access_ips"] = access_entries
-    
+
     return BaseResponse(
         code=200,
         message="设备使用情况获取成功",
@@ -1526,24 +1540,25 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
     """高级用户抢占设备"""
     # 检查用户权限 - 只有高级用户、管理员、超级用户才能抢占
     is_advanced_or_admin = (current_user.is_superuser or
-                           await current_user.has_role("管理员") or
-                           await current_user.has_role("高级用户"))
+                            await current_user.has_role("管理员") or
+                            await current_user.has_role("高级用户"))
 
     if not is_advanced_or_admin:
         raise HTTPException(status_code=403, detail="只有高级用户、管理员或超级管理员才能抢占设备")
-    
+
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
     await ensure_user_vpn_ip(device, current_user)
-    
+
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
 
-    normalized_current_employee = normalize_employee_id(current_user.employee_id)
+    normalized_current_employee = normalize_employee_id(
+        current_user.employee_id)
     requested_user = resolve_request_user(request.user, current_user)
-    
+
     # 检查设备状态
     if usage_info.status == DeviceStatusEnum.AVAILABLE:
         # 设备可用，直接占用
@@ -1552,7 +1567,7 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
         usage_info.start_time = get_current_time()
         usage_info.status = DeviceStatusEnum.OCCUPIED
         await usage_info.save()
-        
+
         # 创建使用历史记录
         await DeviceUsageHistory.create(
             device=device,
@@ -1578,36 +1593,37 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
             message="设备占用成功",
             data={"device_id": device.id}
         )
-    
+
     elif usage_info.status == DeviceStatusEnum.OCCUPIED:
         # 检查是否试图抢占自己正在使用的设备
         if normalize_employee_id(usage_info.current_user) == requested_user:
             raise HTTPException(status_code=400, detail="您已经在使用此设备")
-        
+
         # 抢占设备，将当前用户加入排队列表首位
         previous_user = usage_info.current_user
-        
+
         # 检查抢占者是否已在排队中，如果在则先移除
         if not usage_info.queue_users:
             usage_info.queue_users = []
-        normalized_queue = [normalize_employee_id(u) for u in usage_info.queue_users]
+        normalized_queue = [normalize_employee_id(
+            u) for u in usage_info.queue_users]
         if requested_user in normalized_queue:
             usage_info.queue_users = [
                 user_id for user_id, normalized in zip(usage_info.queue_users, normalized_queue)
                 if normalized != requested_user
             ]
-        
+
         # 将原用户加入排队列表首位（如果原用户不在排队中）
         previous_user_normalized = normalize_employee_id(previous_user)
         if previous_user_normalized and previous_user_normalized not in [normalize_employee_id(u) for u in usage_info.queue_users]:
             usage_info.queue_users.insert(0, previous_user_normalized)
-        
+
         # 更新设备占用者
         await revoke_shared_access(device, current_user, "device_preempt")
         usage_info.current_user = requested_user
         usage_info.start_time = get_current_time()
         await usage_info.save()
-        
+
         # 创建使用历史记录
         await DeviceUsageHistory.create(
             device=device,
@@ -1641,7 +1657,7 @@ async def preempt_device(request: DevicePreemptRequest, current_user: User = Dep
                 "previous_user": previous_user
             }
         )
-    
+
     else:
         raise HTTPException(status_code=400, detail="设备当前不可用")
 
@@ -1651,24 +1667,24 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
     """高级用户优先排队"""
     # 检查用户权限 - 只有高级用户、管理员、超级用户才能优先排队
     is_advanced_or_admin = (current_user.is_superuser or
-                           await current_user.has_role("管理员") or
-                           await current_user.has_role("高级用户"))
+                            await current_user.has_role("管理员") or
+                            await current_user.has_role("高级用户"))
 
     if not is_advanced_or_admin:
         raise HTTPException(status_code=403, detail="只有高级用户、管理员或超级管理员才能优先排队")
-    
+
     device = await Device.filter(id=request.device_id).first()
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
     await ensure_user_vpn_ip(device, current_user)
-    
+
     if not device.support_queue:
         raise HTTPException(status_code=400, detail="该设备不支持排队等待")
-    
+
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
-    
+
     # 检查设备状态
     normalized_request_user = resolve_request_user(request.user, current_user)
 
@@ -1679,7 +1695,7 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
         usage_info.start_time = get_current_time()
         usage_info.status = DeviceStatusEnum.OCCUPIED
         await usage_info.save()
-        
+
         # 创建使用历史记录
         await DeviceUsageHistory.create(
             device=device,
@@ -1703,17 +1719,18 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
             message="设备占用成功",
             data={"device_id": device.id}
         )
-    
+
     elif usage_info.status == DeviceStatusEnum.OCCUPIED:
         # 检查是否是当前使用者尝试排队
         if normalize_employee_id(usage_info.current_user) == normalized_request_user:
             raise HTTPException(status_code=400, detail="您已经在使用此设备")
-        
+
         # 检查用户是否已在排队
-        normalized_queue = [normalize_employee_id(u) for u in (usage_info.queue_users or [])]
+        normalized_queue = [normalize_employee_id(
+            u) for u in (usage_info.queue_users or [])]
         if normalized_request_user in normalized_queue:
             raise HTTPException(status_code=400, detail="您已在排队中")
-        
+
         # 优先加入排队列表首位
         if not usage_info.queue_users:
             usage_info.queue_users = []
@@ -1739,7 +1756,7 @@ async def priority_queue(request: DevicePriorityQueueRequest, current_user: User
                 "queue_position": 1
             }
         )
-    
+
     else:
         raise HTTPException(status_code=400, detail="设备当前不可用")
 
@@ -1752,11 +1769,11 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
         raise HTTPException(status_code=404, detail="设备不存在")
     await ensure_user_vpn_ip(device, current_user)
     await ensure_device_access(device, current_user)
-    
+
     usage_info = await DeviceUsage.filter(device=device).first()
     if not usage_info:
         usage_info = await DeviceUsage.create(device=device)
-    
+
     # 检查设备状态
     normalized_request_user = resolve_request_user(request.user, current_user)
 
@@ -1767,7 +1784,7 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
         usage_info.start_time = get_current_time()
         usage_info.status = DeviceStatusEnum.OCCUPIED
         await usage_info.save()
-        
+
         # 创建使用历史记录
         await DeviceUsageHistory.create(
             device=device,
@@ -1794,21 +1811,22 @@ async def unified_queue(request: DeviceUnifiedQueueRequest, current_user: User =
                 "action": "use"
             }
         )
-    
+
     elif usage_info.status == DeviceStatusEnum.OCCUPIED:
         # 设备被占用，检查是否支持排队
         if not device.support_queue:
             raise HTTPException(status_code=400, detail="该设备不支持排队等待")
-        
+
         # 检查是否是当前使用者尝试排队
         if normalize_employee_id(usage_info.current_user) == normalized_request_user:
             raise HTTPException(status_code=400, detail="您已经在使用此设备")
-        
+
         # 检查用户是否已在排队
-        normalized_queue = [normalize_employee_id(u) for u in (usage_info.queue_users or [])]
+        normalized_queue = [normalize_employee_id(
+            u) for u in (usage_info.queue_users or [])]
         if normalized_request_user in normalized_queue:
             raise HTTPException(status_code=400, detail="您已在排队中")
-        
+
         # 加入排队列表末尾
         if not usage_info.queue_users:
             usage_info.queue_users = []
@@ -2019,7 +2037,8 @@ async def revoke_shared_user(
     # 权限：设备当前占用人或管理员/超级管理员
     normalized_employee = normalize_employee_id(current_user.employee_id)
     is_admin_or_super = current_user.is_superuser or (await current_user.has_role("管理员"))
-    is_occupant = usage_info.current_user and normalize_employee_id(usage_info.current_user) == normalized_employee
+    is_occupant = usage_info.current_user and normalize_employee_id(
+        usage_info.current_user) == normalized_employee
     if not (is_admin_or_super or is_occupant):
         raise HTTPException(status_code=403, detail="只有占用人或管理员可以剔除共用用户")
 
@@ -2125,9 +2144,11 @@ async def get_my_usage_summary(current_user: User = Depends(AuthManager.get_curr
         occupied_duration = 0
         if usage.start_time and usage.current_user:
             current_time = get_current_time()
-            start_time = usage.start_time.replace(tzinfo=None) if usage.start_time.tzinfo else usage.start_time
+            start_time = usage.start_time.replace(
+                tzinfo=None) if usage.start_time.tzinfo else usage.start_time
             duration = current_time - start_time
-            occupied_duration = max(1, int((duration.total_seconds() + 59) / 60))
+            occupied_duration = max(
+                1, int((duration.total_seconds() + 59) / 60))
         occupied_devices.append({
             "id": usage.device.id,
             "name": usage.device.name,
@@ -2157,9 +2178,11 @@ async def get_my_usage_summary(current_user: User = Depends(AuthManager.get_curr
         occupied_duration = 0
         if current_usage and current_usage.start_time and current_usage.current_user:
             current_time = get_current_time()
-            start_time = current_usage.start_time.replace(tzinfo=None) if current_usage.start_time.tzinfo else current_usage.start_time
+            start_time = current_usage.start_time.replace(
+                tzinfo=None) if current_usage.start_time.tzinfo else current_usage.start_time
             duration = current_time - start_time
-            occupied_duration = max(1, int((duration.total_seconds() + 59) / 60))
+            occupied_duration = max(
+                1, int((duration.total_seconds() + 59) / 60))
         shared_devices.append({
             "id": device.id,
             "name": device.name,
@@ -2216,12 +2239,14 @@ async def batch_release_my_devices(current_user: User = Depends(AuthManager.get_
                 next_user_display = None
                 if usage_info.queue_users:
                     next_user = usage_info.queue_users[0]
-                    normalized_next_user = normalize_employee_id(next_user) or next_user
+                    normalized_next_user = normalize_employee_id(
+                        next_user) or next_user
                     next_user_display = normalized_next_user
                     usage_info.current_user = normalized_next_user
                     usage_info.start_time = get_current_time()
                     usage_info.status = DeviceStatusEnum.OCCUPIED
-                    usage_info.queue_users = usage_info.queue_users[1:]  # 移除第一个用户
+                    # 移除第一个用户
+                    usage_info.queue_users = usage_info.queue_users[1:]
 
                 await usage_info.save()
                 released_count += 1
@@ -2334,7 +2359,7 @@ async def batch_cancel_my_queues(current_user: User = Depends(AuthManager.get_cu
             message="批量取消排队失败",
             data=None
         )
-    
+
     else:
         raise HTTPException(status_code=400, detail="设备当前不可用")
 
@@ -2355,7 +2380,8 @@ async def admin_force_cleanup_all_devices(current_user: User = Depends(AuthManag
         return BaseResponse(
             code=200,
             message="所有设备已强制清理完成",
-            data={"action": "force_cleanup_all", "executor": current_user.employee_id}
+            data={"action": "force_cleanup_all",
+                  "executor": current_user.employee_id}
         )
 
     except Exception as e:
@@ -2378,10 +2404,10 @@ async def get_device_configs(
     device = await Device.get_or_none(id=device_id)
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
+
     # 获取配置列表
     configs = await DeviceConfig.filter(device=device).order_by('config_param1', 'config_param2')
-    
+
     result = []
     for config in configs:
         result.append({
@@ -2393,7 +2419,7 @@ async def get_device_configs(
             "created_at": config.created_at,
             "updated_at": config.updated_at
         })
-    
+
     return BaseResponse(data=result)
 
 
@@ -2412,24 +2438,25 @@ async def add_device_config(
     device = await Device.get_or_none(id=device_id)
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
+
     # 权限检查：只有设备归属人或管理员可以修改
     current_user_id = current_user.employee_id or current_user.username
     is_admin = current_user.is_superuser or current_user.role == '管理员'
     is_owner = device.owner == current_user_id
-    
+
     if not (is_admin or is_owner):
         raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
-    
+
     # 检查参数组合是否已存在
     existing_config = await DeviceConfig.get_or_none(
-        device=device, 
-        config_param1=config_data.config_param1, 
+        device=device,
+        config_param1=config_data.config_param1,
         config_param2=config_data.config_param2
     )
     if existing_config:
-        raise HTTPException(status_code=400, detail=f"配置参数组合 ({config_data.config_param1}, {config_data.config_param2}) 已存在")
-    
+        raise HTTPException(
+            status_code=400, detail=f"配置参数组合 ({config_data.config_param1}, {config_data.config_param2}) 已存在")
+
     # 创建配置
     try:
         config = await DeviceConfig.create(
@@ -2438,7 +2465,7 @@ async def add_device_config(
             config_param2=config_data.config_param2,
             config_value=config_data.config_value
         )
-        
+
         # 记录操作日志
         await OperationLog.create_log(
             user=current_user,
@@ -2448,7 +2475,7 @@ async def add_device_config(
             description=f"添加配置: 参数1={config_data.config_param1}, 参数2={config_data.config_param2}, 值={config_data.config_value}",
             device_ip=device.ip
         )
-        
+
         result = {
             "id": config.id,
             "device_id": config.device_id,
@@ -2458,9 +2485,9 @@ async def add_device_config(
             "created_at": config.created_at,
             "updated_at": config.updated_at
         }
-        
+
         return BaseResponse(data=result, message="配置添加成功")
-        
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"添加配置失败: {str(e)}")
 
@@ -2522,39 +2549,40 @@ async def update_device_config(
     device = await Device.get_or_none(id=device_id)
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
+
     # 检查配置是否存在
     config = await DeviceConfig.get_or_none(id=config_id, device=device)
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
-    
+
     # 权限检查：只有设备归属人或管理员可以修改
     current_user_id = current_user.employee_id or current_user.username
     is_admin = current_user.is_superuser or current_user.role == '管理员'
     is_owner = device.owner == current_user_id
-    
+
     if not (is_admin or is_owner):
         raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
-    
+
     # 如果更改了参数组合，检查是否会产生重复
     if config_data.config_param1 != config.config_param1 or config_data.config_param2 != config.config_param2:
         existing_config = await DeviceConfig.get_or_none(
-            device=device, 
+            device=device,
             config_param1=config_data.config_param1,
             config_param2=config_data.config_param2
         )
         if existing_config:
-            raise HTTPException(status_code=400, detail=f"配置参数组合 ({config_data.config_param1}, {config_data.config_param2}) 已存在")
-    
+            raise HTTPException(
+                status_code=400, detail=f"配置参数组合 ({config_data.config_param1}, {config_data.config_param2}) 已存在")
+
     # 更新配置
     try:
         old_config = f"参数1={config.config_param1}, 参数2={config.config_param2}, 值={config.config_value}"
-        
+
         config.config_param1 = config_data.config_param1
         config.config_param2 = config_data.config_param2
         config.config_value = config_data.config_value
         await config.save()
-        
+
         # 记录操作日志
         await OperationLog.create_log(
             user=current_user,
@@ -2564,7 +2592,7 @@ async def update_device_config(
             description=f"更新配置: {old_config} => 参数1={config.config_param1}, 参数2={config.config_param2}, 值={config.config_value}",
             device_ip=device.ip
         )
-        
+
         result = {
             "id": config.id,
             "device_id": config.device_id,
@@ -2574,9 +2602,9 @@ async def update_device_config(
             "created_at": config.created_at,
             "updated_at": config.updated_at
         }
-        
+
         return BaseResponse(data=result, message="配置更新成功")
-        
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"更新配置失败: {str(e)}")
 
@@ -2608,7 +2636,8 @@ async def import_device_config(
         raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
 
     try:
-        print(f"[配置导入] 设备: {device.name}({device.ip}) 配置: ({config.config_param1}, {config.config_param2}) 值: {config.config_value}")
+        print(
+            f"[配置导入] 设备: {device.name}({device.ip}) 配置: ({config.config_param1}, {config.config_param2}) 值: {config.config_value}")
         await OperationLog.create_log(
             user=current_user,
             operation_type="import_device_config",
@@ -2618,7 +2647,8 @@ async def import_device_config(
             device_ip=device.ip
         )
     except Exception as e:
-        print(f"[配置导入失败] device_id={device_id}, config_id={config_id}, error={e}")
+        print(
+            f"[配置导入失败] device_id={device_id}, config_id={config_id}, error={e}")
         raise HTTPException(status_code=500, detail="触发导入失败")
 
     return BaseResponse(
@@ -2645,25 +2675,25 @@ async def delete_device_config(
     device = await Device.get_or_none(id=device_id)
     if not device:
         raise HTTPException(status_code=404, detail="设备不存在")
-    
+
     # 检查配置是否存在
     config = await DeviceConfig.get_or_none(id=config_id, device=device)
     if not config:
         raise HTTPException(status_code=404, detail="配置不存在")
-    
+
     # 权限检查：只有设备归属人或管理员可以修改
     current_user_id = current_user.employee_id or current_user.username
     is_admin = current_user.is_superuser or current_user.role == '管理员'
     is_owner = device.owner == current_user_id
-    
+
     if not (is_admin or is_owner):
         raise HTTPException(status_code=403, detail="没有权限操作此设备的配置")
-    
+
     # 删除配置
     try:
         config_info = f"参数1={config.config_param1}, 参数2={config.config_param2}, 值={config.config_value}"
         await config.delete()
-        
+
         # 记录操作日志
         await OperationLog.create_log(
             user=current_user,
@@ -2673,8 +2703,8 @@ async def delete_device_config(
             description=f"删除配置: {config_info}",
             device_ip=device.ip
         )
-        
+
         return BaseResponse(message="配置删除成功")
-        
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"删除配置失败: {str(e)}")

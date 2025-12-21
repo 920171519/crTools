@@ -10,36 +10,25 @@
       <div class="search-bar">
         <el-form :model="searchForm" inline>
           <el-form-item label="命令行">
-            <el-input
-              v-model="searchForm.command_keyword"
-              placeholder="请输入命令内容关键词"
-              clearable
-              style="width: 250px"
-            />
+            <el-input v-model="searchForm.command_keyword" placeholder="请输入命令内容关键词" clearable style="width: 250px" />
           </el-form-item>
           <el-form-item label="描述">
-            <el-input
-              v-model="searchForm.description_keyword"
-              placeholder="请输入描述关键词"
-              clearable
-              style="width: 250px"
-            />
+            <el-input v-model="searchForm.description_keyword" placeholder="请输入描述关键词" clearable style="width: 250px" />
           </el-form-item>
           <el-form-item label="备注">
-            <el-input
-              v-model="searchForm.remarks_keyword"
-              placeholder="请输入备注关键词"
-              clearable
-              style="width: 250px"
-            />
+            <el-input v-model="searchForm.remarks_keyword" placeholder="请输入备注关键词" clearable style="width: 250px" />
           </el-form-item>
           <el-form-item>
             <el-button type="primary" @click="handleSearch">
-              <el-icon><Search /></el-icon>
+              <el-icon>
+                <Search />
+              </el-icon>
               搜索
             </el-button>
             <el-button @click="handleReset">
-              <el-icon><Refresh /></el-icon>
+              <el-icon>
+                <Refresh />
+              </el-icon>
               重置
             </el-button>
           </el-form-item>
@@ -87,34 +76,21 @@
 
       <!-- 分页 -->
       <div class="pagination">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.page_size"
-          :page-sizes="[20, 50, 100]"
-          :small="false"
-          :disabled="false"
-          :background="false"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="pagination.total"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
+        <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.page_size"
+          :page-sizes="[20, 50, 100]" :small="false" :disabled="false" :background="false"
+          layout="total, sizes, prev, pager, next, jumper" :total="pagination.total" @size-change="handleSizeChange"
+          @current-change="handleCurrentChange" />
       </div>
     </el-card>
 
     <!-- 导入对话框 -->
     <el-dialog v-if="canImport" v-model="showImportDialog" title="导入命令行（xlsx）" width="500px">
       <div>
-        <el-upload
-          class="upload-block"
-          drag
-          :show-file-list="true"
-          :limit="1"
-          :auto-upload="false"
-          accept=".xlsx"
-          :on-change="onFileChange"
-        >
-          <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+        <el-upload class="upload-block" drag :show-file-list="true" :limit="1" :auto-upload="false" accept=".xlsx"
+          :on-change="onFileChange">
+          <el-icon class="el-icon--upload">
+            <UploadFilled />
+          </el-icon>
           <div class="el-upload__text">将文件拖拽到此处，或<em>点击上传</em></div>
           <template #tip>
             <div class="el-upload__tip">仅支持 .xlsx 文件</div>
@@ -130,26 +106,24 @@
     </el-dialog>
 
     <!-- 命令行详情抽屉 -->
-    <el-drawer
-      v-model="showDetailDrawer"
-      title="命令行详情"
-      direction="rtl"
-      size="600px"
-      :before-close="handleDetailDrawerClose"
-    >
+    <el-drawer v-model="showDetailDrawer" title="命令行详情" direction="rtl" size="600px"
+      :before-close="handleDetailDrawerClose">
       <div v-loading="detailLoading" class="command-detail">
         <template v-if="commandDetail">
           <!-- 顶部地址 -->
           <div class="detail-url">
             <label>地址：</label>
-            <a v-if="commandDetail.link" :href="commandDetail.link" target="_blank" class="detail-link">{{ commandDetail.link }}</a>
+            <a v-if="commandDetail.link" :href="commandDetail.link" target="_blank" class="detail-link">{{
+              commandDetail.link }}</a>
             <span v-else>-</span>
           </div>
 
           <!-- 注意事项 -->
           <div class="detail-section">
             <h3 class="section-title">
-              <el-icon><InfoFilled /></el-icon>
+              <el-icon>
+                <InfoFilled />
+              </el-icon>
               注意事项
             </h3>
             <div class="remarks">{{ commandDetail.notice || '暂无' }}</div>
@@ -158,7 +132,9 @@
           <!-- 参数范围（表格） -->
           <div class="detail-section">
             <h3 class="section-title">
-              <el-icon><InfoFilled /></el-icon>
+              <el-icon>
+                <InfoFilled />
+              </el-icon>
               参数范围
             </h3>
             <el-table :data="(commandDetail.param_ranges || []) as any[]" size="small" style="width: 100%">
@@ -172,7 +148,9 @@
           <div class="detail-section">
             <div class="section-header">
               <h3 class="section-title">
-                <el-icon><InfoFilled /></el-icon>
+                <el-icon>
+                  <InfoFilled />
+                </el-icon>
                 备注
               </h3>
               <el-button type="primary" size="small" plain @click="toggleEditRemarks" v-if="!isEditRemarks">
@@ -184,14 +162,7 @@
               </div>
             </div>
             <div class="remarks" v-if="!isEditRemarks">{{ commandDetail.remarks || '暂无' }}</div>
-            <el-input
-              v-else
-              v-model="editRemarksText"
-              type="textarea"
-              :rows="4"
-              maxlength="5000"
-              show-word-limit
-            />
+            <el-input v-else v-model="editRemarksText" type="textarea" :rows="4" maxlength="5000" show-word-limit />
           </div>
         </template>
       </div>
@@ -344,7 +315,7 @@ const loadCommandDetail = async (id: number, forEdit = false) => {
   try {
     const response = await commandApi.getCommand(id)
     commandDetail.value = response.data
-    
+
     if (forEdit) {
       // 用于编辑对话框
       commandForm.command_text = response.data.command_text
@@ -420,11 +391,11 @@ const handleSaveEdit = async () => {
     saveLoading.value = true
     await commandApi.updateCommand(commandDetail.value.id, editCommandForm)
     ElMessage.success('命令行更新成功')
-    
+
     // 重新加载详情
     await loadCommandDetail(commandDetail.value.id)
     isEditMode.value = false
-    
+
     // 刷新列表
     await loadCommands()
   } catch (error: any) {

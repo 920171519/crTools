@@ -19,14 +19,15 @@ class Command(Model):
     param_ranges = fields.JSONField(default=list, description="参数范围(表格JSON)")
     remarks = fields.TextField(null=True, description="备注内容")
     creator = fields.CharField(max_length=50, description="创建人工号")
-    last_editor = fields.CharField(max_length=50, null=True, description="最后编辑人工号")
+    last_editor = fields.CharField(
+        max_length=50, null=True, description="最后编辑人工号")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
     updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
-    
+
     class Meta:
         table = "commands"
         table_description = "命令行集表"
-    
+
     def __str__(self):
         return f"{self.command_text[:50]}"
 
@@ -39,7 +40,8 @@ class CommandOperationLog(Model):
     employee_id = fields.CharField(max_length=20, description="操作人工号")
     username = fields.CharField(max_length=50, description="操作人用户名")
     operation_type = fields.CharField(max_length=50, description="操作类型")
-    operation_result = fields.CharField(max_length=20, default="success", description="操作结果")
+    operation_result = fields.CharField(
+        max_length=20, default="success", description="操作结果")
     description = fields.TextField(null=True, description="操作描述")
     ip_address = fields.CharField(max_length=45, null=True, description="IP地址")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")

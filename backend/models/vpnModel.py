@@ -27,18 +27,21 @@ class VPNConfig(Model):
 
 class UserVPNConfig(Model):
     """用户VPN IP配置模型"""
-    
+
     id = fields.IntField(pk=True, description="配置ID")
-    user = fields.ForeignKeyField("models.User", related_name="vpn_configs", description="用户")
-    vpn_config = fields.ForeignKeyField("models.VPNConfig", related_name="user_configs", description="VPN配置")
-    ip_address = fields.CharField(max_length=45, null=True, description="用户配置的IP地址")
+    user = fields.ForeignKeyField(
+        "models.User", related_name="vpn_configs", description="用户")
+    vpn_config = fields.ForeignKeyField(
+        "models.VPNConfig", related_name="user_configs", description="VPN配置")
+    ip_address = fields.CharField(
+        max_length=45, null=True, description="用户配置的IP地址")
     created_at = fields.DatetimeField(auto_now_add=True, description="创建时间")
     updated_at = fields.DatetimeField(auto_now=True, description="更新时间")
-    
+
     class Meta:
         table = "user_vpn_configs"
         table_description = "用户VPN IP配置表"
         unique_together = (("user", "vpn_config"),)  # 每个用户对每个VPN只能有一个配置
-    
+
     def __str__(self):
         return f"{self.user.employee_id} - {self.vpn_config.name} - {self.ip_address}"

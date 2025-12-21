@@ -18,9 +18,11 @@ def get_current_time():
     """获取当前时间，统一使用naive datetime"""
     return datetime.now()
 
+
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 class DeviceScheduler:
     def __init__(self):
@@ -41,7 +43,8 @@ class DeviceScheduler:
                 if user:
                     username = user.username or "-"
             action = f"{context}：被强制释放"
-            print(f"[通知] 设备: {device.name}({device.ip}) | 用户: {emp}({username}) | 动作: {action}")
+            print(
+                f"[通知] 设备: {device.name}({device.ip}) | 用户: {emp}({username}) | 动作: {action}")
         except Exception as e:
             logger.error(f"发送定时/管理员清理通知失败: {e}")
 
@@ -112,7 +115,7 @@ class DeviceScheduler:
         )
 
         logger.info(f"定时清理任务已更新，新的清理时间: {cleanup_time}")
-        
+
     async def stop(self):
         """停止定时任务调度器"""
         # 停止连通性检测管理器
@@ -121,7 +124,7 @@ class DeviceScheduler:
 
         self.scheduler.shutdown()
         logger.info("定时任务调度器已停止")
-    
+
     async def enforce_occupancy_limits(self):
         """检查并处理超时占用的设备（仅在有排队用户时释放并切换）"""
         try:
@@ -139,7 +142,8 @@ class DeviceScheduler:
                 if not usage.start_time:
                     continue
 
-                start_time = usage.start_time.replace(tzinfo=None) if usage.start_time.tzinfo else usage.start_time
+                start_time = usage.start_time.replace(
+                    tzinfo=None) if usage.start_time.tzinfo else usage.start_time
                 elapsed_minutes = (now - start_time).total_seconds() / 60
                 if elapsed_minutes < device.max_occupy_minutes:
                     continue
@@ -151,7 +155,8 @@ class DeviceScheduler:
 
                 previous_emp = usage.current_user
                 next_emp_raw = queue.pop(0)
-                next_emp = next_emp_raw.lower() if isinstance(next_emp_raw, str) else next_emp_raw
+                next_emp = next_emp_raw.lower() if isinstance(
+                    next_emp_raw, str) else next_emp_raw
 
                 usage.current_user = next_emp
                 usage.start_time = now
@@ -177,7 +182,7 @@ class DeviceScheduler:
                     )
         except Exception as exc:
             logger.error(f"占用时长限制检查失败: {exc}")
-        
+
     async def daily_device_cleanup(self, force_cleanup=False):
         """每日设备清理任务：释放所有设备占用和排队
 
@@ -200,18 +205,22 @@ class DeviceScheduler:
                     if not force_cleanup and usage_info.is_long_term and usage_info.end_date:
                         current_time = get_current_time()
                         # 如果数据库中的时间是aware的，转换为naive进行比较
-                        end_date = usage_info.end_date.replace(tzinfo=None) if usage_info.end_date.tzinfo else usage_info.end_date
+                        end_date = usage_info.end_date.replace(
+                            tzinfo=None) if usage_info.end_date.tzinfo else usage_info.end_date
                         if end_date > current_time:
-                            logger.info(f"跳过长时间占用设备: {usage_info.device.name}，截至时间：{usage_info.end_date}")
+                            logger.info(
+                                f"跳过长时间占用设备: {usage_info.device.name}，截至时间：{usage_info.end_date}")
                             continue
                         else:
-                            logger.info(f"长时间占用设备已到期，开始清理: {usage_info.device.name}，截至时间：{usage_info.end_date}")
+                            logger.info(
+                                f"长时间占用设备已到期，开始清理: {usage_info.device.name}，截至时间：{usage_info.end_date}")
                     elif force_cleanup and usage_info.is_long_term:
                         logger.info(f"强制清理长时间占用设备: {usage_info.device.name}")
 
                     # 记录清理前的状态
                     had_user = bool(usage_info.current_user)
-                    prev_emp = (usage_info.current_user.lower() if usage_info.current_user else None)
+                    prev_emp = (usage_info.current_user.lower()
+                                if usage_info.current_user else None)
                     had_queue = bool(usage_info.queue_users)
 
                     # 清理占用状态
@@ -240,8 +249,9 @@ class DeviceScheduler:
 
                 except Exception as e:
                     logger.error(f"清理设备 {usage_info.device.name} 失败: {e}")
-            
-            logger.info(f"{cleanup_type}任务完成 - 释放设备: {released_count}台, 清理排队: {queue_cleared_count}台")
+
+            logger.info(
+                f"{cleanup_type}任务完成 - 释放设备: {released_count}台, 清理排队: {queue_cleared_count}台")
 
         except Exception as e:
             logger.error(f"{cleanup_type}任务执行失败: {e}")
@@ -250,12 +260,15 @@ class DeviceScheduler:
         """手动强制清理所有设备（管理员功能）"""
         return await self.daily_device_cleanup(force_cleanup=True)
 
+
 # 全局调度器实例
 device_scheduler = DeviceScheduler()
+
 
 async def start_scheduler():
     """启动调度器"""
     await device_scheduler.start()
+
 
 async def stop_scheduler():
     """停止调度器"""

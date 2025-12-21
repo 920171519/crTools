@@ -8,11 +8,15 @@
       </div>
       <div class="error-actions">
         <el-button type="primary" @click="goHome">
-          <el-icon><House /></el-icon>
+          <el-icon>
+            <House />
+          </el-icon>
           返回首页
         </el-button>
         <el-button @click="goBack">
-          <el-icon><Back /></el-icon>
+          <el-icon>
+            <Back />
+          </el-icon>
           返回上页
         </el-button>
       </div>
@@ -97,4 +101,4 @@ const goBack = () => {
     width: 200px;
   }
 }
-</style> 
+</style>

@@ -11,22 +11,20 @@
       </div>
     </el-card>
 
-    <el-alert
-      v-if="pendingShareRequests.length"
-      type="warning"
-      show-icon
-      :closable="false"
-      class="share-alert"
-      :title="`有 ${pendingShareRequests.length} 个共用申请待处理`"
-    />
+    <el-alert v-if="pendingShareRequests.length" type="warning" show-icon :closable="false" class="share-alert"
+      :title="`有 ${pendingShareRequests.length} 个共用申请待处理`" />
 
     <el-card class="share-requests-card" shadow="never">
       <template #header>
         <div class="card-header">
-          <el-icon><User /></el-icon>
+          <el-icon>
+            <User />
+          </el-icon>
           <span>设备共用申请</span>
           <el-button text size="small" @click="loadPendingShareRequests">
-            <el-icon><Refresh /></el-icon>
+            <el-icon>
+              <Refresh />
+            </el-icon>
             刷新
           </el-button>
         </div>
@@ -49,8 +47,10 @@
         </el-table-column>
         <el-table-column label="操作" width="220">
           <template #default="{ row }">
-            <el-button type="primary" plain size="small" @click="handleShareDecision(row, true)" :loading="shareDecisionLoading[row.id]">允许</el-button>
-            <el-button type="danger" plain size="small" @click="handleShareDecision(row, false)" :loading="shareDecisionLoading[row.id]">拒绝</el-button>
+            <el-button type="primary" plain size="small" @click="handleShareDecision(row, true)"
+              :loading="shareDecisionLoading[row.id]">允许</el-button>
+            <el-button type="danger" plain size="small" @click="handleShareDecision(row, false)"
+              :loading="shareDecisionLoading[row.id]">拒绝</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -60,36 +60,44 @@
     <el-card class="modules-card" shadow="never">
       <template #header>
         <div class="card-header">
-          <el-icon><Lightning /></el-icon>
+          <el-icon>
+            <Lightning />
+          </el-icon>
           <span>系统模块</span>
         </div>
       </template>
       <div class="modules-grid">
         <div class="module-item" @click="goToPage('/system/users')" v-if="userStore.hasPermission('user:read')">
           <div class="module-icon user-module">
-            <el-icon size="32"><User /></el-icon>
+            <el-icon size="32">
+              <User />
+            </el-icon>
           </div>
           <div class="module-info">
             <h3>用户管理</h3>
             <p>管理系统用户信息</p>
           </div>
         </div>
-        
 
-        
+
+
         <div class="module-item" @click="goToPage('/system/logs')" v-if="userStore.hasPermission('system:log')">
           <div class="module-icon log-module">
-            <el-icon size="32"><Document /></el-icon>
+            <el-icon size="32">
+              <Document />
+            </el-icon>
           </div>
           <div class="module-info">
             <h3>操作日志</h3>
             <p>查看用户登录和设备操作记录</p>
           </div>
         </div>
-        
+
         <div class="module-item" @click="goToPage('/profile')">
           <div class="module-icon profile-module">
-            <el-icon size="32"><Setting /></el-icon>
+            <el-icon size="32">
+              <Setting />
+            </el-icon>
           </div>
           <div class="module-info">
             <h3>个人中心</h3>
@@ -108,7 +116,9 @@
         <el-card class="recent-login-card" shadow="never">
           <template #header>
             <div class="card-header">
-              <el-icon><Clock /></el-icon>
+              <el-icon>
+                <Clock />
+              </el-icon>
               <span>设备相关信息</span>
             </div>
           </template>
@@ -120,10 +130,7 @@
             <div class="info-item">
               <span class="info-label">用户角色：</span>
               <span class="info-value">
-                <el-tag
-                  size="small"
-                  type="primary"
-                >
+                <el-tag size="small" type="primary">
                   {{ userStore.userInfo?.role || '未知' }}
                 </el-tag>
               </span>
@@ -155,7 +162,9 @@
         <el-card class="system-info-card" shadow="never">
           <template #header>
             <div class="card-header">
-              <el-icon><Monitor /></el-icon>
+              <el-icon>
+                <Monitor />
+              </el-icon>
               <span>系统信息</span>
             </div>
           </template>
@@ -229,7 +238,7 @@ const currentTime = computed(() => {
   const now = new Date()
   const hour = now.getHours()
   let greeting = ''
-  
+
   if (hour < 6) {
     greeting = '凌晨好'
   } else if (hour < 9) {
@@ -245,7 +254,7 @@ const currentTime = computed(() => {
   } else {
     greeting = '晚上好'
   }
-  
+
   return greeting
 })
 
@@ -257,7 +266,7 @@ const goToPage = (path: string) => {
 // 格式化时间
 const formatTime = (timeStr?: string) => {
   if (!timeStr) return '暂无'
-  
+
   const date = new Date(timeStr)
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
@@ -351,15 +360,15 @@ const loadDeviceStats = async () => {
     // 确保devices是数组
     if (Array.isArray(devices)) {
       devices.forEach(device => {
-      // 统计当前用户占用的设备
-      if (device.current_user === userStore.userInfo?.employee_id) {
-        occupiedCount++
-      }
-      // 统计当前用户排队的设备
-      if (device.is_current_user_in_queue) {
-        queueCount++
-      }
-    })
+        // 统计当前用户占用的设备
+        if (device.current_user === userStore.userInfo?.employee_id) {
+          occupiedCount++
+        }
+        // 统计当前用户排队的设备
+        if (device.is_current_user_in_queue) {
+          queueCount++
+        }
+      })
     }
 
     deviceStats.value = {
@@ -447,16 +456,40 @@ onMounted(() => {
   gap: 8px;
 }
 
-.device-icon { color: #909399; }
-.name-text { font-weight: 500; }
-.ip-tag { margin-left: 4px; }
+.device-icon {
+  color: #909399;
+}
 
-.device-status { min-width: 100px; text-align: right; }
+.name-text {
+  font-weight: 500;
+}
 
-.device-user { color: #606266; display: flex; align-items: center; gap: 4px; }
+.ip-tag {
+  margin-left: 4px;
+}
 
-.share-message { color: #606266; display: flex; align-items: center; gap: 6px; }
-.share-text { color: #606266; }
+.device-status {
+  min-width: 100px;
+  text-align: right;
+}
+
+.device-user {
+  color: #606266;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.share-message {
+  color: #606266;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.share-text {
+  color: #606266;
+}
 
 /* 系统标题样式 */
 .system-title {
@@ -566,7 +599,8 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-.recent-login-card, .system-info-card {
+.recent-login-card,
+.system-info-card {
   border: none;
   height: 100%;
 }
@@ -697,4 +731,4 @@ onMounted(() => {
     font-size: 16px;
   }
 }
-</style> 
+</style>

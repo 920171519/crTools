@@ -5,65 +5,32 @@
         <h1>用户注册</h1>
         <p>创建您的crTools账户</p>
       </div>
-      
-      <el-form 
-        ref="registerFormRef" 
-        :model="registerForm" 
-        :rules="registerRules"
-        class="register-form"
-        size="large"
-      >
+
+      <el-form ref="registerFormRef" :model="registerForm" :rules="registerRules" class="register-form" size="large">
         <el-form-item prop="username">
-          <el-input 
-            v-model="registerForm.username"
-            placeholder="请输入姓名"
-            prefix-icon="Avatar"
-            clearable
-          />
+          <el-input v-model="registerForm.username" placeholder="请输入姓名" prefix-icon="Avatar" clearable />
         </el-form-item>
 
         <el-form-item prop="employee_id">
-          <el-input 
-            v-model="registerForm.employee_id"
-            placeholder="请输入工号(如: A12345678)"
-            prefix-icon="User"
-            clearable
-          />
+          <el-input v-model="registerForm.employee_id" placeholder="请输入工号(如: A12345678)" prefix-icon="User" clearable />
         </el-form-item>
 
         <el-form-item prop="password">
-          <el-input 
-            v-model="registerForm.password"
-            type="password"
-            placeholder="请输入密码"
-            prefix-icon="Lock"
-            show-password
-            clearable
-          />
+          <el-input v-model="registerForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock" show-password
+            clearable />
         </el-form-item>
-        
+
         <el-form-item prop="confirmPassword">
-          <el-input 
-            v-model="registerForm.confirmPassword"
-            type="password"
-            placeholder="请确认密码"
-            prefix-icon="Lock"
-            show-password
-            clearable
-          />
+          <el-input v-model="registerForm.confirmPassword" type="password" placeholder="请确认密码" prefix-icon="Lock"
+            show-password clearable />
         </el-form-item>
-        
+
         <el-form-item>
-          <el-button 
-            type="primary" 
-            class="register-btn"
-            :loading="loading"
-            @click="handleRegister"
-          >
+          <el-button type="primary" class="register-btn" :loading="loading" @click="handleRegister">
             {{ loading ? '注册中...' : '注册' }}
           </el-button>
         </el-form-item>
-        
+
         <div class="register-links">
           <router-link to="/login" class="login-link">
             已有账号？立即登录
@@ -109,10 +76,10 @@ const validateConfirmPassword = (rule: any, value: any, callback: any) => {
 const registerRules: FormRules = {
   employee_id: [
     { required: true, message: '请输入工号', trigger: 'blur' },
-    { 
-      pattern: /^[A-Za-z]\d{8}$/, 
-      message: '工号格式错误，应为一个字母加8个数字', 
-      trigger: 'blur' 
+    {
+      pattern: /^[A-Za-z]\d{8}$/,
+      message: '工号格式错误，应为一个字母加8个数字',
+      trigger: 'blur'
     }
   ],
   username: [
@@ -134,25 +101,25 @@ const loading = ref(false)
 // 处理注册
 const handleRegister = async () => {
   if (!registerFormRef.value) return
-  
+
   try {
     // 验证表单
     await registerFormRef.value.validate()
-    
+
     loading.value = true
-    
+
     // 准备注册数据
     const userData = {
       employee_id: registerForm.employee_id,
       username: registerForm.username,
       password: registerForm.password,
     }
-    
+
     // 调用注册接口
     await userStore.registerAction(userData)
-    
+
     ElMessage.success('注册成功，请登录')
-    
+
     // 跳转到登录页面
     router.push('/login')
   } catch (error: any) {
@@ -236,9 +203,9 @@ const handleRegister = async () => {
   .register-container {
     padding: 10px;
   }
-  
+
   .register-box {
     padding: 20px;
   }
 }
-</style> 
+</style>

@@ -5,53 +5,30 @@
         <h1>crTools后台管理系统</h1>
         <p>基于工号的后台管理系统</p>
       </div>
-      
-      <el-form 
-        ref="loginFormRef" 
-        :model="loginForm" 
-        :rules="loginRules"
-        class="login-form"
-        size="large"
-      >
+
+      <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" class="login-form" size="large">
         <el-form-item prop="employee_id">
-          <el-input 
-            v-model="loginForm.employee_id"
-            placeholder="请输入工号(如: a12345678)"
-            prefix-icon="User"
-            clearable
-          />
+          <el-input v-model="loginForm.employee_id" placeholder="请输入工号(如: a12345678)" prefix-icon="User" clearable />
         </el-form-item>
-        
+
         <el-form-item prop="password">
-          <el-input 
-            v-model="loginForm.password"
-            type="password"
-            placeholder="请输入密码"
-            prefix-icon="Lock"
-            show-password
-            clearable
-            @keyup.enter="handleLogin"
-          />
+          <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" prefix-icon="Lock" show-password
+            clearable @keyup.enter="handleLogin" />
         </el-form-item>
-        
+
         <el-form-item>
-          <el-button 
-            type="primary" 
-            class="login-btn"
-            :loading="loading"
-            @click="handleLogin"
-          >
+          <el-button type="primary" class="login-btn" :loading="loading" @click="handleLogin">
             {{ loading ? '登录中...' : '登录' }}
           </el-button>
         </el-form-item>
-        
+
         <div class="login-links">
           <router-link to="/register" class="register-link">
             还没有账号？立即注册
           </router-link>
         </div>
       </el-form>
-      
+
       <div class="login-footer">
         <p>默认管理员账号: a12345678 / admin123</p>
       </div>
@@ -81,10 +58,10 @@ const loginForm = reactive({
 const loginRules: FormRules = {
   employee_id: [
     { required: true, message: '请输入工号', trigger: 'blur' },
-    { 
-      pattern: /^[A-Za-z]\d{8}$/, 
-      message: '工号格式错误，应为一个字母加8个数字', 
-      trigger: 'blur' 
+    {
+      pattern: /^[A-Za-z]\d{8}$/,
+      message: '工号格式错误，应为一个字母加8个数字',
+      trigger: 'blur'
     }
   ],
   password: [
@@ -99,21 +76,21 @@ const loading = ref(false)
 // 处理登录
 const handleLogin = async () => {
   if (!loginFormRef.value) return
-  
+
   try {
     // 验证表单
     await loginFormRef.value.validate()
-    
+
     loading.value = true
-    
+
     // 调用登录接口
     await userStore.loginAction({
       employee_id: loginForm.employee_id,
       password: loginForm.password
     })
-    
+
     ElMessage.success('登录成功')
-    
+
     // 跳转到首页
     router.push('/dashboard')
   } catch (error: any) {
@@ -201,4 +178,4 @@ const handleLogin = async () => {
   font-size: 12px;
   margin: 0;
 }
-</style> 
+</style>

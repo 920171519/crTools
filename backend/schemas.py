@@ -30,7 +30,7 @@ class UserRegister(BaseModel):
     employee_id: str = Field(..., description="工号(一个字母+8个数字)")
     username: str = Field(..., min_length=2, max_length=50, description="姓名")
     password: str = Field(..., min_length=6, max_length=20, description="密码")
-    
+
     @validator('employee_id')
     def validate_employee_id(cls, v):
         """验证工号格式"""
@@ -44,7 +44,7 @@ class UserLogin(BaseModel):
     """用户登录请求模式"""
     employee_id: str = Field(..., description="工号")
     password: str = Field(..., description="密码")
-    
+
     @validator('employee_id')
     def validate_employee_id(cls, v):
         """验证工号格式"""
@@ -75,7 +75,8 @@ class UserUpdate(BaseModel):
 class PasswordChange(BaseModel):
     """密码修改请求模式"""
     old_password: str = Field(..., description="原密码")
-    new_password: str = Field(..., min_length=6, max_length=20, description="新密码")
+    new_password: str = Field(..., min_length=6,
+                              max_length=20, description="新密码")
 
 
 # ===== 分组相关模式 =====
@@ -97,7 +98,8 @@ class GroupDetail(GroupSummary):
 class GroupCreate(BaseModel):
     """创建分组请求"""
     name: str = Field(..., min_length=1, max_length=100, description="分组名称")
-    description: Optional[str] = Field(None, max_length=255, description="分组描述")
+    description: Optional[str] = Field(
+        None, max_length=255, description="分组描述")
     sort_order: int = Field(0, description="排序")
 
 
@@ -141,7 +143,8 @@ class TokenData(BaseModel):
 class RoleCreate(BaseModel):
     """角色创建请求模式"""
     name: str = Field(..., min_length=2, max_length=50, description="角色名称")
-    description: Optional[str] = Field(None, max_length=200, description="角色描述")
+    description: Optional[str] = Field(
+        None, max_length=200, description="角色描述")
 
 
 class RoleResponse(BaseModel):
@@ -149,7 +152,7 @@ class RoleResponse(BaseModel):
     id: int
     name: str
     description: Optional[str]
-    
+
     class Config:
         from_attributes = True
 
@@ -165,7 +168,8 @@ class PermissionCreate(BaseModel):
     """权限创建请求模式"""
     name: str = Field(..., min_length=2, max_length=50, description="权限名称")
     code: str = Field(..., min_length=2, max_length=50, description="权限代码")
-    description: Optional[str] = Field(None, max_length=200, description="权限描述")
+    description: Optional[str] = Field(
+        None, max_length=200, description="权限描述")
     resource: str = Field(..., max_length=100, description="资源名称")
     action: str = Field(..., max_length=50, description="动作类型")
 
@@ -178,7 +182,7 @@ class PermissionResponse(BaseModel):
     description: Optional[str]
     resource: str
     action: str
-    
+
     class Config:
         from_attributes = True
 
@@ -193,7 +197,8 @@ class MenuCreate(BaseModel):
     parent_id: Optional[int] = Field(None, description="父菜单ID")
     sort_order: int = Field(default=0, description="排序")
     is_visible: bool = Field(default=True, description="是否显示")
-    permission_code: Optional[str] = Field(None, max_length=50, description="所需权限代码")
+    permission_code: Optional[str] = Field(
+        None, max_length=50, description="所需权限代码")
 
 
 class MenuResponse(BaseModel):
@@ -208,7 +213,7 @@ class MenuResponse(BaseModel):
     is_visible: bool
     permission_code: Optional[str]
     children: Optional[List['MenuResponse']] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -268,12 +273,18 @@ class VPNConfigCreate(VPNConfigBase):
 
 class VPNConfigUpdate(BaseModel):
     """更新VPN配置请求模式"""
-    region: Optional[str] = Field(None, min_length=1, max_length=50, description="地域")
-    network: Optional[str] = Field(None, min_length=1, max_length=50, description="网段")
-    lns: Optional[str] = Field(None, min_length=1, max_length=45, description="LNS地址")
-    gw: Optional[str] = Field(None, min_length=1, max_length=45, description="网关地址")
-    ip: Optional[str] = Field(None, min_length=1, max_length=45, description="VPN IP")
-    mask: Optional[str] = Field(None, min_length=1, max_length=45, description="子网掩码")
+    region: Optional[str] = Field(
+        None, min_length=1, max_length=50, description="地域")
+    network: Optional[str] = Field(
+        None, min_length=1, max_length=50, description="网段")
+    lns: Optional[str] = Field(
+        None, min_length=1, max_length=45, description="LNS地址")
+    gw: Optional[str] = Field(
+        None, min_length=1, max_length=45, description="网关地址")
+    ip: Optional[str] = Field(
+        None, min_length=1, max_length=45, description="VPN IP")
+    mask: Optional[str] = Field(
+        None, min_length=1, max_length=45, description="子网掩码")
 
 
 class VPNConfigResponse(VPNConfigBase):
@@ -311,15 +322,17 @@ class DeviceBase(BaseModel):
     creator: str = Field(..., description="设备添加人")
     ftp_prefix: bool = Field(False, description="FTP连接是否需要输入前缀")
     support_queue: bool = Field(True, description="是否支持排队占用")
-    max_occupy_minutes: Optional[int] = Field(None, description="最大占用时长（分钟），有排队时超时会自动释放")
+    max_occupy_minutes: Optional[int] = Field(
+        None, description="最大占用时长（分钟），有排队时超时会自动释放")
     owner: str = Field(..., description="设备归属人")
     admin_username: str = Field(..., description="管理员账号")
     admin_password: str = Field(..., description="管理员密码")
     device_type: str = Field("test", description="设备归属类")
     form_type: str = Field(..., description="设备形态")
     remarks: Optional[str] = Field(None, description="设备备注信息")
-    group_ids: Optional[List[int]] = Field(default=None, description="设备所属分组ID列表")
-    
+    group_ids: Optional[List[int]] = Field(
+        default=None, description="设备所属分组ID列表")
+
     @validator('form_type')
     def validate_form_type(cls, v):
         """验证设备形态"""
@@ -348,7 +361,7 @@ class DeviceUpdate(BaseModel):
     form_type: Optional[str] = None
     remarks: Optional[str] = None
     group_ids: Optional[List[int]] = None
-    
+
     @validator('form_type')
     def validate_form_type(cls, v):
         """验证设备形态"""
@@ -423,7 +436,7 @@ class DeviceUsageResponse(DeviceUsageBase):
     is_shared_user: bool = False
     share_request_id: Optional[int] = None
     share_status: Optional[str] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -568,7 +581,7 @@ class DeviceConfigResponse(DeviceConfigBase):
     device_id: int = Field(..., description="设备ID")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="更新时间")
-    
+
     class Config:
         from_attributes = True
 
@@ -576,12 +589,14 @@ class DeviceConfigResponse(DeviceConfigBase):
 # ===== 命令行集相关模式 =====
 class CommandBase(BaseModel):
     """命令行基础模式"""
-    command_text: str = Field(..., min_length=1, max_length=1000, description="命令内容")
+    command_text: str = Field(..., min_length=1,
+                              max_length=1000, description="命令内容")
     link: Optional[str] = Field(None, max_length=1000, description="介绍网页链接")
     view: Optional[str] = Field(None, max_length=100, description="视图/类别")
     description: Optional[str] = Field(None, description="描述")
     notice: Optional[str] = Field(None, description="注意事项")
-    param_ranges: Optional[List[dict]] = Field(default_factory=list, description="参数范围表")
+    param_ranges: Optional[List[dict]] = Field(
+        default_factory=list, description="参数范围表")
     remarks: Optional[str] = Field(None, max_length=5000, description="备注信息")
 
 
@@ -592,12 +607,14 @@ class CommandCreate(CommandBase):
 
 class CommandUpdate(BaseModel):
     """更新命令行请求模式"""
-    command_text: Optional[str] = Field(None, min_length=1, max_length=1000, description="命令内容")
+    command_text: Optional[str] = Field(
+        None, min_length=1, max_length=1000, description="命令内容")
     link: Optional[str] = Field(None, max_length=1000, description="介绍网页链接")
     view: Optional[str] = Field(None, max_length=100, description="视图/类别")
     description: Optional[str] = Field(None, description="描述")
     notice: Optional[str] = Field(None, description="注意事项")
-    param_ranges: Optional[List[dict]] = Field(default=None, description="参数范围表")
+    param_ranges: Optional[List[dict]] = Field(
+        default=None, description="参数范围表")
     remarks: Optional[str] = Field(None, max_length=5000, description="备注信息")
 
 
@@ -608,7 +625,7 @@ class CommandResponse(CommandBase):
     last_editor: Optional[str] = Field(None, description="最后编辑人工号")
     created_at: datetime = Field(..., description="创建时间")
     updated_at: datetime = Field(..., description="更新时间")
-    
+
     class Config:
         from_attributes = True
 
@@ -627,7 +644,8 @@ class CommandListItem(BaseModel):
 class AIDiagnosisCreate(BaseModel):
     """AI 诊断创建请求模式"""
     device_id: int = Field(..., description="设备ID")
-    problem_description: str = Field(..., min_length=1, max_length=5000, description="问题描述")
+    problem_description: str = Field(..., min_length=1,
+                                     max_length=5000, description="问题描述")
 
 
 class AIDiagnosisResponse(BaseModel):
@@ -645,7 +663,7 @@ class AIDiagnosisResponse(BaseModel):
     error_message: Optional[str]
     created_at: datetime
     completed_at: Optional[datetime]
-    
+
     class Config:
         from_attributes = True
 

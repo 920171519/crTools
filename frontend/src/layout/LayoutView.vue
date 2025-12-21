@@ -8,46 +8,42 @@
           <h2>crTools</h2>
           <span>工具管理系统</span>
         </div>
-        
-        <el-menu
-          :default-active="activeMenu"
-          class="sidebar-menu"
-          :collapse="isCollapse"
-          :unique-opened="true"
-          text-color="#bfcbd9"
-          router
-        >
+
+        <el-menu :default-active="activeMenu" class="sidebar-menu" :collapse="isCollapse" :unique-opened="true"
+          text-color="#bfcbd9" router>
           <template v-for="menu in menuList" :key="menu.id">
             <!-- 有子菜单的项 -->
             <el-sub-menu v-if="menu.children && menu.children.length > 0" :index="menu.path">
               <template #title>
-                <el-icon><component :is="menu.icon || 'Menu'" /></el-icon>
-                <span>{{ menu.name }}</span>  <!-- 主菜单的名称 -->
+                <el-icon>
+                  <component :is="menu.icon || 'Menu'" />
+                </el-icon>
+                <span>{{ menu.name }}</span> <!-- 主菜单的名称 -->
               </template>
-              <el-menu-item 
-                v-for="child in menu.children" 
-                :key="child.id"
-                :index="child.path"
-              >
-                <el-icon><component :is="child.icon || 'Document'" /></el-icon>
+              <el-menu-item v-for="child in menu.children" :key="child.id" :index="child.path">
+                <el-icon>
+                  <component :is="child.icon || 'Document'" />
+                </el-icon>
                 <span>{{ child.name }}</span>
               </el-menu-item>
             </el-sub-menu>
-            
+
             <!-- 无子菜单的项 -->
             <el-menu-item v-else :index="menu.path">
-              <el-icon><component :is="menu.icon || 'Document'" /></el-icon>
+              <el-icon>
+                <component :is="menu.icon || 'Document'" />
+              </el-icon>
               <span>{{ menu.name }}</span>
             </el-menu-item>
           </template>
         </el-menu>
       </el-aside>
-      
+
       <!-- 主要区域 -->
       <el-container>
         <!-- 头部 -->
-         <el-header class="header">
-          <div class="header-left">            
+        <el-header class="header">
+          <div class="header-left">
             <el-breadcrumb separator="/" class="breadcrumb">
               <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
               <el-breadcrumb-item v-if="currentRoute.meta?.title"> <!-- 面包屑导航,显示当前路径的标题 -->
@@ -55,26 +51,34 @@
               </el-breadcrumb-item>
             </el-breadcrumb>
           </div>
-          
+
           <div class="header-right">
             <!-- 用户信息下拉菜单 -->
             <el-dropdown @command="handleCommand">
               <div class="user-info">
                 <span class="username">{{ userStore.userInfo?.username }}</span> <!-- 用户名 -->
-                <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
+                <el-icon class="dropdown-icon">
+                  <ArrowDown />
+                </el-icon>
               </div>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="profile">
-                    <el-icon><UserFilled /></el-icon>
+                    <el-icon>
+                      <UserFilled />
+                    </el-icon>
                     个人中心
                   </el-dropdown-item>
                   <el-dropdown-item command="password">
-                    <el-icon><Lock /></el-icon>
+                    <el-icon>
+                      <Lock />
+                    </el-icon>
                     修改密码
                   </el-dropdown-item>
                   <el-dropdown-item divided command="logout">
-                    <el-icon><SwitchButton /></el-icon>
+                    <el-icon>
+                      <SwitchButton />
+                    </el-icon>
                     退出登录
                   </el-dropdown-item>
                 </el-dropdown-menu>
@@ -82,50 +86,25 @@
             </el-dropdown>
           </div>
         </el-header>
-        
+
         <!-- 主内容区域 -->
         <el-main class="main-content">
           <router-view />
         </el-main>
       </el-container>
     </el-container>
-    
+
     <!-- 修改密码对话框 -->
-    <el-dialog
-      v-model="passwordDialogVisible"
-      title="修改密码"
-      width="400px"
-      :before-close="handleClosePasswordDialog"
-    >
-      <el-form
-        ref="passwordFormRef"
-        :model="passwordForm"
-        :rules="passwordRules"
-        label-width="80px"
-      >
+    <el-dialog v-model="passwordDialogVisible" title="修改密码" width="400px" :before-close="handleClosePasswordDialog">
+      <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="80px">
         <el-form-item label="原密码" prop="old_password">
-          <el-input
-            v-model="passwordForm.old_password"
-            type="password"
-            show-password
-            placeholder="请输入原密码"
-          />
+          <el-input v-model="passwordForm.old_password" type="password" show-password placeholder="请输入原密码" />
         </el-form-item>
         <el-form-item label="新密码" prop="new_password">
-          <el-input
-            v-model="passwordForm.new_password"
-            type="password"
-            show-password
-            placeholder="请输入新密码"
-          />
+          <el-input v-model="passwordForm.new_password" type="password" show-password placeholder="请输入新密码" />
         </el-form-item>
         <el-form-item label="确认密码" prop="confirm_password">
-          <el-input
-            v-model="passwordForm.confirm_password"
-            type="password"
-            show-password
-            placeholder="请确认新密码"
-          />
+          <el-input v-model="passwordForm.confirm_password" type="password" show-password placeholder="请确认新密码" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -147,7 +126,7 @@ import { useUserStore } from '@/stores/user'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
   User, Lock, SwitchButton, ArrowDown, Expand, Fold,
-  Menu, Document, Monitor, Setting, 
+  Menu, Document, Monitor, Setting,
   Key, DocumentChecked, OfficeBuilding
 } from '@element-plus/icons-vue'
 
@@ -224,7 +203,7 @@ const handleLogout = async () => {
         type: 'warning',
       }
     )
-    
+
     await userStore.logout()
     ElMessage.success('已退出登录')
     router.push('/login')
@@ -236,16 +215,16 @@ const handleLogout = async () => {
 // 处理修改密码
 const handleChangePassword = async () => {
   if (!passwordFormRef.value) return
-  
+
   try {
     await passwordFormRef.value.validate()
     passwordLoading.value = true
-    
+
     await userStore.changePassword({
       old_password: passwordForm.old_password,
       new_password: passwordForm.new_password
     })
-    
+
     ElMessage.success('密码修改成功')
     passwordDialogVisible.value = false
     resetPasswordForm()
@@ -404,13 +383,13 @@ onMounted(async () => {  // 在组件挂载时获取用户菜单:因为有权限
   .sidebar {
     width: 64px !important;
   }
-  
+
   .main-content {
     padding: 10px;
   }
-  
+
   .header {
     padding: 0 10px;
   }
 }
-</style> 
+</style>

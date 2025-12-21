@@ -34,23 +34,27 @@
       <!-- 操作栏 -->
       <div class="action-bar">
         <el-button type="primary" @click="openAddDialog">
-          <el-icon><Plus /></el-icon>
+          <el-icon>
+            <Plus />
+          </el-icon>
           添加VPN
         </el-button>
         <el-button @click="loadVPNConfigs">
-          <el-icon><Refresh /></el-icon>
+          <el-icon>
+            <Refresh />
+          </el-icon>
           刷新
         </el-button>
       </div>
 
       <!-- VPN配置列表 -->
       <el-table :data="vpnConfigs" stripe style="width: 100%" v-loading="loading">
-        <el-table-column prop="region" label="地域" min-width="200" align="center"/>
-        <el-table-column prop="network" label="网段" min-width="200" align="center"/>
-        <el-table-column prop="lns" label="LNS" min-width="160" align="center"/>
-        <el-table-column prop="gw" label="网关" min-width="160" align="center"/>
-        <el-table-column prop="ip" label="VPN IP" min-width="160" align="center"/>
-        <el-table-column prop="mask" label="掩码" min-width="140" align="center"/>
+        <el-table-column prop="region" label="地域" min-width="200" align="center" />
+        <el-table-column prop="network" label="网段" min-width="200" align="center" />
+        <el-table-column prop="lns" label="LNS" min-width="160" align="center" />
+        <el-table-column prop="gw" label="网关" min-width="160" align="center" />
+        <el-table-column prop="ip" label="VPN IP" min-width="160" align="center" />
+        <el-table-column prop="mask" label="掩码" min-width="140" align="center" />
         <el-table-column label="状态" min-width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="getVpnStatus(row) ? 'success' : 'danger'">
@@ -61,16 +65,15 @@
         <el-table-column label="操作" min-width="200" align="center">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="openEditDialog(row)">
-              <el-icon><Edit /></el-icon>
+              <el-icon>
+                <Edit />
+              </el-icon>
               编辑
             </el-button>
-            <el-button
-              type="danger"
-              size="small"
-              @click="handleDelete(row)"
-              :loading="deleteLoading[row.id]"
-            >
-              <el-icon><Delete /></el-icon>
+            <el-button type="danger" size="small" @click="handleDelete(row)" :loading="deleteLoading[row.id]">
+              <el-icon>
+                <Delete />
+              </el-icon>
               删除
             </el-button>
           </template>
@@ -79,15 +82,9 @@
 
       <!-- 分页 -->
       <div class="pagination">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.page_size"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="pagination.total"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
+        <el-pagination v-model:current-page="pagination.page" v-model:page-size="pagination.page_size"
+          :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" :total="pagination.total"
+          @size-change="handleSizeChange" @current-change="handleCurrentChange" />
       </div>
     </el-card>
 
@@ -102,19 +99,18 @@
       <!-- IP搜索输入区 -->
       <div class="ip-search-section">
         <div class="search-input-group">
-          <el-input
-            v-model="ipSearchValue"
-            placeholder="输入IP地址搜索用户配置（支持部分匹配）"
-            style="width: 350px; margin-right: 15px;"
-            clearable
-            @keyup.enter="handleIPSearch"
-          />
+          <el-input v-model="ipSearchValue" placeholder="输入IP地址搜索用户配置（支持部分匹配）" style="width: 350px; margin-right: 15px;"
+            clearable @keyup.enter="handleIPSearch" />
           <el-button type="success" @click="handleIPSearch" :loading="ipSearchLoading">
-            <el-icon><Search /></el-icon>
+            <el-icon>
+              <Search />
+            </el-icon>
             搜索IP
           </el-button>
           <el-button v-if="ipSearchResults.length > 0" @click="clearIPSearch">
-            <el-icon><Close /></el-icon>
+            <el-icon>
+              <Close />
+            </el-icon>
             清除搜索
           </el-button>
         </div>
@@ -136,18 +132,8 @@
     </el-card>
 
     <!-- 添加/编辑对话框 -->
-      <el-dialog
-        :title="dialogTitle"
-        v-model="dialogVisible"
-        width="500px"
-        @close="resetForm"
-      >
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="100px"
-      >
+    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="500px" @close="resetForm">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="地域" prop="region">
           <el-input v-model="form.region" placeholder="请输入地域" />
         </el-form-item>
@@ -343,11 +329,11 @@ const resetForm = () => {
 // 提交表单
 const handleSubmit = async () => {
   if (!formRef.value) return
-  
+
   try {
     await formRef.value.validate()
     submitLoading.value = true
-    
+
     if (isEdit.value) {
       // 编辑
       const updateData: VPNConfigUpdate = {
@@ -373,7 +359,7 @@ const handleSubmit = async () => {
       await vpnApi.createVPNConfig(createData)
       ElMessage.success('创建VPN配置成功')
     }
-    
+
     dialogVisible.value = false
     loadVPNConfigs()
   } catch (error: any) {
@@ -396,7 +382,7 @@ const handleDelete = async (row: VPNConfig) => {
         type: 'warning'
       }
     )
-    
+
     deleteLoading[row.id] = true
     await vpnApi.deleteVPNConfig(row.id)
     ElMessage.success('删除成功')
